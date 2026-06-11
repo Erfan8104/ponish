@@ -33,7 +33,11 @@ const handleRegister = (): void => {
   console.log('Submitting Registration:', payload)
 
   // برای هدایت به مرحله بعد پروژه:
-  // router.push('/dashboard')
+  if (role.value === 'employer') {
+    router.push({
+      path: '/onboarding/welcome', // آدرس این صفحه جدید در روتر شما
+    })
+  }
 }
 </script>
 
