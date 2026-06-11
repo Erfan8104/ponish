@@ -7,7 +7,7 @@ const router = useRouter()
 const navigateTo = (destination: 'create-project' | 'workspace'): void => {
   if (destination === 'create-project') {
     console.log('Navigating to Create Project...')
-    // router.push('/project/create')
+    router.push('/newproject')
   } else {
     console.log('Navigating to Workspace Dashboard...')
     // router.push('/dashboard/employer')
