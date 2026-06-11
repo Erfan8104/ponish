@@ -6,6 +6,8 @@ import DashboardPage from '../pages/DashboardPage.vue'
 import HomePage from '../pages/HomePage.vue'
 import PasswordView from '../pages/PasswordPage.vue'
 import SignupPage from '../pages/SignupPage.vue'
+import CreateUsername from '../pages/CreateUsername.vue'
+import WelcomePage from '../pages/WelcomePage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -36,6 +38,14 @@ const router = createRouter({
     {
       path: '/dashboard',
       component: DashboardPage,
+    },
+    {
+      path: '/onboarding/create-username',
+      component: CreateUsername,
+    },
+    {
+      path: '/onboarding/welcome',
+      component: WelcomePage,
     },
   ],
 })
