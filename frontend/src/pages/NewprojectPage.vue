@@ -13,12 +13,11 @@ import StepInvoice from '../components/steps/StepInvoice.vue'
 const store = useProjectStore()
 
 const allSteps = [
-  { id: 1, type: 'search', question: 'می‌خواهید چه کاری برای شما انجام شود؟' },
-  { id: 2, type: 'title-input', question: 'یک عنوان خوب برای پروژه بنویسید.' },
-  { id: 3, type: 'description-input', question: 'درباره پروژه توضیح دهید.' },
-  { id: 4, type: 'skills-input', question: 'به چه مهارت‌هایی نیاز دارید?' },
-  { id: 5, type: 'budget-input', question: 'اولویت و بودجه را مشخص کنید.' },
-  { id: 6, type: 'preview-invoice', question: 'پیش نمایش پروژه شما' },
+  { id: 1, type: 'basic-info', question: 'پروژه شما در چه زمینه‌ای است و کجا قرار دارد؟' },
+  { id: 2, type: 'map-boundary', question: 'محدوده یا ابعاد پروژه را مشخص کنید.' },
+  { id: 3, type: 'technical-specs', question: 'نیازمندی‌های فنی، خروجی و دقت مورد نیاز چیست؟' },
+  { id: 4, type: 'timing-budget', question: 'زمان تحویل و بودجه پیشنهادی خود را تعیین کنید.' },
+  { id: 5, type: 'preview-invoice', question: 'پیش‌نمایش و ثبت نهایی پروژه نقشه‌برداری' },
 ]
 
 const activeSteps = ref([allSteps[0]])
