@@ -3,19 +3,16 @@ import { useProjectStore } from '../../stores/project.store'
 
 const store = useProjectStore()
 
-const triggerFileSelect = () => {
-  const element = document.getElementById('project-file-hidden-input') as HTMLInputElement
-  if (element) element.click()
-}
-
+// متد مدیریت تغییر فایل
 const handleFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement
   if (target.files && target.files.length > 0) {
     store.addFiles(Array.from(target.files))
-    target.value = ''
+    target.value = '' // ریست کردن برای آپلودهای بعدی
   }
 }
 
+// متد درگ اند دراپ
 const handleDrop = (event: DragEvent) => {
   if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
     store.addFiles(Array.from(event.dataTransfer.files))
@@ -40,11 +37,12 @@ const handleDrop = (event: DragEvent) => {
     >
       <input
         type="file"
-        id="project-file-hidden-input"
+        id="unique-project-file-uploader"
         multiple
         class="hidden"
         @change="handleFileChange"
       />
+
       <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div class="text-right sm:order-1 order-2">
           <p class="text-[11px] text-gray-500 font-medium mb-1">
@@ -55,16 +53,19 @@ const handleDrop = (event: DragEvent) => {
             <span>حداکثر حجم: ۱۵ MB</span>
           </div>
         </div>
-        <button
-          type="button"
-          @click="triggerFileSelect"
-          class="bg-white border border-gray-200 text-gray-700 text-[11px] font-bold px-4 py-2 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50"
+
+        <label
+          for="unique-project-file-uploader"
+          class="bg-white border border-gray-200 text-gray-700 text-[11px] font-bold px-4 py-2 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 inline-block select-none"
         >
           آپلود فایل
-        </button>
+        </label>
       </div>
 
-      <div v-if="store.uploadedFiles.length > 0" class="mt-5 text-right flex flex-wrap gap-2">
+      <div
+        v-if="store.uploadedFiles && store.uploadedFiles.length > 0"
+        class="mt-5 text-right flex flex-wrap gap-2"
+      >
         <div
           v-for="(file, fIdx) in store.uploadedFiles"
           :key="fIdx"
@@ -74,7 +75,7 @@ const handleDrop = (event: DragEvent) => {
           <button
             type="button"
             @click="store.removeFile(fIdx)"
-            class="text-red-400 hover:text-red-600 cursor-pointer mr-1"
+            class="text-red-400 hover:text-red-600 cursor-pointer mr-1 font-bold"
           >
             ×
           </button>

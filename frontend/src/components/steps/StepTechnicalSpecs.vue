@@ -3,127 +3,152 @@ import { useProjectStore } from '../../stores/project.store'
 
 const store = useProjectStore()
 
-// ابزارها و متدهای برداشت فنی حوزه نقشه‌برداری
-const technicalTypes = [
-  { id: 'gps-rtk', name: 'برداشت با GPS / RTK' },
-  { id: 'total-station', name: 'برداشت زمینی (توتال استیشن)' },
-  { id: 'uav', name: 'فتوگرامتری با پهپاد' },
-  { id: 'lidar', name: 'اسکن لیزری / LiDAR' },
-  { id: 'processing', name: 'پردازش داده و ژئورفرنس' },
-  { id: 'cadastral', name: 'کاداستر و تفکیک اراضی' },
+const technicalServices = [
+  {
+    id: 'gps',
+    title: 'GPS',
+    icon: '📡',
+  },
+  {
+    id: 'rtk',
+    title: 'RTK',
+    icon: '📍',
+  },
+  {
+    id: 'totalstation',
+    title: 'توتال استیشن',
+    icon: '📐',
+  },
+  {
+    id: 'uav',
+    title: 'فتوگرامتری پهپادی',
+    icon: '🚁',
+  },
+  {
+    id: 'lidar',
+    title: 'LiDAR',
+    icon: '🌐',
+  },
+  {
+    id: 'gis',
+    title: 'GIS',
+    icon: '🗺️',
+  },
+  {
+    id: 'cadastre',
+    title: 'کاداستر',
+    icon: '📋',
+  },
 ]
 
-// فرمت‌های استاندارد خروجی مهندسی نقشه
 const outputFormats = [
-  { id: 'dwg', name: 'DWG (اتوکد)' },
-  { id: 'dxf', name: 'DXF (تبادلی)' },
-  { id: 'shp', name: 'Shapefile (GIS)' },
-  { id: 'geojson', name: 'GeoJSON' },
-  { id: 'kml', name: 'KML / KMZ' },
-  { id: 'tiff', name: 'Orthomosaic (TIFF)' },
-  { id: 'pdf', name: 'نقشه خروجی (PDF)' },
+  'DWG',
+  'DXF',
+  'SHP',
+  'GeoJSON',
+  'KML',
+  'PDF',
+  'Orthophoto',
+  'DEM',
+  'Contours',
 ]
 
-// گزینه‌های دقت مورد نیاز پروژه
-const accuracyOptions = [
-  { id: 'sub-cm', title: 'دقت میلی‌متری (صنعتی / مانیتورینگ)', desc: 'کمتر از ۱ سانتی‌متر' },
-  { id: '1-5cm', title: 'دقت بالا (نقشه‌های شهری و ثبتی)', desc: 'بین ۱ تا ۵ سانتی‌متر' },
-  { id: '5-20cm', title: 'دقت متوسط (توپوگرافی و اراضی بزرگ)', desc: 'بین ۵ تا ۲۰ سانتی‌متر' },
-  { id: 'above-20cm', title: 'دقت عمومی (مطالعات اولیه و GIS)', desc: 'بالاتر از ۲۰ سانتی‌متر' },
-]
+const accuracies = ['1-2cm', '2-5cm', '5-10cm', '10-20cm', '20cm+']
 
-// متدهای مدیریت انتخاب‌های چندگانه (Multi-select) در استور پینیا
-const toggleTechType = (id: string) => {
-  if (store.formData.techType.includes(id)) {
-    store.formData.techType = store.formData.techType.filter((item) => item !== id)
-  } else {
+const toggleService = (id: string) => {
+  const index = store.formData.techType.indexOf(id)
+
+  if (index === -1) {
     store.formData.techType.push(id)
+  } else {
+    store.formData.techType.splice(index, 1)
   }
 }
 
-const toggleOutputFormat = (id: string) => {
-  if (store.formData.outputFormats.includes(id)) {
-    store.formData.outputFormats = store.formData.outputFormats.filter((item) => item !== id)
+const toggleOutput = (format: string) => {
+  const index = store.formData.outputFormats.indexOf(format)
+
+  if (index === -1) {
+    store.formData.outputFormats.push(format)
   } else {
-    store.formData.outputFormats.push(id)
+    store.formData.outputFormats.splice(index, 1)
   }
 }
 </script>
 
 <template>
-  <div class="space-y-6 text-right" style="direction: rtl">
+  <div class="space-y-8 text-right" style="direction: rtl">
     <div>
-      <label class="block text-xs font-bold text-gray-600 mb-3 mr-1"
-        >۱. متد یا نوع پروژه نقشه‌برداری چیست؟ (یک یا چند مورد)</label
-      >
-      <div class="flex flex-wrap gap-2">
+      <label class="block text-xs font-bold text-gray-600 mb-3"> خدمات مورد نیاز </label>
+
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
         <button
-          v-for="tech in technicalTypes"
-          :key="tech.id"
+          v-for="item in technicalServices"
+          :key="item.id"
           type="button"
-          @click="toggleTechType(tech.id)"
-          class="px-4 py-2.5 text-xs font-bold rounded-xl border transition-all cursor-pointer"
+          @click="toggleService(item.id)"
+          class="border rounded-xl p-4 transition-all"
           :class="
-            store.formData.techType.includes(tech.id)
-              ? 'bg-[#008f55] border-[#008f55] text-white shadow-sm'
-              : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+            store.formData.techType.includes(item.id)
+              ? 'border-[#008f55] bg-emerald-50'
+              : 'border-gray-200 bg-white'
           "
         >
-          {{ tech.name }}
+          <div class="text-xl mb-2">
+            {{ item.icon }}
+          </div>
+
+          <div class="text-xs font-bold">
+            {{ item.title }}
+          </div>
         </button>
       </div>
     </div>
 
-    <hr class="border-gray-100 my-2" />
-
     <div>
-      <label class="block text-xs font-bold text-gray-600 mb-3 mr-1"
-        >۲. فایل‌های خروجی را در چه فرمت‌هایی تحویل می‌گیرید؟</label
-      >
+      <label class="block text-xs font-bold text-gray-600 mb-3"> فرمت خروجی مورد نیاز </label>
+
       <div class="flex flex-wrap gap-2">
         <button
           v-for="format in outputFormats"
-          :key="format.id"
+          :key="format"
           type="button"
-          @click="toggleOutputFormat(format.id)"
-          class="px-3.5 py-2.5 text-xs font-bold rounded-xl border transition-all cursor-pointer"
+          @click="toggleOutput(format)"
+          class="px-4 py-2 rounded-lg border text-xs font-bold transition-all"
           :class="
-            store.formData.outputFormats.includes(format.id)
-              ? 'bg-gray-800 border-gray-800 text-white shadow-sm'
-              : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+            store.formData.outputFormats.includes(format)
+              ? 'bg-[#008f55] text-white border-[#008f55]'
+              : 'bg-white border-gray-200 text-gray-600'
           "
         >
-          {{ format.name }}
+          {{ format }}
         </button>
       </div>
     </div>
 
-    <hr class="border-gray-100 my-2" />
-
     <div>
-      <label class="block text-xs font-bold text-gray-600 mb-3 mr-1"
-        >۳. سطح دقت زمینی (خطای مجاز هندسی) پروژه چقدر باشد؟</label
-      >
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <label class="block text-xs font-bold text-gray-600 mb-3"> دقت مورد نیاز </label>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
         <label
-          v-for="acc in accuracyOptions"
-          :key="acc.id"
-          class="border rounded-xl p-4 flex items-center justify-between cursor-pointer transition-all bg-white"
+          v-for="acc in accuracies"
+          :key="acc"
+          class="border rounded-xl p-3 cursor-pointer flex items-center justify-between"
           :class="
-            store.formData.requiredAccuracy === acc.id
-              ? 'border-[#008f55] bg-emerald-50/10 ring-2 ring-emerald-50'
-              : 'border-gray-200 hover:bg-gray-50/40'
+            store.formData.requiredAccuracy === acc
+              ? 'border-[#008f55] ring-2 ring-emerald-50'
+              : 'border-gray-200'
           "
         >
-          <div>
-            <h4 class="text-xs font-bold text-gray-800">{{ acc.title }}</h4>
-            <p class="text-[10px] text-gray-400 mt-1">{{ acc.desc }}</p>
-          </div>
+          <span class="text-xs font-bold">
+            {{ acc }}
+          </span>
+
           <input
             type="radio"
-            :value="acc.id"
+            :value="acc"
             v-model="store.formData.requiredAccuracy"
-            class="accent-[#008f55] h-4 w-4"
+            class="accent-[#008f55]"
           />
         </label>
       </div>

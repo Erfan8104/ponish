@@ -1,193 +1,176 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useProjectStore } from '../../stores/project.store'
 
 const store = useProjectStore()
 
-// گزینه‌های زمان تحویل متناسب با پروژه‌های نقشه‌برداری
 const deliveryOptions = [
   {
     id: 'urgent',
-    title: '🔴 بسیار فوری (کمتر از ۳ روز)',
-    desc: 'نیاز به اکیپ آماده و پردازش سریع',
+    title: 'فوری',
+    desc: 'تحویل کمتر از ۴۸ ساعت',
+    multiplier: 1.5,
   },
-  { id: '1-week', title: '🟡 معمولی (۱ هفته)', desc: 'زمان استاندارد عملیات زمینی و کار دفتری' },
+  {
+    id: '3-days',
+    title: '۳ روز',
+    desc: 'تحویل سریع',
+    multiplier: 1.25,
+  },
+  {
+    id: '1-week',
+    title: '۱ هفته',
+    desc: 'حالت استاندارد',
+    multiplier: 1,
+  },
   {
     id: '2-weeks',
-    title: '🟢 زمان‌دار (۲ هفته یا بیشتر)',
-    desc: 'مناسب برای پروژه‌های بزرگ با حجم دیتای بالا',
+    title: 'بیش از یک هفته',
+    desc: 'کمترین هزینه',
+    multiplier: 0.9,
   },
-  { id: 'custom', title: '🔵 توافقی / سفارشی', desc: 'تعیین زمان پس از گفتگو با نقشه‌بردار' },
 ]
 
-// مدیریت انتخاب و اضافه کردن فایل‌های ضمیمه مهندسی به استور پینیا
-const handleAttachedFilesChange = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  if (target.files && target.files.length > 0) {
-    store.addFiles(Array.from(target.files))
-    target.value = '' // ریست کردن اینپوت برای دفعات بعدی
-  }
-}
+const budgetModes = [
+  {
+    id: 'custom',
+    title: 'بودجه دلخواه',
+  },
+  {
+    id: 'open',
+    title: 'استعلام قیمت',
+  },
+]
 
-// متد درگ اند دراپ فایل
-const handleFileDrop = (event: DragEvent) => {
-  if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
-    store.addFiles(Array.from(event.dataTransfer.files))
-  }
+const estimatedPrice = computed(() => {
+  let area = Number(store.formData.calculatedArea || 0)
+
+  if (!area) return 0
+
+  let basePrice = area * 2500000
+
+  if (store.formData.category === 'uav') basePrice *= 1.2
+
+  if (store.formData.category === 'gis') basePrice *= 0.8
+
+  if (store.formData.category === 'cadastral') basePrice *= 1.5
+
+  if (store.formData.requiredAccuracy === '1-2cm') basePrice *= 1.4
+
+  if (store.formData.requiredAccuracy === '2-5cm') basePrice *= 1.2
+
+  const delivery = deliveryOptions.find((d) => d.id === store.formData.deliveryTime)
+
+  if (delivery) basePrice *= delivery.multiplier
+
+  return Math.round(basePrice)
+})
+
+const formatPrice = (value: number) => {
+  return new Intl.NumberFormat('fa-IR').format(value)
 }
 </script>
 
 <template>
-  <div class="space-y-6 text-right" style="direction: rtl">
+  <div class="space-y-8 text-right" style="direction: rtl">
+    <!-- زمان تحویل -->
+
     <div>
-      <label class="block text-xs font-bold text-gray-600 mb-3 mr-1"
-        >۱. زمان‌بندی مد نظر شما برای تحویل خروجی‌ها چقدر است؟</label
-      >
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <label
-          v-for="time in deliveryOptions"
-          :key="time.id"
-          class="border rounded-xl p-4 flex items-center justify-between cursor-pointer transition-all bg-white"
+      <label class="block text-xs font-bold text-gray-600 mb-3"> زمان تحویل مورد انتظار </label>
+
+      <div class="grid md:grid-cols-2 gap-3">
+        <button
+          v-for="item in deliveryOptions"
+          :key="item.id"
+          type="button"
+          @click="store.formData.deliveryTime = item.id"
+          class="border rounded-xl p-4 text-right transition-all"
           :class="
-            store.formData.deliveryTime === time.id
-              ? 'border-[#008f55] bg-emerald-50/10 ring-2 ring-emerald-50'
-              : 'border-gray-200 hover:bg-gray-50/40'
+            store.formData.deliveryTime === item.id
+              ? 'border-[#008f55] bg-emerald-50'
+              : 'border-gray-200'
           "
         >
-          <div>
-            <h4 class="text-xs font-bold text-gray-800">{{ time.title }}</h4>
-            <p class="text-[10px] text-gray-400 mt-1">{{ time.desc }}</p>
+          <div class="font-bold text-sm">
+            {{ item.title }}
           </div>
-          <input
-            type="radio"
-            :value="time.id"
-            v-model="store.formData.deliveryTime"
-            class="accent-[#008f55] h-4 w-4"
-          />
-        </label>
+
+          <div class="text-xs text-gray-500 mt-1">
+            {{ item.desc }}
+          </div>
+        </button>
       </div>
     </div>
 
-    <hr class="border-gray-100 my-2" />
+    <!-- بودجه -->
 
     <div>
-      <label class="block text-xs font-bold text-gray-600 mb-3 mr-1"
-        >۲. بودجه پیشنهادی خود را برای این پروژه مشخص کنید</label
-      >
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-        <label
-          class="border rounded-xl p-3.5 flex items-center justify-between cursor-pointer transition-all bg-white"
-          :class="
-            store.formData.budgetType === 'custom'
-              ? 'border-[#008f55] ring-2 ring-emerald-50'
-              : 'border-gray-200 hover:bg-gray-50/40'
-          "
-        >
-          <span class="text-xs font-bold text-gray-700">تعیین بازه قیمت دلخواه (تومان)</span>
-          <input
-            type="radio"
-            value="custom"
-            v-model="store.formData.budgetType"
-            class="accent-[#008f55] h-4 w-4"
-          />
-        </label>
-        <label
-          class="border rounded-xl p-3.5 flex items-center justify-between cursor-pointer transition-all bg-white"
-          :class="
-            store.formData.budgetType === 'agreement'
-              ? 'border-[#008f55] ring-2 ring-emerald-50'
-              : 'border-gray-200 hover:bg-gray-50/40'
-          "
-        >
-          <span class="text-xs font-bold text-gray-700">توافقی (بر اساس پیشنهاد نقشه‌بردار)</span>
-          <input
-            type="radio"
-            value="agreement"
-            v-model="store.formData.budgetType"
-            class="accent-[#008f55] h-4 w-4"
-          />
-        </label>
-      </div>
+      <label class="block text-xs font-bold text-gray-600 mb-3"> نحوه بودجه‌بندی </label>
 
-      <div
-        v-if="store.formData.budgetType === 'custom'"
-        class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100 animate-in"
-      >
-        <div>
-          <label class="block text-[11px] font-bold text-gray-500 mb-1.5 mr-1"
-            >حداقل بودجه پیشنهادی</label
-          >
-          <input
-            v-model="store.formData.minBudget"
-            type="number"
-            placeholder="مثال: ۵,۰۰۰,۰۰۰"
-            class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:border-[#008f55] outline-none"
-          />
-        </div>
-        <div>
-          <label class="block text-[11px] font-bold text-gray-500 mb-1.5 mr-1"
-            >حداکثر بودجه پیشنهادی</label
-          >
-          <input
-            v-model="store.formData.maxBudget"
-            type="number"
-            placeholder="مثال: ۱۰,۰۰۰,۰۰۰"
-            class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:border-[#008f55] outline-none"
-          />
-        </div>
+      <div class="flex gap-3">
+        <button
+          v-for="mode in budgetModes"
+          :key="mode.id"
+          type="button"
+          @click="store.formData.budgetType = mode.id"
+          class="px-5 py-3 rounded-xl border text-sm font-bold transition-all"
+          :class="
+            store.formData.budgetType === mode.id
+              ? 'bg-[#008f55] text-white border-[#008f55]'
+              : 'bg-white border-gray-200'
+          "
+        >
+          {{ mode.title }}
+        </button>
       </div>
     </div>
 
-    <hr class="border-gray-100 my-2" />
+    <!-- بودجه دلخواه -->
 
-    <div>
-      <label class="block text-xs font-bold text-gray-600 mb-2 mr-1"
-        >۳. آپلود تصاویر زمین، اسناد یا کروکی (اختیاری)</label
-      >
-      <div
-        @dragover.prevent
-        @drop.prevent="handleFileDrop"
-        class="border border-dashed border-gray-200 bg-gray-50/40 rounded-xl p-6 text-center"
-      >
+    <div v-if="store.formData.budgetType === 'custom'" class="grid md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-xs font-bold text-gray-600 mb-2"> حداقل بودجه </label>
+
         <input
-          type="file"
-          id="technical-attachments-input"
-          multiple
-          class="hidden"
-          @change="handleAttachedFilesChange"
+          v-model="store.formData.minBudget"
+          type="number"
+          class="w-full border border-gray-200 rounded-xl px-4 py-3"
+          placeholder="مثال: ۲۰ میلیون"
         />
-        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div class="text-right sm:order-1 order-2">
-            <p class="text-[11px] text-gray-500 font-medium mb-1">
-              فایل‌های مکمل پروژه (PDF, JPG, PNG, DWG) را اینجا رها کنید.
-            </p>
-            <p class="text-[10px] text-gray-400">حداکثر حجم هر فایل: ۱۵ مگابایت</p>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-gray-600 mb-2"> حداکثر بودجه </label>
+
+        <input
+          v-model="store.formData.maxBudget"
+          type="number"
+          class="w-full border border-gray-200 rounded-xl px-4 py-3"
+          placeholder="مثال: ۵۰ میلیون"
+        />
+      </div>
+    </div>
+
+    <!-- تخمین هوشمند -->
+
+    <div v-if="estimatedPrice" class="bg-emerald-50 border border-emerald-100 rounded-2xl p-5">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-xs text-gray-500">برآورد اولیه سامانه</div>
+
+          <div class="text-lg font-black text-[#008f55] mt-1">
+            {{ formatPrice(estimatedPrice) }}
+            تومان
           </div>
-          <button
-            type="button"
-            @click="() => document.getElementById('technical-attachments-input')?.click()"
-            class="bg-white border border-gray-200 text-gray-700 text-[11px] font-bold px-4 py-2 rounded-lg shadow-sm hover:bg-gray-50"
-          >
-            آپلود فایل ضمیمه
-          </button>
         </div>
 
-        <div v-if="store.uploadedFiles.length > 0" class="mt-5 text-right flex flex-wrap gap-2">
-          <div
-            v-for="(file, idx) in store.uploadedFiles"
-            :key="idx"
-            class="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-lg pl-2 pr-3 py-1.5 text-[11px] text-gray-700 shadow-sm"
-          >
-            <span class="font-medium truncate max-w-[150px]">{{ file.name }}</span>
-            <button
-              type="button"
-              @click="store.removeFile(idx)"
-              class="text-red-400 hover:text-red-600 font-bold mr-1 cursor-pointer"
-            >
-              ×
-            </button>
-          </div>
-        </div>
+        <div class="text-3xl">💰</div>
       </div>
+
+      <p class="text-xs text-gray-500 mt-3 leading-6">
+        این مبلغ صرفاً یک تخمین اولیه بر اساس مساحت، نوع پروژه، دقت مورد نیاز و زمان تحویل است و
+        قیمت نهایی توسط مجری تعیین خواهد شد.
+      </p>
     </div>
   </div>
 </template>
