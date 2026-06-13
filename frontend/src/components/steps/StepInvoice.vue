@@ -166,13 +166,5 @@ const finalPayload = computed(() => ({
         </span>
       </div>
     </div>
-
-    <div class="bg-gray-900 rounded-2xl p-5">
-      <h3 class="text-white font-black mb-4">JSON ارسالی به API</h3>
-
-      <pre class="text-green-400 text-xs overflow-auto">{{
-        JSON.stringify(finalPayload, null, 2)
-      }}</pre>
-    </div>
   </div>
 </template>

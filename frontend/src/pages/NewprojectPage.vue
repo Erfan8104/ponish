@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useProjectStore } from '../stores/project.store'
-import { useToast } from 'vue-toastification' // ۱. وارد کردن توست
+import { useToast } from 'vue-toastification'
 
 import StepBasicInfo from '../components/steps/StepBasicInfo.vue'
 import StepMapBoundary from '../components/steps/StepMapBoundary.vue'
 import StepTechnicalSpecs from '../components/steps/StepTechnicalSpecs.vue'
 import StepTimingBudget from '../components/steps/StepTimingBudget.vue'
 import StepInvoice from '../components/steps/StepInvoice.vue'
+import StepSuccess from '../components/steps/SuccessCreateProject.vue' // ۱. وارد کردن صفحه موفقیت
 
 const store = useProjectStore()
-const toast = useToast() // ۲. راه‌اندازی توست
+const toast = useToast()
+
+const isSubmitted = ref(false) // ۲. وضعیت نمایش صفحه نهایی
 
 const steps = [
   { id: 1, type: 'basic-info', title: 'اطلاعات پروژه', question: 'پروژه خود را معرفی کنید' },
@@ -44,19 +47,15 @@ const progress = computed(() => {
 
 const isStepValid = computed(() => {
   const type = currentStepData.value.type
-
-  if (type === 'basic-info') {
-    return store.formData.title.trim().length > 1 && store.formData.province && store.formData.city
-  }
+  if (type === 'basic-info')
+    return store.formData.title?.trim().length && store.formData.province && store.formData.city
   if (type === 'map-boundary') {
-    if (store.formData.areaSelectionMethod === 'map') {
-      return store.formData.polygonCoordinates.length >= 3
-    }
-    return store.uploadedFiles.length > 0
+    if (store.formData.areaSelectionMethod === 'map')
+      return store.formData.polygonCoordinates?.length >= 3
+    return store.uploadedFiles?.length > 0
   }
-  if (type === 'technical-specs') {
-    return store.formData.techType.length > 0 && store.formData.outputFormats.length > 0
-  }
+  if (type === 'technical-specs')
+    return store.formData.techType?.length > 0 && store.formData.outputFormats?.length > 0
   if (type === 'timing-budget') {
     if (store.formData.budgetType === 'custom') {
       const min = Number(store.formData.minBudget)
@@ -68,29 +67,22 @@ const isStepValid = computed(() => {
   return true
 })
 
-// ۳. تابع جدید مدیریت کلیک روی هدر با نوتیفیکیشن
 const goToStep = (targetIndex: number) => {
+  if (isSubmitted.value) return // اگر فرم ثبت شده، کلیک روی هدر قفل شود
   if (targetIndex === currentStep.value) return
-
-  // بازگشت به مراحل قبلی همیشه مجاز است
   if (targetIndex < currentStep.value) {
     currentStep.value = targetIndex
     return
   }
-
-  // تلاش برای رفتن به مراحل جلوتر
   if (targetIndex > currentStep.value) {
     if (!isStepValid.value) {
       toast.error('لطفاً ابتدا اطلاعات مرحله فعلی را به طور کامل و صحیح وارد کنید.')
       return
     }
-
-    // جلو افتادن بیش از یک مرحله مجاز نیست (باید پله پله جلو برود)
     if (targetIndex > currentStep.value + 1) {
       toast.warning('شما نمی‌توانید مراحل را جا بیندازید. لطفاً گام به گام جلو بروید.')
       return
     }
-
     currentStep.value = targetIndex
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -98,7 +90,6 @@ const goToStep = (targetIndex: number) => {
 
 const nextStep = () => {
   if (!isStepValid.value) return
-
   if (currentStep.value < steps.length - 1) {
     currentStep.value++
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -108,9 +99,7 @@ const nextStep = () => {
 }
 
 const previousStep = () => {
-  if (currentStep.value > 0) {
-    currentStep.value--
-  }
+  if (currentStep.value > 0) currentStep.value--
 }
 
 const submitProject = async () => {
@@ -119,14 +108,25 @@ const submitProject = async () => {
     filesCount: store.uploadedFiles.length,
   }
   console.log('PROJECT PAYLOAD', payload)
+
+  // تغییر وضعیت به ثبت نهایی و نمایش کامپوننت موفقیت
+  isSubmitted.value = true
   toast.success('پروژه شما با موفقیت ثبت شد!')
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+// تابعی برای ریست کردن کل فرم (مخصوص دکمه ثبت پروژه جدید)
+const handleResetForm = () => {
+  store.$reset() // اگر پینیا متد ریست دارد، در غیر این صورت فیلدها را دستی خالی کن
+  currentStep.value = 0
+  isSubmitted.value = false
 }
 </script>
 
 <template>
   <main class="bg-gray-50 min-h-screen py-8 px-4">
     <div class="max-w-5xl mx-auto">
-      <div class="mb-8">
+      <div v-if="!isSubmitted" class="mb-8">
         <div class="flex items-center justify-between mb-3" style="direction: rtl">
           <h1 class="text-xl font-black text-gray-800">ثبت پروژه نقشه‌برداری</h1>
           <span class="text-xs font-bold text-gray-500">
@@ -142,7 +142,7 @@ const submitProject = async () => {
         </div>
       </div>
 
-      <div class="grid grid-cols-5 gap-1 mb-6" style="direction: rtl">
+      <div v-if="!isSubmitted" class="grid grid-cols-5 gap-1 mb-6" style="direction: rtl">
         <div
           v-for="(step, index) in steps"
           :key="step.id"
@@ -166,42 +166,44 @@ const submitProject = async () => {
       </div>
 
       <div class="bg-white border border-gray-100 rounded-3xl shadow-sm p-8">
-        <div class="mb-8 text-right" style="direction: rtl">
-          <h2 class="text-lg font-black text-gray-800">
-            {{ currentStepData.question }}
-          </h2>
+        <div v-if="!isSubmitted">
+          <div class="mb-8 text-right" style="direction: rtl">
+            <h2 class="text-lg font-black text-gray-800">{{ currentStepData.question }}</h2>
+          </div>
+
+          <StepBasicInfo v-if="currentStepData.type === 'basic-info'" />
+          <StepMapBoundary v-if="currentStepData.type === 'map-boundary'" />
+          <StepTechnicalSpecs v-if="currentStepData.type === 'technical-specs'" />
+          <StepTimingBudget v-if="currentStepData.type === 'timing-budget'" />
+          <StepInvoice v-if="currentStepData.type === 'preview'" />
+
+          <div class="flex gap-3 mt-10" style="direction: rtl">
+            <button
+              v-if="currentStep > 0"
+              @click="previousStep"
+              type="button"
+              class="px-6 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all"
+            >
+              مرحله قبل
+            </button>
+
+            <button
+              @click="nextStep"
+              :disabled="!isStepValid"
+              type="button"
+              class="flex-1 py-3 rounded-xl font-bold transition-all"
+              :class="
+                isStepValid
+                  ? 'bg-[#008f55] text-white hover:bg-[#007646]'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              "
+            >
+              {{ currentStep === steps.length - 1 ? 'ثبت نهایی پروژه' : 'ادامه' }}
+            </button>
+          </div>
         </div>
 
-        <StepBasicInfo v-if="currentStepData.type === 'basic-info'" />
-        <StepMapBoundary v-if="currentStepData.type === 'map-boundary'" />
-        <StepTechnicalSpecs v-if="currentStepData.type === 'technical-specs'" />
-        <StepTimingBudget v-if="currentStepData.type === 'timing-budget'" />
-        <StepInvoice v-if="currentStepData.type === 'preview'" />
-
-        <div class="flex gap-3 mt-10" style="direction: rtl">
-          <button
-            v-if="currentStep > 0"
-            @click="previousStep"
-            type="button"
-            class="px-6 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all"
-          >
-            مرحله قبل
-          </button>
-
-          <button
-            @click="nextStep"
-            :disabled="!isStepValid"
-            type="button"
-            class="flex-1 py-3 rounded-xl font-bold transition-all"
-            :class="
-              isStepValid
-                ? 'bg-[#008f55] text-white hover:bg-[#007646]'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-            "
-          >
-            {{ currentStep === steps.length - 1 ? 'ثبت نهایی پروژه' : 'ادامه' }}
-          </button>
-        </div>
+        <StepSuccess v-else :projectTitle="store.formData.title" @reset="handleResetForm" />
       </div>
     </div>
   </main>
