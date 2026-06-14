@@ -32,3 +32,36 @@ model OTP {
 
   createdAt DateTime @default(now())
 }
+
+model Project {
+  id                 Int      @id @default(autoincrement())
+  title              String
+  category           String
+  description        String?
+  province           String
+  city               String
+  address            String?
+  
+  // مرحله ۲: اطلاعات جغرافیایی
+  areaSelectionMethod String   @default("map") // 'map' or 'file'
+  polygonCoordinates  Json?    // ذخیره آرایه مختصات [ [lng, lat], ... ] به صورت JSON
+  geoJson            Json?    // ذخیره کل آبجکت GeoJSON
+  calculatedArea     Float    @default(0.0)
+  coordinateSystem   String   @default("WGS84")
+  utmZone            String?
+
+  // مرحله ۳: مشخصات فنی
+  techType           String[] // آرایه‌ای از خدمات انتخاب شده
+  outputFormats      String[] // آرایه‌ای از خروجی‌ها
+  requiredAccuracy   String   @default("1-5cm")
+
+  // مرحله ۴: زمان و بودجه
+  deliveryTime       String   @default("1-week")
+  budgetType         String   @default("custom")
+  minBudget          String?
+  maxBudget          String?
+
+  // زمان ثبت
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}

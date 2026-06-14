@@ -53,6 +53,15 @@ const router = createRouter({
       component: NewprojectPage,
     },
   ],
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) {
+      // اگر کاربر دکمه Back مرورگر را زد، به همان پوزیشن قبلی برگردد
+      return savedPosition
+    } else {
+      // در غیر این صورت، برای هر روت جدید اسکرول به بالاترین نقطه (Top) برود
+      return { top: 0, behavior: 'smooth' } // می‌توانید behavior: 'smooth' را برای انیمیشن نرم بگذارید یا حذف کنید
+    }
+  },
 })
 
 export default router

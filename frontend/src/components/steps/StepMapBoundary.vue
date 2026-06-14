@@ -94,7 +94,7 @@ onMounted(() => {
         <div class="flex items-center justify-between mb-2">
           <span class="text-xs font-bold text-gray-600"> تعداد نقاط ثبت شده </span>
           <span class="text-sm font-black text-gray-800">
-            {{ store.formData.polygonCoordinates.length }}
+            {{ store.formData.polygonCoordinates.length - 1 }}
           </span>
         </div>
         <button type="button" @click="store.clearPolygon()" class="text-red-500 text-xs font-bold">
