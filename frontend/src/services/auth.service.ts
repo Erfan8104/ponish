@@ -1,3 +1,5 @@
+// src/services/auth.service.ts
+
 import { api } from './api'
 
 export const sendOtp = async (phone: string) => {

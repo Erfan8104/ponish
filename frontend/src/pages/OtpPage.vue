@@ -1,20 +1,73 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router' // ۱. ایمپورت کردن useRoute
+import { useRoute, useRouter, RouterLink } from 'vue-router'
+import { useAuthStore } from '@/stores/auth.store'
+import { verifyOtp } from '@/services/auth.service'
 
 // States & Type Definitions
 const otp = ref<string[]>(['', '', '', '', '', ''])
 const inputRefs = ref<(HTMLInputElement | null)[]>([])
 const timer = ref<number>(116) // 1:56 minutes
 const showToast = ref<boolean>(true)
-const route = useRoute() // ۲. دسترسی به اطلاعات مسیر فعلی
-const router = useRouter() // ۳. دسترسی به روتر
+const isLoading = ref<boolean>(false)
+const error = ref<string>('') // رفع مشکل تعریف نشدن error
+
+const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+
+// دریافت شماره تلفن از کوری استرینگ
+const phone = (route.query.phone as string) || ''
+
 let timerInterval: ReturnType<typeof setInterval> | null = null
+
+// نمایش شماره تلفن فرمت شده یا مقدار پیش‌فرض
 const phoneNumber = computed<string>(() => {
-  const phone = route.query.phone
-  if (Array.isArray(phone)) return phone[0] || ''
-  return (phone as string) || '۰۹۳۷۱۲۶۱۲۹۰' // اگر وجود نداشت، مقدار پیش‌فرض را نشان می‌دهد
+  if (Array.isArray(route.query.phone)) return route.query.phone[0] || ''
+  return (route.query.phone as string) || '۰۹۳۷۱۲۶۱۲۹۰'
 })
+
+// تابع اصلی ارسال و تایید کد OTP
+const handleVerifyOtp = async () => {
+  // ۱. چسباندن آرایه ۶ تایی به یکدیگر برای ساخت کد نهایی
+  const otpCode = otp.value.join('')
+
+  if (otpCode.length < 6) {
+    error.value = 'لطفا کد تایید ۶ رقمی را به طور کامل وارد کنید'
+    return
+  }
+
+  try {
+    error.value = ''
+    isLoading.value = true
+
+    // ۲. ارسال درخواست به بک‌اندر از طریق سرویس شما
+    const response = await verifyOtp(phone, otpCode)
+
+    if (response.success) {
+      // ۳. ذخیره توکن و دیتای کاربر در استور پینیا
+      authStore.setToken(response.token, response.user.phone, response.user.name || '')
+
+      if (response.user.email) {
+        authStore.setEmail(response.user.email)
+      }
+
+      // ۴. هدایت هوشمند کاربر بر اساس وضعیت ثبت نام
+      if (response.isNewUser) {
+        router.push('/onboarding/welcome')
+      } else {
+        router.push('/dashboard')
+      }
+    } else {
+      error.value = response.message || 'کد وارد شده نامعتبر است'
+    }
+  } catch (err: any) {
+    console.error('خطا در تایید کد:', err)
+    error.value = err.response?.data?.message || 'کد فعال‌سازی اشتباه یا منقضی شده است'
+  } finally {
+    isLoading.value = false
+  }
+}
 
 // Helper to safely assign component refs in template loop
 const setInputRef = (el: any, index: number): void => {
@@ -23,18 +76,16 @@ const setInputRef = (el: any, index: number): void => {
   }
 }
 
-// Logic Handles
+// مدیریت جابجایی خودکار فوکوس بین باکس‌ها
 const handleInput = (event: Event, index: number): void => {
   const target = event.target as HTMLInputElement
   const val = target.value
 
-  // Validation: Only allow digits 0-9
   if (!/^[0-9]$/.test(val) && val !== '') {
     otp.value[index] = ''
     return
   }
 
-  // Auto-focus to next field
   if (val && index < 5) {
     const nextInput = inputRefs.value[index + 1]
     nextInput?.focus()
@@ -42,7 +93,6 @@ const handleInput = (event: Event, index: number): void => {
 }
 
 const handleDelete = (index: number): void => {
-  // If current field is empty, clear previous field and focus on it
   if (!otp.value[index] && index > 0) {
     otp.value[index - 1] = ''
     const prevInput = inputRefs.value[index - 1]
@@ -50,6 +100,7 @@ const handleDelete = (index: number): void => {
   }
 }
 
+// مدیریت تایمر صفحه
 const formatTime = (seconds: number): string => {
   const mins = Math.floor(seconds / 60)
   const secs = seconds % 60
@@ -70,18 +121,7 @@ const resendCode = (): void => {
   timer.value = 116
   showToast.value = true
   startTimer()
-}
-
-// کدهای داخل کامپوننت OtpPage.vue
-// کدهای داخل کامپوننت OtpPage.vue
-const handleSubmit = (): void => {
-  const code = otp.value.join('')
-  if (code.length === 6) {
-    // کد تایید فرضی موفقیت‌آمیز بود؛ حالا هدایتش کن به صفحه ایجاد حساب کاربری
-    router.push({
-      path: '/onboarding/create-username', // یا هر آدرسی که در روتر ست کردی
-    })
-  }
+  // در صورت نیاز می‌توانید اینجا دوباره متد ارسال پيامک اصلی را صدا بزنید (مثلا sendOtp)
 }
 
 // Lifecycle Hooks
@@ -101,6 +141,7 @@ onBeforeUnmount(() => {
   <div
     class="min-h-screen bg-gray-50 flex flex-col justify-between p-6 antialiased text-gray-800 select-none"
   >
+    <!-- Toast Notification -->
     <transition
       enter-active-class="transition ease-out duration-300 transform"
       enter-from-class="opacity-0 -translate-y-2"
@@ -136,10 +177,12 @@ onBeforeUnmount(() => {
       </div>
     </transition>
 
+    <!-- Main Card -->
     <div class="flex-1 flex items-center justify-center">
       <div
         class="bg-white border border-gray-100 rounded-xl p-8 max-w-md w-full shadow-sm text-center"
       >
+        <!-- Logo -->
         <div class="flex justify-center mb-8">
           <div class="flex items-center gap-2" style="direction: rtl">
             <div
@@ -162,14 +205,17 @@ onBeforeUnmount(() => {
           {{ phoneNumber }}
         </p>
 
-        <button
+        <!-- لینک بازگشت به ویرایش شماره تلفن -->
+        <RouterLink
+          to="/register"
           class="text-xs text-cyan-600 hover:text-cyan-700 font-medium mb-8 block mx-auto transition-colors"
           style="direction: rtl"
         >
           تغییر شمارهٔ موبایل
-        </button>
+        </RouterLink>
 
-        <div class="flex justify-center gap-2 mb-6" style="direction: ltr">
+        <!-- OTP Input Fields -->
+        <div class="flex justify-center gap-2 mb-4" style="direction: ltr">
           <input
             v-for="(digit, index) in 6"
             :key="index"
@@ -178,11 +224,19 @@ onBeforeUnmount(() => {
             type="text"
             maxLength="1"
             class="w-12 h-12 text-center text-xl font-bold border border-gray-200 rounded-lg focus:border-[#008f55] focus:ring-4 focus:ring-emerald-50 outline-none transition-all tabular-nums"
+            :disabled="isLoading"
             @input="handleInput($event, index)"
             @keydown.delete="handleDelete(index)"
+            @keyup.enter="handleVerifyOtp"
           />
         </div>
 
+        <!-- Error Messages UI -->
+        <div v-if="error" class="text-red-600 text-sm mb-4 text-right" style="direction: rtl">
+          {{ error }}
+        </div>
+
+        <!-- Timer / Resend section -->
         <div class="text-xs text-gray-400 mb-8" style="direction: rtl">
           <span v-if="timer > 0" class="tabular-nums">
             {{ formatTime(timer) }} مانده تا دریافت مجدد کد
@@ -196,17 +250,22 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
+        <!-- Submit Button -->
         <button
-          @click="handleSubmit"
-          class="w-full bg-[#008f55] hover:bg-[#007a48] text-white font-medium py-3 rounded-lg transition-colors text-sm shadow-sm"
+          @click="handleVerifyOtp"
+          :disabled="isLoading"
+          class="w-full bg-[#008f55] hover:bg-[#007a48] text-white font-medium py-3 rounded-lg transition-colors text-sm shadow-sm disabled:bg-gray-300 disabled:cursor-not-allowed"
         >
-          تایید
+          <span v-if="isLoading">در حال بررسی کد...</span>
+          <span v-else>تایید</span>
         </button>
       </div>
     </div>
 
+    <!-- Bottom Back Action -->
     <div class="text-center">
-      <button
+      <RouterLink
+        to="/register"
         class="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 font-medium transition-colors"
         style="direction: rtl"
       >
@@ -225,9 +284,7 @@ onBeforeUnmount(() => {
             d="M19 9l-7 7-7-7"
           />
         </svg>
-      </button>
+      </RouterLink>
     </div>
   </div>
 </template>
-
-<
