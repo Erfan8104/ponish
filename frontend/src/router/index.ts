@@ -9,6 +9,7 @@ import SignupPage from '../pages/SignupPage.vue'
 import CreateUsername from '../pages/CreateUsername.vue'
 import WelcomePage from '../pages/WelcomePage.vue'
 import NewprojectPage from '../pages/NewprojectPage.vue'
+import ProfilePage from '../pages/profile.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -51,6 +52,11 @@ const router = createRouter({
     {
       path: '/newproject',
       component: NewprojectPage,
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: ProfilePage,
     },
   ],
   scrollBehavior(to, from, savedPosition) {

@@ -4,13 +4,13 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 
 // Dynamic navigation handler for button actions
-const navigateTo = (destination: 'create-project' | 'workspace'): void => {
+const navigateTo = (destination: 'create-project' | 'dashboard'): void => {
   if (destination === 'create-project') {
     console.log('Navigating to Create Project...')
     router.push('/newproject')
   } else {
     console.log('Navigating to Workspace Dashboard...')
-    // router.push('/dashboard/employer')
+    router.push('/dashboard')
   }
 }
 </script>
@@ -52,7 +52,7 @@ const navigateTo = (destination: 'create-project' | 'workspace'): void => {
           </button>
 
           <button
-            @click="navigateTo('workspace')"
+            @click="navigateTo('dashboard')"
             class="w-full bg-white border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-800 font-medium py-3 rounded-lg transition-all text-sm shadow-sm"
           >
             ورود به اتاق کار
