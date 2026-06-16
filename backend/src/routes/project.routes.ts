@@ -1,9 +1,14 @@
 import { Router } from "express";
-import { createProject } from "./../controllers/project.controller";
+import {
+  createProject,
+  getUserProjects,
+} from "./../controllers/project.controller";
+import { authMiddleware } from "./../middleware/auth.middleware"; // آدرس میدل‌ور خودت را چک کن
 
 const router = Router();
 
-// Endpoint: POST /api/projects
-router.post("/projects", createProject);
+// هر دو روت اکنون کاملاً محافظت شده هستند
+router.post("/projects", authMiddleware, createProject);
+router.get("/projects", authMiddleware, getUserProjects);
 
 export default router;

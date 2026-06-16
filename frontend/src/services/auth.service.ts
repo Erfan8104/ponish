@@ -20,7 +20,7 @@ export const verifyOtp = async (phone: string, code: string) => {
 }
 
 export const getMe = async (token: string) => {
-  const response = await api.get('/auth/me', {
+  const response = await api.get('/me', {
     headers: {
       Authorization: `Bearer ${token}`,
     },

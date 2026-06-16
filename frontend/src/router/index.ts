@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth.store' // ۱. ایمپورت کردن استور پینیا
 
 import LoginPage from '../pages/LoginPage.vue'
 import OtpView from '../pages/OtpPage.vue'
@@ -18,56 +19,82 @@ const router = createRouter({
       path: '/',
       component: HomePage,
     },
-
     {
       path: '/login',
       component: LoginPage,
+      meta: { requiresGuest: true }, // ۲. کاربر لاگین شده نباید دوباره بتونه بیاد این صفحه
     },
     {
       path: '/signup',
       component: SignupPage,
+      meta: { requiresGuest: true },
     },
-
     {
       path: '/login/otp',
       component: OtpView,
+      meta: { requiresGuest: true },
     },
     {
       path: '/login/password',
       component: PasswordView,
+      meta: { requiresGuest: true },
     },
 
+    // --- روت‌های محافظت شده (نیاز به لاگین دارند) ---
     {
       path: '/dashboard',
       component: DashboardPage,
+      meta: { requiresAuth: true }, // ۳. اضافه کردن روت گارد
     },
     {
       path: '/onboarding/create-username',
       component: CreateUsername,
+      meta: { requiresAuth: true },
     },
     {
       path: '/onboarding/welcome',
       component: WelcomePage,
+      meta: { requiresAuth: true },
     },
     {
       path: '/newproject',
       component: NewprojectPage,
+      meta: { requiresAuth: true },
     },
     {
       path: '/profile',
       name: 'profile',
       component: ProfilePage,
+      meta: { requiresAuth: true },
     },
   ],
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) {
-      // اگر کاربر دکمه Back مرورگر را زد، به همان پوزیشن قبلی برگردد
       return savedPosition
     } else {
-      // در غیر این صورت، برای هر روت جدید اسکرول به بالاترین نقطه (Top) برود
-      return { top: 0, behavior: 'smooth' } // می‌توانید behavior: 'smooth' را برای انیمیشن نرم بگذارید یا حذف کنید
+      return { top: 0, behavior: 'smooth' }
     }
   },
+})
+
+// ۴. پیاده‌سازی منطق روت گارد قبل از جابجایی بین صفحات
+router.beforeEach((to, from, next) => {
+  const authStore = useAuthStore() // دسترسی به پینیا و توکن کاربر
+
+  // سناریو اول: صفحه نیاز به احراز هویت دارد اما کاربر توکن ندارد (لاگین نکرده)
+  if (to.meta.requiresAuth && !authStore.token) {
+    next('/signup') // بفرستش صفحه ثبت نام/ورود
+  }
+
+  // سناریو دوم: کاربر لاگین کرده اما می‌خواهد دستی آدرس /login یا /signup را باز کند!
+  else if (to.meta.requiresGuest && authStore.token) {
+    next('/dashboard') // برش گردان به داشبورد خودش
+  }
+
+  // در غیر این صورت اجازه بده عبور کند
+  else {
+    next()
+  }
 })
 
 export default router

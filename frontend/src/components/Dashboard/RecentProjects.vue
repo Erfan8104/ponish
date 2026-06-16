@@ -34,22 +34,28 @@ const handleViewProject = (projectId: number) => {
 </script>
 
 <template>
-  <div class="bg-white rounded-2xl p-6 border border-gray-200">
-    <div class="flex items-center justify-between mb-6">
-      <h2 class="text-xl font-bold text-gray-800">پروژه‌های اخیر</h2>
+  <div class="bg-white rounded-[28px] p-6 shadow-sm shadow-slate-200/60 w-full overflow-hidden">
+    <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-xl font-semibold text-slate-900">پروژه‌های اخیر</h2>
+        <p class="text-sm text-slate-500">آخرین پروژه‌هایی که به سیستم اضافه کرده‌اید</p>
+      </div>
       <button
         @click="router.push({ name: 'projects' })"
-        class="text-[#008f55] hover:text-[#00b878] font-semibold text-sm transition-colors"
+        class="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
       >
         مشاهده همه →
       </button>
     </div>
 
-    <div v-if="recentProjects.length === 0" class="py-12 text-center">
-      <p class="text-gray-500 text-lg mb-4">هیچ پروژه‌ای ایجاد نشده است</p>
+    <div
+      v-if="recentProjects.length === 0"
+      class="rounded-[24px] border border-slate-200 bg-slate-50 p-8 text-center"
+    >
+      <p class="text-slate-500 text-lg mb-4">هیچ پروژه‌ای ایجاد نشده است</p>
       <button
         @click="router.push({ name: 'new-project' })"
-        class="text-[#008f55] hover:text-[#00b878] font-semibold transition-colors"
+        class="rounded-full bg-cyan-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700"
       >
         ایجاد پروژه اول →
       </button>
@@ -59,26 +65,26 @@ const handleViewProject = (projectId: number) => {
       <div
         v-for="project in recentProjects"
         :key="project.id"
-        class="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
         @click="handleViewProject(project.id)"
+        class="group flex flex-col gap-3 rounded-[24px] border border-slate-200 bg-slate-50 p-5 transition duration-200 hover:border-cyan-300 hover:bg-white hover:shadow-lg w-full overflow-hidden"
       >
-        <div class="flex-1">
-          <div class="flex items-center gap-3 mb-2">
-            <h3 class="font-bold text-gray-800">{{ project.title }}</h3>
-            <span
-              class="text-xs px-2 py-1 rounded-full"
-              :class="getStatusBadge(project.status).color"
-            >
-              {{ getStatusBadge(project.status).text }}
-            </span>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div class="min-w-0">
+            <h3 class="truncate text-lg font-semibold text-slate-900">{{ project.title }}</h3>
+            <div class="mt-2 flex flex-wrap gap-2 text-sm text-slate-600">
+              <span>{{ getCategoryDisplay(project.category) }}</span>
+              <span>📍 {{ project.province }}, {{ project.city }}</span>
+              <span>📏 {{ project.calculatedArea }} هکتار</span>
+            </div>
           </div>
-          <div class="flex items-center gap-4 text-sm text-gray-600">
-            <span>{{ getCategoryDisplay(project.category) }}</span>
-            <span>📍 {{ project.province }}, {{ project.city }}</span>
-            <span>📏 {{ project.calculatedArea }} هکتار</span>
-          </div>
+          <span
+            class="whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold"
+            :class="getStatusBadge(project.status).color"
+          >
+            {{ getStatusBadge(project.status).text }}
+          </span>
         </div>
-        <div class="text-right text-xs text-gray-500">
+        <div class="text-sm text-slate-500">
           {{ new Date(project.createdAt).toLocaleDateString('fa-IR') }}
         </div>
       </div>

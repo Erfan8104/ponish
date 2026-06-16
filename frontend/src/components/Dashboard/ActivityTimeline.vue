@@ -56,30 +56,42 @@ const formatTime = (dateString: string) => {
 </script>
 
 <template>
-  <div class="bg-white rounded-2xl p-6 border border-gray-200">
-    <h2 class="text-xl font-bold text-gray-800 mb-6">فعالیت‌های اخیر</h2>
-
-    <div v-if="recentActivities.length === 0" class="py-8 text-center">
-      <p class="text-gray-500">هیچ فعالیتی ثبت نشده است</p>
+  <div class="bg-white rounded-[28px] p-6 shadow-sm shadow-slate-200/60 w-full overflow-hidden">
+    <div class="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <h2 class="text-xl font-semibold text-slate-900">فعالیت‌های اخیر</h2>
+      <p class="text-sm text-slate-500">آخرین رویدادهای تیم و پروژه‌ها</p>
     </div>
 
-    <div v-else class="space-y-3">
+    <div
+      v-if="recentActivities.length === 0"
+      class="rounded-[24px] border border-slate-200 bg-slate-50 p-8 text-center"
+    >
+      <p class="text-slate-500">هیچ فعالیتی ثبت نشده است</p>
+    </div>
+
+    <div v-else class="space-y-4">
       <div
         v-for="activity in recentActivities"
         :key="activity.id"
-        :class="`${getActivityColor(activity.type)} border rounded-lg p-4 transition-all hover:shadow-md`"
+        :class="`${getActivityColor(activity.type)} border border-transparent rounded-[24px] p-4 shadow-sm transition hover:shadow-md`"
       >
-        <div class="flex items-start gap-3">
-          <span class="text-2xl">{{ getActivityIcon(activity.type) }}</span>
-          <div class="flex-1 min-w-0">
-            <p class="font-semibold text-gray-800 text-sm">
+        <div class="flex items-start gap-4">
+          <div
+            class="flex h-12 w-12 items-center justify-center rounded-3xl bg-white text-2xl shadow-sm"
+          >
+            {{ getActivityIcon(activity.type) }}
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-semibold text-slate-900">
               {{ getActivityTypeText(activity.type) }}
             </p>
-            <p class="text-gray-700 text-sm mt-1 truncate">{{ activity.title }}</p>
-            <p v-if="activity.description" class="text-gray-600 text-xs mt-1 line-clamp-1">
+            <p class="mt-2 text-sm text-slate-600 truncate">{{ activity.title }}</p>
+            <p v-if="activity.description" class="mt-2 text-xs text-slate-500 line-clamp-1">
               {{ activity.description }}
             </p>
-            <p class="text-gray-500 text-xs mt-2">{{ formatTime(activity.timestamp) }}</p>
+          </div>
+          <div class="whitespace-nowrap text-xs text-slate-500">
+            {{ formatTime(activity.timestamp) }}
           </div>
         </div>
       </div>

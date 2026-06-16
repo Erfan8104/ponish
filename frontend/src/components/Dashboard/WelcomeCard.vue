@@ -23,17 +23,21 @@ const handleNewProject = () => {
 </script>
 
 <template>
-  <div class="bg-linear-to-r from-[#008f55] to-[#00b878] rounded-2xl p-8 text-white">
-    <div class="flex items-center justify-between">
+  <div
+    class="bg-gradient-to-r from-cyan-600 via-sky-500 to-indigo-500 rounded-[28px] p-8 text-white shadow-lg shadow-cyan-500/20"
+  >
+    <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
       <div>
-        <h1 class="text-4xl font-bold mb-2">{{ greeting }}, {{ userName }}! 👋</h1>
-        <p class="text-green-100 text-lg">
-          شما {{ projectStore.dashboardStats.totalProjects }} پروژه فعال دارید
+        <p class="text-sm uppercase tracking-[0.24em] text-cyan-100/90">داشبورد</p>
+        <h1 class="mt-3 text-4xl font-semibold leading-tight">{{ greeting }}, {{ userName }}!</h1>
+        <p class="mt-4 max-w-xl text-base text-cyan-100/90">
+          در حال حاضر {{ projectStore.dashboardStats.totalProjects }} پروژه در سیستم دارید. همه چیز
+          تحت کنترل است.
         </p>
       </div>
       <button
         @click="handleNewProject"
-        class="bg-white text-[#008f55] px-6 py-3 rounded-lg font-bold hover:bg-gray-100 transition-colors duration-200"
+        class="inline-flex items-center justify-center rounded-full bg-white/95 px-6 py-3 text-sm font-semibold text-cyan-700 shadow-sm transition duration-200 hover:bg-white"
       >
         پروژه جدید +
       </button>

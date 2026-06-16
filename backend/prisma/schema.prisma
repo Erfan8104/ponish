@@ -1,67 +1,65 @@
-generator client {
-  provider = "prisma-client-js"
-}
+  generator client {
+    provider = "prisma-client-js"
+  }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+  datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+  }
 
-model User {
-  id Int @id @default(autoincrement())
-
-  phone String @unique
-
-  isVerified Boolean @default(false)
-
-  profileCompleted Boolean @default(false)
-
-  createdAt DateTime @default(now())
-
-  updatedAt DateTime @updatedAt
-}
-
-model OTP {
-  id Int @id @default(autoincrement())
-
-  phone String
-
-  code String
-
-  expiresAt DateTime
-
-  createdAt DateTime @default(now())
+ model User {
+  id               Int       @id @default(autoincrement())
+  phone            String    @unique
+  isVerified       Boolean   @default(false)
+  profileCompleted Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  // رابطه با پروژه‌ها: یک کاربر می‌تواند چندین پروژه داشته باشد
+  projects         Project[] 
 }
 
 model Project {
-  id                 Int      @id @default(autoincrement())
-  title              String
-  category           String
-  description        String?
-  province           String
-  city               String
-  address            String?
+  id                  Int      @id @default(autoincrement())
+  title               String
+  category            String
+  description         String?
+  province            String
+  city                String
+  address             String?
   
   // مرحله ۲: اطلاعات جغرافیایی
-  areaSelectionMethod String   @default("map") // 'map' or 'file'
-  polygonCoordinates  Json?    // ذخیره آرایه مختصات [ [lng, lat], ... ] به صورت JSON
-  geoJson            Json?    // ذخیره کل آبجکت GeoJSON
-  calculatedArea     Float    @default(0.0)
-  coordinateSystem   String   @default("WGS84")
-  utmZone            String?
+  areaSelectionMethod String   @default("map")
+  polygonCoordinates  Json?    
+  geoJson             Json?    
+  calculatedArea      Float    @default(0.0)
+  coordinateSystem    String   @default("WGS84")
+  utmZone             String?
 
   // مرحله ۳: مشخصات فنی
-  techType           String[] // آرایه‌ای از خدمات انتخاب شده
-  outputFormats      String[] // آرایه‌ای از خروجی‌ها
-  requiredAccuracy   String   @default("1-5cm")
+  techType            String[] 
+  outputFormats       String[] 
+  requiredAccuracy    String   @default("1-5cm")
 
   // مرحله ۴: زمان و بودجه
-  deliveryTime       String   @default("1-week")
-  budgetType         String   @default("custom")
-  minBudget          String?
-  maxBudget          String?
+  deliveryTime        String   @default("1-week")
+  budgetType          String   @default("custom")
+  minBudget           String?
+  maxBudget           String?
 
-  // زمان ثبت
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  // --- اضافه کردن رابطه به کاربر لاگین شده ---
+  userId              Int      // شناسه کاربری که پروژه را ساخته
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// مدل OTP بدون تغییر باقی می‌ماند
+model OTP {
+  id        Int      @id @default(autoincrement())
+  phone     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }

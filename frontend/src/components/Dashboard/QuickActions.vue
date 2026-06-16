@@ -40,18 +40,25 @@ const quickActions = [
 </script>
 
 <template>
-  <div class="bg-white rounded-2xl p-6 border border-gray-200">
-    <h2 class="text-xl font-bold text-gray-800 mb-6">عملیات سریع</h2>
+  <div class="bg-white rounded-[28px] p-6 shadow-sm shadow-slate-200/70">
+    <div class="mb-6 flex items-center justify-between gap-3">
+      <h2 class="text-xl font-semibold text-slate-900">عملیات سریع</h2>
+      <p class="text-sm text-slate-500">دسترسی به مهم‌ترین بخش‌ها با یک کلیک</p>
+    </div>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
       <button
         v-for="action in quickActions"
         :key="action.label"
         @click="action.action"
-        :class="`${action.color} ${action.textColor} rounded-xl p-4 transition-all duration-200 hover:shadow-lg transform hover:scale-105`"
+        :class="`${action.color} ${action.textColor} rounded-3xl p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-lg`"
       >
-        <div class="text-3xl mb-2">{{ action.icon }}</div>
-        <p class="font-bold text-sm">{{ action.label }}</p>
-        <p class="text-xs opacity-70 mt-1">{{ action.description }}</p>
+        <div
+          class="mb-4 flex h-12 w-12 items-center justify-center rounded-3xl bg-white/90 text-2xl shadow-sm"
+        >
+          {{ action.icon }}
+        </div>
+        <p class="font-semibold text-sm">{{ action.label }}</p>
+        <p class="mt-1 text-xs text-slate-500">{{ action.description }}</p>
       </button>
     </div>
   </div>

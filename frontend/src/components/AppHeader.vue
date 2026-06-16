@@ -5,6 +5,7 @@ import { useRouter, RouterLink } from 'vue-router'
 import { useAuthStore } from '../stores/auth.store'
 import { useUiStore } from '../stores/ui.store'
 import { Search, Laptop, MessageCircle, Briefcase, Menu, X } from 'lucide-vue-next'
+import ProfileModal from '../components/Header/ProfileModal.vue'
 
 import SearchModal from './SearchModal.vue'
 
@@ -14,17 +15,6 @@ const router = useRouter()
 const isMobileMenuOpen = ref(false)
 
 const isLoggedIn = computed(() => !!authStore.token)
-const avatarLabel = computed(() => {
-  if (!isLoggedIn.value) return ''
-
-  const source = authStore.name || authStore.phone
-  return source?.trim().charAt(0).toUpperCase() || '؟'
-})
-
-const logout = () => {
-  authStore.logout()
-  router.push('/')
-}
 </script>
 
 <template>
@@ -119,26 +109,15 @@ const logout = () => {
             </button>
           </div>
 
-          <div v-else class="inline-flex items-center gap-3">
-            <div
-              class="grid h-10 w-10 place-items-center rounded-full border border-slate-800 bg-slate-950 text-sm font-semibold text-white shadow-inner"
-            >
-              {{ avatarLabel }}
-            </div>
-            <button
-              @click="logout"
-              class="inline-flex items-center justify-center rounded-full bg-linear-to-r from-rose-500 to-pink-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-rose-500/20 transition hover:opacity-95"
-            >
-              خروج
-            </button>
-          </div>
-
+          <div v-if="isLoggedIn" class="px-40"></div>
           <button
             type="button"
             class="inline-flex items-center gap-2 rounded-xl bg-[#006C47] px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
           >
             ثبت سریع پروژه
           </button>
+          <div v-if="isLoggedIn" class=""></div>
+          <ProfileModal v-if="isLoggedIn" />
         </div>
       </div>
 
@@ -147,6 +126,8 @@ const logout = () => {
         class="md:hidden mt-4 rounded-3xl border border-slate-800 p-4 shadow-lg shadow-black/20"
       >
         <div class="flex flex-col gap-3">
+          <ProfileModal v-if="isLoggedIn" class="mb-2" />
+
           <RouterLink
             to="/"
             class="inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm text-slate-200 transition hover:bg-slate-800"
@@ -208,24 +189,6 @@ const logout = () => {
               class="inline-flex items-center justify-center rounded-2xl border border-slate-800 px-4 py-3 text-sm font-semibold text-slate-200 shadow-sm transition hover:border-slate-700 hover:bg-slate-800"
             >
               درخواست مشاوره
-            </button>
-          </div>
-          <div v-else class="flex flex-col gap-3">
-            <div
-              class="inline-flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-200 shadow-inner"
-            >
-              <div
-                class="grid h-10 w-10 place-items-center rounded-full border border-slate-800 bg-slate-900 text-sm font-semibold text-white"
-              >
-                {{ avatarLabel }}
-              </div>
-              <span>پروفایل</span>
-            </div>
-            <button
-              @click="logout"
-              class="inline-flex items-center justify-center rounded-2xl bg-linear-to-r from-rose-500 to-pink-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-rose-500/20 transition hover:opacity-95"
-            >
-              خروج
             </button>
           </div>
 
