@@ -1,20 +1,57 @@
-<script setup name="ProfilePage" lang="ts">
+<script setup lang="ts">
 import { reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import { useToast } from 'vue-toastification'
-import { User, Phone, Mail, Save, RotateCcw, ArrowLeft } from 'lucide-vue-next'
+import {
+  User,
+  Phone,
+  Mail,
+  Save,
+  RotateCcw,
+  ArrowLeft,
+  MapPin,
+  Building2,
+  Calendar,
+  GraduationCap,
+  Wrench,
+  Briefcase,
+} from 'lucide-vue-next'
+import { useRoleStore } from '@/stores/role.store'
 
 const authStore = useAuthStore()
 const router = useRouter()
 const toast = useToast()
+const roleStore = useRoleStore()
 
+// تشخیص کارفرما بودن
+const isEmployee = computed<boolean>(() => {
+  return roleStore.role === 'employer'
+})
+
+// فرم شامل تمام فیلدهای کارفرما و فریلنسر
 const form = reactive({
+  // فیلدهای مشترک
   name: authStore.name || '',
   phone: authStore.phone || '',
   email: authStore.email || '',
+
+  // فیلدهای کارفرما
+  province: authStore.province || '',
+  city: authStore.city || '',
+  company: authStore.company || '',
+
+  // فیلدهای فریلنسر (جدید)
+  birthDate: authStore.birthDate || '', // تاریخ تولد
+  birthPlace: authStore.birthPlace || '', // محل تولد
+  freelancerProvince: authStore.freelancerProvince || '', // استان محل سکونت فریلنسر
+  freelancerCity: authStore.freelancerCity || '', // شهر محل سکونت فریلنسر
+  education: authStore.education || '', // مدرک تحصیلی
+  skills: authStore.skills || '', // تخصص‌ها
+  experience: authStore.experience || '', // سوابق کاری (اختیاری)
 })
 
+// اعتبار سنجی ساده اولیه (فقط نام و تلفن)
 const isFormValid = computed(() => {
   return form.name.trim().length > 0 && form.phone.trim().length > 0
 })
@@ -24,6 +61,7 @@ const avatarLabel = computed(() => {
   return source.trim().charAt(0).toUpperCase()
 })
 
+// ذخیره ساده همه داده‌ها با هم
 const saveProfile = () => {
   if (!isFormValid.value) {
     toast.error('لطفاً نام و شماره تماس را وارد کنید')
@@ -34,15 +72,37 @@ const saveProfile = () => {
     name: form.name.trim(),
     phone: form.phone.trim(),
     email: form.email.trim(),
+    province: form.province.trim(),
+    city: form.city.trim(),
+    company: form.company.trim(),
+    // ذخیره فیلدهای جدید در استور
+    birthDate: form.birthDate.trim(),
+    birthPlace: form.birthPlace.trim(),
+    freelancerProvince: form.freelancerProvince.trim(),
+    freelancerCity: form.freelancerCity.trim(),
+    education: form.education.trim(),
+    skills: form.skills.trim(),
+    experience: form.experience.trim(),
   })
 
   toast.success('اطلاعات پروفایل با موفقیت ذخیره شد')
 }
 
+// بازنشانی کامل فرم
 const resetForm = () => {
   form.name = authStore.name || ''
   form.phone = authStore.phone || ''
   form.email = authStore.email || ''
+  form.province = authStore.province || ''
+  form.city = authStore.city || ''
+  form.company = authStore.company || ''
+  form.birthDate = authStore.birthDate || ''
+  form.birthPlace = authStore.birthPlace || ''
+  form.freelancerProvince = authStore.freelancerProvince || ''
+  form.freelancerCity = authStore.freelancerCity || ''
+  form.education = authStore.education || ''
+  form.skills = authStore.skills || ''
+  form.experience = authStore.experience || ''
   toast.info('فرم به حالت اولیه بازگشت')
 }
 </script>
@@ -129,6 +189,144 @@ const resetForm = () => {
                 class="w-full rounded-2xl border border-slate-800 bg-slate-950/60 py-3.5 pr-12 pl-4 text-sm text-slate-200 placeholder-slate-600 focus:border-emerald-500/50 focus:bg-slate-950 focus:outline-none transition-all duration-200 shadow-inner"
                 dir="ltr"
               />
+            </div>
+          </div>
+
+          <div v-if="isEmployee" class="space-y-6 pt-4 border-t border-slate-800/40">
+            <div class="space-y-2">
+              <label class="text-xs font-semibold text-slate-400 block mr-1">استان</label>
+              <div class="relative flex items-center">
+                <MapPin :size="18" class="absolute right-4 text-slate-500" />
+                <input
+                  v-model="form.province"
+                  type="text"
+                  placeholder="استان خود را وارد کنید"
+                  class="w-full rounded-2xl border border-slate-800 bg-slate-950/60 py-3.5 pr-12 pl-4 text-sm text-slate-200 placeholder-slate-600 focus:border-emerald-500/50 focus:bg-slate-950 focus:outline-none transition-all duration-200 shadow-inner"
+                />
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-semibold text-slate-400 block mr-1">شهر</label>
+              <div class="relative flex items-center">
+                <MapPin :size="18" class="absolute right-4 text-slate-500" />
+                <input
+                  v-model="form.city"
+                  type="text"
+                  placeholder="شهر خود را وارد کنید"
+                  class="w-full rounded-2xl border border-slate-800 bg-slate-950/60 py-3.5 pr-12 pl-4 text-sm text-slate-200 placeholder-slate-600 focus:border-emerald-500/50 focus:bg-slate-950 focus:outline-none transition-all duration-200 shadow-inner"
+                />
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-semibold text-slate-400 block mr-1"
+                >نام شرکت / سازمان</label
+              >
+              <div class="relative flex items-center">
+                <Building2 :size="18" class="absolute right-4 text-slate-500" />
+                <input
+                  v-model="form.company"
+                  type="text"
+                  placeholder="نام شرکت یا سازمان خود را وارد کنید"
+                  class="w-full rounded-2xl border border-slate-800 bg-slate-950/60 py-3.5 pr-12 pl-4 text-sm text-slate-200 placeholder-slate-600 focus:border-emerald-500/50 focus:bg-slate-950 focus:outline-none transition-all duration-200 shadow-inner"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="space-y-6 pt-4 border-t border-slate-800/40">
+            <div class="space-y-2">
+              <label class="text-xs font-semibold text-slate-400 block mr-1">تاریخ تولد</label>
+              <div class="relative flex items-center">
+                <Calendar :size="18" class="absolute right-4 text-slate-500" />
+                <input
+                  v-model="form.birthDate"
+                  type="text"
+                  placeholder="مثال: ۱۳۷۸/۰۶/۱۵"
+                  class="w-full rounded-2xl border border-slate-800 bg-slate-950/60 py-3.5 pr-12 pl-4 text-sm text-slate-200 placeholder-slate-600 focus:border-emerald-500/50 focus:bg-slate-950 focus:outline-none transition-all duration-200 shadow-inner"
+                />
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-semibold text-slate-400 block mr-1">محل تولد</label>
+              <div class="relative flex items-center">
+                <MapPin :size="18" class="absolute right-4 text-slate-500" />
+                <input
+                  v-model="form.birthPlace"
+                  type="text"
+                  placeholder="شهر یا استان محل تولد"
+                  class="w-full rounded-2xl border border-slate-800 bg-slate-950/60 py-3.5 pr-12 pl-4 text-sm text-slate-200 placeholder-slate-600 focus:border-emerald-500/50 focus:bg-slate-950 focus:outline-none transition-all duration-200 shadow-inner"
+                />
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-semibold text-slate-400 block mr-1">استان محل سکونت</label>
+              <div class="relative flex items-center">
+                <MapPin :size="18" class="absolute right-4 text-slate-500" />
+                <input
+                  v-model="form.freelancerProvince"
+                  type="text"
+                  placeholder="استان فعلی خود را وارد کنید"
+                  class="w-full rounded-2xl border border-slate-800 bg-slate-950/60 py-3.5 pr-12 pl-4 text-sm text-slate-200 placeholder-slate-600 focus:border-emerald-500/50 focus:bg-slate-950 focus:outline-none transition-all duration-200 shadow-inner"
+                />
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-semibold text-slate-400 block mr-1">شهر محل سکونت</label>
+              <div class="relative flex items-center">
+                <MapPin :size="18" class="absolute right-4 text-slate-500" />
+                <input
+                  v-model="form.freelancerCity"
+                  type="text"
+                  placeholder="شهر فعلی خود را وارد کنید"
+                  class="w-full rounded-2xl border border-slate-800 bg-slate-950/60 py-3.5 pr-12 pl-4 text-sm text-slate-200 placeholder-slate-600 focus:border-emerald-500/50 focus:bg-slate-950 focus:outline-none transition-all duration-200 shadow-inner"
+                />
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-semibold text-slate-400 block mr-1">مدارک تحصیلی</label>
+              <div class="relative flex items-center">
+                <GraduationCap :size="18" class="absolute right-4 text-slate-500" />
+                <input
+                  v-model="form.education"
+                  type="text"
+                  placeholder="مثال: کارشناسی مهندسی نرم‌افزار"
+                  class="w-full rounded-2xl border border-slate-800 bg-slate-950/60 py-3.5 pr-12 pl-4 text-sm text-slate-200 placeholder-slate-600 focus:border-emerald-500/50 focus:bg-slate-950 focus:outline-none transition-all duration-200 shadow-inner"
+                />
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-semibold text-slate-400 block mr-1">تخصص‌ها</label>
+              <div class="relative flex items-center">
+                <Wrench :size="18" class="absolute right-4 text-slate-500" />
+                <input
+                  v-model="form.skills"
+                  type="text"
+                  placeholder="مثال: Vue.js, Tailwind, TypeScript"
+                  class="w-full rounded-2xl border border-slate-800 bg-slate-950/60 py-3.5 pr-12 pl-4 text-sm text-slate-200 placeholder-slate-600 focus:border-emerald-500/50 focus:bg-slate-950 focus:outline-none transition-all duration-200 shadow-inner"
+                />
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-semibold text-slate-400 block mr-1">
+                سوابق کاری <span class="text-slate-600 text-[10px]">(اختیاری)</span>
+              </label>
+              <div class="relative flex items-center">
+                <Briefcase :size="18" class="absolute right-4 text-slate-500" />
+                <input
+                  v-model="form.experience"
+                  type="text"
+                  placeholder="خلاصه‌ای از سوابق کاری خود بنویسید"
+                  class="w-full rounded-2xl border border-slate-800 bg-slate-950/60 py-3.5 pr-12 pl-4 text-sm text-slate-200 placeholder-slate-600 focus:border-emerald-500/50 focus:bg-slate-950 focus:outline-none transition-all duration-200 shadow-inner"
+                />
+              </div>
             </div>
           </div>
 

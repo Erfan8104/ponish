@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { useProjectStore } from '../stores/project.store'
 import { useToast } from 'vue-toastification'
+import { useRouter } from 'vue-router'
 
 import StepBasicInfo from '../components/steps/StepBasicInfo.vue'
 import StepMapBoundary from '../components/steps/StepMapBoundary.vue'
@@ -12,6 +13,7 @@ import StepSuccess from '../components/steps/SuccessCreateProject.vue' // ۱. و
 
 const store = useProjectStore()
 const toast = useToast()
+const router = useRouter()
 
 const isSubmitted = ref(false) // ۲. وضعیت نمایش صفحه نهایی
 
@@ -61,6 +63,10 @@ const isStepValid = computed(() => {
   }
   return true
 })
+
+const goToDashboard = () => {
+  router.push('/dashboard')
+}
 
 const goToStep = (targetIndex: number) => {
   if (isSubmitted.value) return // اگر فرم ثبت شده، کلیک روی هدر قفل شود
@@ -121,12 +127,42 @@ const handleResetForm = () => {
 <template>
   <main class="bg-gray-50 min-h-screen py-8 px-4">
     <div class="max-w-5xl mx-auto">
-      <div v-if="!isSubmitted" class="mb-8">
-        <div class="flex items-center justify-between mb-3" style="direction: rtl">
-          <h1 class="text-xl font-black text-gray-800">ثبت پروژه نقشه‌برداری</h1>
-          <span class="text-xs font-bold text-gray-500">
-            مرحله {{ currentStep + 1 }} از {{ steps.length }}
-          </span>
+      <div v-if="!isSubmitted" class="mb-8" style="direction: rtl">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+          <h1 class="text-lg md:text-xl font-black text-gray-800 text-right">
+            ثبت پروژه نقشه‌برداری
+          </h1>
+
+          <div
+            class="flex items-center justify-between md:justify-end md:gap-6 w-full md:w-auto border-t md:border-t-0 pt-3 md:pt-0 border-gray-100"
+          >
+            <button
+              @click="goToDashboard"
+              class="text-xs font-medium text-gray-500 hover:text-red-600 flex items-center gap-1.5 transition-colors bg-gray-100 hover:bg-red-50 px-2.5 py-1.5 rounded-lg md:bg-transparent md:p-0"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke="currentColor"
+                class="w-4 h-4"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
+                />
+              </svg>
+              <span>خروج و بازگشت</span>
+            </button>
+
+            <span
+              class="text-xs font-bold text-gray-400 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-100 md:border-0 md:bg-transparent md:p-0"
+            >
+              مرحله {{ currentStep + 1 }} از {{ steps.length }}
+            </span>
+          </div>
         </div>
 
         <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -180,6 +216,14 @@ const handleResetForm = () => {
               class="px-6 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all"
             >
               مرحله قبل
+            </button>
+
+            <button
+              @click="goToDashboard"
+              type="button"
+              class="px-6 py-3 rounded-xl border border-red-200 text-red-500 font-bold hover:bg-red-50 transition-all mr-auto"
+            >
+              انصراف و بازگشت
             </button>
 
             <button

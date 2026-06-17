@@ -71,7 +71,7 @@ const handleProjectClick = (projectId: number) => {
 
     <div
       ref="mapContainer"
-      class="w-full h-80 rounded-[24px] border border-slate-200 overflow-hidden"
+      class="w-full h-170 z-0 rounded-[24px] border border-slate-200 overflow-hidden"
     ></div>
 
     <div v-if="activeProjects.length > 0" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">

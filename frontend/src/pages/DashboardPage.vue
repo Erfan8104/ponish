@@ -34,7 +34,7 @@ const fakeFetchDashboardData = () => {
     }
 
     isLoading.value = false
-  }, 1500) // ۱.۵ ثانیه لودینگ مصنوعی
+  }, 50) // ۱.۵ ثانیه لودینگ مصنوعی
 }
 
 onMounted(() => {
@@ -69,7 +69,7 @@ onMounted(() => {
 
         <!-- لایه دسترسی‌های سریع (مثل دکمه ساخت پروژه جدید) -->
         <QuickActions />
-        <div class="relative z-0">
+        <div class="relative z-0 w-full h-screen">
           <ProjectsMap />
         </div>
         <!-- لایه نقشه موقعیت جغرافیایی پروژه‌ها -->
