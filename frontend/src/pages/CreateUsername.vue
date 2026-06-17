@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useRoleStore } from '@/stores/role.store'
+import type { UserRole } from '@/types/RoleUser'
 
 const router = useRouter()
-
+const roleStore = useRoleStore()
 // States
 const username = ref<string>('')
-const role = ref<'freelancer' | 'employer' | null>(null)
+const role = ref<UserRole | null>(null)
 const isValidUsername = ref<boolean>(false)
 
 // Validation Rules logic
@@ -25,19 +27,11 @@ const isFormValid = computed<boolean>(() => {
 const handleRegister = (): void => {
   if (!isFormValid.value) return
 
-  const payload = {
-    username: username.value.toLowerCase(),
-    role: role.value,
-  }
-
-  console.log('Submitting Registration:', payload)
+  const cleanedUsername = username.value.toLowerCase()
+  roleStore.setUserRegistration(cleanedUsername, role.value as UserRole)
 
   // برای هدایت به مرحله بعد پروژه:
-  if (role.value === 'employer') {
-    router.push({
-      path: '/onboarding/welcome', // آدرس این صفحه جدید در روتر شما
-    })
-  }
+  router.push('/dashboard')
 }
 </script>
 
@@ -140,7 +134,7 @@ const handleRegister = (): void => {
                   'text-xs font-bold transition-colors',
                   role === 'freelancer' ? 'text-[#008f55]' : 'text-gray-700',
                 ]"
-                >فریلنسر هستم</span
+                >مجری هستم</span
               >
             </div>
 
