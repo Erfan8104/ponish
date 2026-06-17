@@ -47,7 +47,7 @@ const avatarLabel = computed(() => displayName.value.trim().charAt(0).toUpperCas
             </button>
 
             <button
-              @click="router.push('/create-project')"
+              @click="router.push('/newproject')"
               type="button"
               class="flex flex-1 sm:flex-none items-center justify-center gap-2 rounded-xl bg-[#008f55] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-[#007446] transition-all cursor-pointer"
             >

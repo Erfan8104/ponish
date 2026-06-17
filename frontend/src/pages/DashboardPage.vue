@@ -8,8 +8,6 @@ import { useAuthStore } from '@/stores/auth.store'
 import StatsCards from '@/components/Dashboard/StatsCards.vue'
 import QuickActions from '@/components/Dashboard/QuickActions.vue'
 import ProjectsMap from '@/components/Dashboard/ProjectsMap.vue'
-import RecentProjects from '@/components/Dashboard/RecentProjects.vue'
-import ActivityTimeline from '@/components/Dashboard/ActivityTimeline.vue'
 import ProfileCard from '@/components/Dashboard/ProfileCard.vue'
 
 const projectStore = useProjectStore()
@@ -75,12 +73,6 @@ onMounted(() => {
           <ProjectsMap />
         </div>
         <!-- لایه نقشه موقعیت جغرافیایی پروژه‌ها -->
-
-        <!-- لایه دوقلوی پایین داشبورد (لیست پروژه‌ها و گزارش فعالیت‌ها) -->
-        <div class="grid lg:grid-cols-3 gap-6">
-          <div class="lg:col-span-2"></div>
-          <div class="space-y-6"></div>
-        </div>
       </div>
     </main>
   </div>

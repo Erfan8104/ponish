@@ -54,7 +54,7 @@ const handleVerifyOtp = async () => {
 
       // ۴. هدایت هوشمند کاربر بر اساس وضعیت ثبت نام
       if (response.isNewUser) {
-        router.push('/onboarding/welcome')
+        router.push('/onboarding/create-username')
       } else {
         router.push('/dashboard')
       }
