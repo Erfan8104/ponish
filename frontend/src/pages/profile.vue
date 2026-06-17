@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, computed } from 'vue'
+import { reactive, computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import { useToast } from 'vue-toastification'
@@ -16,6 +16,7 @@ import {
   GraduationCap,
   Wrench,
   Briefcase,
+  Camera,
 } from 'lucide-vue-next'
 import { useRoleStore } from '@/stores/role.store'
 
@@ -83,6 +84,7 @@ const saveProfile = () => {
     education: form.education.trim(),
     skills: form.skills.trim(),
     experience: form.experience.trim(),
+    avatar: form.avatar.trim(),
   })
 
   toast.success('اطلاعات پروفایل با موفقیت ذخیره شد')
@@ -105,6 +107,30 @@ const resetForm = () => {
   form.experience = authStore.experience || ''
   toast.info('فرم به حالت اولیه بازگشت')
 }
+
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+// ۱. تابع برای شبیه‌سازی کلیک روی اینپوت مخفی
+const triggerFileInput = () => {
+  fileInputRef.value?.click()
+}
+
+// ۲. تابع برای خواندن فایل انتخابی کاربر و تبدیل آن به فرمت قابل نمایش (Base64)
+const onFileChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+
+  if (file) {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const base64Image = e.target?.result as string
+      // ذخیره موقت در استور پینیا (یا انتقال به فرم برای ذخیره نهایی با دکمه تغییرات)
+      authStore.setAvatar(base64Image)
+      toast.success('عکس پروفایل با موفقیت انتخاب شد')
+    }
+    reader.readAsDataURL(file)
+  }
+}
 </script>
 
 <template>
@@ -116,14 +142,41 @@ const resetForm = () => {
         <div class="flex flex-col items-center text-center sm:items-start sm:text-right flex-1">
           <div class="relative group mb-4">
             <div
-              class="flex h-24 w-24 items-center justify-center rounded-full bg-linear-to-br from-indigo-500 via-purple-500 to-cyan-500 text-3xl font-bold text-white shadow-xl shadow-indigo-500/20 group-hover:scale-102 transition-transform duration-300"
-            >
-              {{ avatarLabel }}
-            </div>
-            <div
               class="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 border border-slate-800 text-xs shadow-md"
             >
               ✨
+            </div>
+            <div class="relative group mb-4">
+              <input
+                ref="fileInputRef"
+                type="file"
+                accept="image/*"
+                class="hidden"
+                @change="onFileChange"
+              />
+
+              <div
+                class="flex h-24 w-24 items-center justify-center rounded-full overflow-hidden bg-linear-to-br from-indigo-500 via-purple-500 to-cyan-500 shadow-xl shadow-indigo-500/20 group-hover:scale-102 transition-transform duration-300"
+              >
+                <img
+                  v-if="authStore.avatar"
+                  :src="authStore.avatar"
+                  alt="Profile"
+                  class="w-full h-full object-cover"
+                />
+                <span v-else class="text-3xl font-bold text-white">
+                  {{ avatarLabel }}
+                </span>
+              </div>
+
+              <button
+                @click="triggerFileInput"
+                type="button"
+                title="انتخاب عکس نمایه"
+                class="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 border border-slate-700 text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50 shadow-md cursor-pointer transition-colors duration-200"
+              >
+                <Camera :size="14" />
+              </button>
             </div>
           </div>
           <h1 class="text-2xl font-bold tracking-tight text-white">تنظیمات حساب کاربری</h1>

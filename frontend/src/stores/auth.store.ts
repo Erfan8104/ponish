@@ -16,6 +16,7 @@ interface ProfileUpdateInput {
   education: string
   skills: string
   experience: string
+  avatar: string
 }
 
 export const useAuthStore = defineStore('auth', {
@@ -39,6 +40,7 @@ export const useAuthStore = defineStore('auth', {
     education: localStorage.getItem('education') || '',
     skills: localStorage.getItem('skills') || '',
     experience: localStorage.getItem('experience') || '',
+    avatar: localStorage.getItem('avatar') || '',
   }),
 
   actions: {
@@ -57,6 +59,10 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
+    setAvatar(avatarUrl: string) {
+      this.avatar = avatarUrl
+      localStorage.setItem('avatar', avatarUrl)
+    },
     setProvince(province: string) {
       this.province = province
       localStorage.setItem('province', province)
@@ -129,6 +135,7 @@ export const useAuthStore = defineStore('auth', {
 
     // 🌟 متد خروج جهت پاک‌سازی تمام فیلدها از استور و دیسک مرورگر
     logout() {
+      this.avatar = ''
       this.token = ''
       this.phone = ''
       this.name = ''
@@ -147,6 +154,7 @@ export const useAuthStore = defineStore('auth', {
       this.skills = ''
       this.experience = ''
 
+      localStorage.removeItem('avatar')
       localStorage.removeItem('token')
       localStorage.removeItem('phone')
       localStorage.removeItem('name')
