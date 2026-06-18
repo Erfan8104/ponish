@@ -20,7 +20,6 @@ import {
 } from 'lucide-vue-next'
 import { useRoleStore } from '@/stores/role.store'
 import { ProfileService } from '@/services/profile.service'
-import type { UpdateProfilePayload } from '@/types/RoleUser'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -32,13 +31,13 @@ const isEmployee = computed<boolean>(() => {
   return roleStore.role === 'employer'
 })
 
-// فرم شامل تمام فیلدهای کارفرما، فریلنسر و عکس پروفایل
+// فرم شامل تمام فیلدها و عکس پروفایل
 const form = reactive({
   // فیلدهای مشترک
   name: authStore.name || '',
   phone: authStore.phone || '',
   email: authStore.email || '',
-  avatar: authStore.avatar || '', // خواندن مقدار اولیه عکس از استور
+  avatar: authStore.avatar || '', // خواندن عکس از استور
 
   // فیلدهای کارفرما
   province: authStore.province || '',
@@ -67,12 +66,12 @@ const avatarLabel = computed(() => {
 
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
-// ۱. تابع برای شبیه‌سازی کلیک روی اینپوت مخفی و باز شدن گالری
+// ۱. باز کردن گالری/پنجره فایل با کلیک روی آیکون دوربین
 const triggerFileInput = () => {
   fileInputRef.value?.click()
 }
 
-// ۲. تابع برای خواندن فایل انتخابی کاربر و تبدیل آن به فرمت Base64 برای پیش‌نمایش
+// ۲. خواندن فایل انتخابی و تولید فرمت Base64 برای پیش‌نمایش موقت
 const onFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
@@ -81,28 +80,29 @@ const onFileChange = (event: Event) => {
     const reader = new FileReader()
     reader.onload = (e) => {
       const base64Image = e.target?.result as string
-      // ذخیره موقت در فرم کامپوننت جهت پیش‌نمایش
-      form.avatar = base64Image
+      form.avatar = base64Image // قرار دادن در فرم جهت نمایش آنی به کاربر
       toast.success('عکس پروفایل انتخاب شد. برای ثبت نهایی "ذخیره تغییرات" را بزنید.')
     }
     reader.readAsDataURL(file)
   }
 }
 
-// ذخیره داده‌ها در بک‌اند و استور پینیا
+// ذخیره نهایی در سرور و اعمال مدیریت هوشمند در پینیا
 const saveProfile = async () => {
   if (!isFormValid.value) {
     toast.error('لطفاً نام و شماره تماس را وارد کنید')
     return
   }
 
+  const currentRole = roleStore.role as 'employer' | 'freelancer'
+
   try {
-    // ۱. آماده‌سازی پِیلود جهت ارسال به لایه سرویس بر اساس تایپ جابجا شده
+    // ۱. آماده‌سازی پِیلود کامل برای لایه سرویس
     const fullPayload: UpdateProfilePayload = {
       name: form.name.trim(),
       phone: form.phone.trim(),
       email: form.email.trim(),
-      role: roleStore.role as 'employer' | 'freelancer',
+      role: currentRole,
       province: form.province.trim(),
       city: form.city.trim(),
       company: form.company.trim(),
@@ -116,26 +116,32 @@ const saveProfile = async () => {
       avatar: form.avatar,
     }
 
-    // ۲. صدا زدن لایه سرویس (فیلترینگ فیلدها بر اساس نقش کاربر آنجا انجام می‌شود)
-    //await ProfileService.updateProfile(fullPayload)
+    // ۲. ارسال به لایه سرویس (سرویس داده‌های نامربوط به این نقش را فیلتر می‌کند)
+    await ProfileService.updateProfile(fullPayload)
 
-    // ۳. پس از موفقیت در سرور، استور پینیا هم مطابق ساختارش به‌روزرسانی می‌شود
-    authStore.updateProfile({
-      name: form.name.trim(),
-      phone: form.phone.trim(),
-      email: form.email.trim(),
-      province: form.province.trim(),
-      city: form.city.trim(),
-      company: form.company.trim(),
-      birthDate: form.birthDate.trim(),
-      birthPlace: form.birthPlace.trim(),
-      freelancerProvince: form.freelancerProvince.trim(),
-      freelancerCity: form.freelancerCity.trim(),
-      education: form.education.trim(),
-      skills: form.skills.trim(),
-      experience: form.experience.trim(),
-      avatar: form.avatar, // هماهنگ با اینترفیس ProfileUpdateInput استور شما
-    })
+    // ۳. آپدیت هوشمند استور پینیا (ارسال داده‌ها همراه با نقش کاربر به عنوان آرگومان دوم)
+    authStore.updateProfile(
+      {
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim(),
+        province: form.province.trim(),
+        city: form.city.trim(),
+        company: form.company.trim(),
+        birthDate: form.birthDate.trim(),
+        birthPlace: form.birthPlace.trim(),
+        freelancerProvince: form.freelancerProvince.trim(),
+        freelancerCity: form.freelancerCity.trim(),
+        education: form.education.trim(),
+        skills: form.skills.trim(),
+        experience: form.experience.trim(),
+        avatar: form.avatar,
+      },
+      currentRole, // 🌟 پاس دادن نقش برای پاک‌سازی دیتای هرز در پینیا و لوکال استوری
+    )
+
+    // ۴. سینک کردن فرم با تغییرات و پاک‌سازی‌های احتمالی استور
+    resetForm()
 
     toast.success('اطلاعات پروفایل با موفقیت روی سرور ذخیره شد')
   } catch (error) {
@@ -144,7 +150,7 @@ const saveProfile = async () => {
   }
 }
 
-// بازنشانی کامل فرم به اطلاعات موجود در استور
+// بازنشانی فرم به آخرین اطلاعات معتبر موجود در استور
 const resetForm = () => {
   form.name = authStore.name || ''
   form.phone = authStore.phone || ''
@@ -160,7 +166,6 @@ const resetForm = () => {
   form.education = authStore.education || ''
   form.skills = authStore.skills || ''
   form.experience = authStore.experience || ''
-  toast.info('فرم به حالت اولیه بازگشت')
 }
 </script>
 
@@ -321,7 +326,7 @@ const resetForm = () => {
                 <input
                   v-model="form.birthDate"
                   type="text"
-                  placeholder="مثال: ۱۳۷۸/۰۶/۱۵"
+                  placeholder="مثال: ۱۳۷۸/۰۶/۱5"
                   class="w-full rounded-2xl border border-slate-800 bg-slate-950/60 py-3.5 pr-12 pl-4 text-sm text-slate-200 placeholder-slate-600 focus:border-emerald-500/50 focus:bg-slate-950 focus:outline-none transition-all duration-200 shadow-inner"
                 />
               </div>
