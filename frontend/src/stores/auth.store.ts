@@ -93,47 +93,78 @@ export const useAuthStore = defineStore('auth', {
       localStorage.setItem('email', email)
     },
 
-    // 🌟 بروزرسانی متد اصلی برای ذخیره همزمان تمام داده‌ها
-    updateProfile(profile: ProfileUpdateInput) {
-      // ۱. ذخیره اطلاعات مشترک و کارفرما در استور
+    // در فایل auth.store.ts
+
+    // ۱. اضافه کردن فیلد avatar به متد اکشن (چون در بدنه متد فعلی‌ات فراموش شده بود)
+    updateProfile(profile: ProfileUpdateInput, role: 'employer' | 'freelancer') {
+      // اطلاعات مشترک
       this.name = profile.name
       this.phone = profile.phone
       this.email = profile.email
-      this.province = profile.province
-      this.city = profile.city
-      this.company = profile.company
-
-      // ۲. ذخیره اطلاعات فریلنسر در استور (جدید)
-      this.birthDate = profile.birthDate
-      this.birthPlace = profile.birthPlace
-      this.freelancerProvince = profile.freelancerProvince
-      this.freelancerCity = profile.freelancerCity
-      this.education = profile.education
-      this.skills = profile.skills
-      this.experience = profile.experience
-
+      this.avatar = profile.avatar // 🌟 اضافه شد
       this.profileCompleted = Boolean(profile.name.trim())
 
-      // ۳. ماندگاری اطلاعات مشترک و کارفرما در مرورگر
       localStorage.setItem('name', profile.name)
       localStorage.setItem('phone', profile.phone)
       localStorage.setItem('email', profile.email)
-      localStorage.setItem('province', profile.province)
-      localStorage.setItem('city', profile.city)
-      localStorage.setItem('company', profile.company)
+      localStorage.setItem('avatar', profile.avatar) // 🌟 اضافه شد
       localStorage.setItem('profileCompleted', String(this.profileCompleted))
 
-      // ۴. ماندگاری اطلاعات فریلنسر در مرورگر (جدید)
-      localStorage.setItem('birthDate', profile.birthDate)
-      localStorage.setItem('birthPlace', profile.birthPlace)
-      localStorage.setItem('freelancerProvince', profile.freelancerProvince)
-      localStorage.setItem('freelancerCity', profile.freelancerCity)
-      localStorage.setItem('education', profile.education)
-      localStorage.setItem('skills', profile.skills)
-      localStorage.setItem('experience', profile.experience)
-    },
+      // تفکیک ذخیره‌سازی بر اساس نقش
+      if (role === 'employer') {
+        // ذخیره کارفرما
+        this.province = profile.province
+        this.city = profile.city
+        this.company = profile.company
+        localStorage.setItem('province', profile.province)
+        localStorage.setItem('city', profile.city)
+        localStorage.setItem('company', profile.company)
 
-    // 🌟 متد خروج جهت پاک‌سازی تمام فیلدها از استور و دیسک مرورگر
+        // 🧼 پاکسازی دیتای فریلنسر از استور و لوکال استوری
+        this.birthDate = ''
+        this.birthPlace = ''
+        this.freelancerProvince = ''
+        this.freelancerCity = ''
+        this.education = ''
+        this.skills = ''
+        this.experience = ''
+        const keys = [
+          'birthDate',
+          'birthPlace',
+          'freelancerProvince',
+          'freelancerCity',
+          'education',
+          'skills',
+          'experience',
+        ]
+        keys.forEach((key) => localStorage.removeItem(key))
+      } else {
+        // ذخیره فریلنسر
+        this.birthDate = profile.birthDate
+        this.birthPlace = profile.birthPlace
+        this.freelancerProvince = profile.freelancerProvince
+        this.freelancerCity = profile.freelancerCity
+        this.education = profile.education
+        this.skills = profile.skills
+        this.experience = profile.experience
+
+        localStorage.setItem('birthDate', profile.birthDate)
+        localStorage.setItem('birthPlace', profile.birthPlace)
+        localStorage.setItem('freelancerProvince', profile.freelancerProvince)
+        localStorage.setItem('freelancerCity', profile.freelancerCity)
+        localStorage.setItem('education', profile.education)
+        localStorage.setItem('skills', profile.skills)
+        localStorage.setItem('experience', profile.experience)
+
+        // 🧼 پاکسازی دیتای کارفرما از استور و لوکال استوری
+        this.province = ''
+        this.city = ''
+        this.company = ''
+        localStorage.removeItem('province')
+        localStorage.removeItem('city')
+        localStorage.removeItem('company')
+      }
+    },
     logout() {
       this.avatar = ''
       this.token = ''

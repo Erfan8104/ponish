@@ -19,6 +19,8 @@ import {
   Camera,
 } from 'lucide-vue-next'
 import { useRoleStore } from '@/stores/role.store'
+import { ProfileService } from '@/services/profile.service'
+import type { UpdateProfilePayload } from '@/types/RoleUser'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -30,26 +32,27 @@ const isEmployee = computed<boolean>(() => {
   return roleStore.role === 'employer'
 })
 
-// فرم شامل تمام فیلدهای کارفرما و فریلنسر
+// فرم شامل تمام فیلدهای کارفرما، فریلنسر و عکس پروفایل
 const form = reactive({
   // فیلدهای مشترک
   name: authStore.name || '',
   phone: authStore.phone || '',
   email: authStore.email || '',
+  avatar: authStore.avatar || '', // خواندن مقدار اولیه عکس از استور
 
   // فیلدهای کارفرما
   province: authStore.province || '',
   city: authStore.city || '',
   company: authStore.company || '',
 
-  // فیلدهای فریلنسر (جدید)
-  birthDate: authStore.birthDate || '', // تاریخ تولد
-  birthPlace: authStore.birthPlace || '', // محل تولد
-  freelancerProvince: authStore.freelancerProvince || '', // استان محل سکونت فریلنسر
-  freelancerCity: authStore.freelancerCity || '', // شهر محل سکونت فریلنسر
-  education: authStore.education || '', // مدرک تحصیلی
-  skills: authStore.skills || '', // تخصص‌ها
-  experience: authStore.experience || '', // سوابق کاری (اختیاری)
+  // فیلدهای فریلنسر
+  birthDate: authStore.birthDate || '',
+  birthPlace: authStore.birthPlace || '',
+  freelancerProvince: authStore.freelancerProvince || '',
+  freelancerCity: authStore.freelancerCity || '',
+  education: authStore.education || '',
+  skills: authStore.skills || '',
+  experience: authStore.experience || '',
 })
 
 // اعتبار سنجی ساده اولیه (فقط نام و تلفن)
@@ -62,39 +65,91 @@ const avatarLabel = computed(() => {
   return source.trim().charAt(0).toUpperCase()
 })
 
-// ذخیره ساده همه داده‌ها با هم
-const saveProfile = () => {
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+// ۱. تابع برای شبیه‌سازی کلیک روی اینپوت مخفی و باز شدن گالری
+const triggerFileInput = () => {
+  fileInputRef.value?.click()
+}
+
+// ۲. تابع برای خواندن فایل انتخابی کاربر و تبدیل آن به فرمت Base64 برای پیش‌نمایش
+const onFileChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+
+  if (file) {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const base64Image = e.target?.result as string
+      // ذخیره موقت در فرم کامپوننت جهت پیش‌نمایش
+      form.avatar = base64Image
+      toast.success('عکس پروفایل انتخاب شد. برای ثبت نهایی "ذخیره تغییرات" را بزنید.')
+    }
+    reader.readAsDataURL(file)
+  }
+}
+
+// ذخیره داده‌ها در بک‌اند و استور پینیا
+const saveProfile = async () => {
   if (!isFormValid.value) {
     toast.error('لطفاً نام و شماره تماس را وارد کنید')
     return
   }
 
-  authStore.updateProfile({
-    name: form.name.trim(),
-    phone: form.phone.trim(),
-    email: form.email.trim(),
-    province: form.province.trim(),
-    city: form.city.trim(),
-    company: form.company.trim(),
-    // ذخیره فیلدهای جدید در استور
-    birthDate: form.birthDate.trim(),
-    birthPlace: form.birthPlace.trim(),
-    freelancerProvince: form.freelancerProvince.trim(),
-    freelancerCity: form.freelancerCity.trim(),
-    education: form.education.trim(),
-    skills: form.skills.trim(),
-    experience: form.experience.trim(),
-    avatar: form.avatar.trim(),
-  })
+  try {
+    // ۱. آماده‌سازی پِیلود جهت ارسال به لایه سرویس بر اساس تایپ جابجا شده
+    const fullPayload: UpdateProfilePayload = {
+      name: form.name.trim(),
+      phone: form.phone.trim(),
+      email: form.email.trim(),
+      role: roleStore.role as 'employer' | 'freelancer',
+      province: form.province.trim(),
+      city: form.city.trim(),
+      company: form.company.trim(),
+      birthDate: form.birthDate.trim(),
+      birthPlace: form.birthPlace.trim(),
+      freelancerProvince: form.freelancerProvince.trim(),
+      freelancerCity: form.freelancerCity.trim(),
+      education: form.education.trim(),
+      skills: form.skills.trim(),
+      experience: form.experience.trim(),
+      avatar: form.avatar,
+    }
 
-  toast.success('اطلاعات پروفایل با موفقیت ذخیره شد')
+    // ۲. صدا زدن لایه سرویس (فیلترینگ فیلدها بر اساس نقش کاربر آنجا انجام می‌شود)
+    //await ProfileService.updateProfile(fullPayload)
+
+    // ۳. پس از موفقیت در سرور، استور پینیا هم مطابق ساختارش به‌روزرسانی می‌شود
+    authStore.updateProfile({
+      name: form.name.trim(),
+      phone: form.phone.trim(),
+      email: form.email.trim(),
+      province: form.province.trim(),
+      city: form.city.trim(),
+      company: form.company.trim(),
+      birthDate: form.birthDate.trim(),
+      birthPlace: form.birthPlace.trim(),
+      freelancerProvince: form.freelancerProvince.trim(),
+      freelancerCity: form.freelancerCity.trim(),
+      education: form.education.trim(),
+      skills: form.skills.trim(),
+      experience: form.experience.trim(),
+      avatar: form.avatar, // هماهنگ با اینترفیس ProfileUpdateInput استور شما
+    })
+
+    toast.success('اطلاعات پروفایل با موفقیت روی سرور ذخیره شد')
+  } catch (error) {
+    console.error(error)
+    toast.error('خطا در ارتباط با سرور! اطلاعات ذخیره نشد.')
+  }
 }
 
-// بازنشانی کامل فرم
+// بازنشانی کامل فرم به اطلاعات موجود در استور
 const resetForm = () => {
   form.name = authStore.name || ''
   form.phone = authStore.phone || ''
   form.email = authStore.email || ''
+  form.avatar = authStore.avatar || ''
   form.province = authStore.province || ''
   form.city = authStore.city || ''
   form.company = authStore.company || ''
@@ -107,30 +162,6 @@ const resetForm = () => {
   form.experience = authStore.experience || ''
   toast.info('فرم به حالت اولیه بازگشت')
 }
-
-const fileInputRef = ref<HTMLInputElement | null>(null)
-
-// ۱. تابع برای شبیه‌سازی کلیک روی اینپوت مخفی
-const triggerFileInput = () => {
-  fileInputRef.value?.click()
-}
-
-// ۲. تابع برای خواندن فایل انتخابی کاربر و تبدیل آن به فرمت قابل نمایش (Base64)
-const onFileChange = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-
-  if (file) {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const base64Image = e.target?.result as string
-      // ذخیره موقت در استور پینیا (یا انتقال به فرم برای ذخیره نهایی با دکمه تغییرات)
-      authStore.setAvatar(base64Image)
-      toast.success('عکس پروفایل با موفقیت انتخاب شد')
-    }
-    reader.readAsDataURL(file)
-  }
-}
 </script>
 
 <template>
@@ -141,44 +172,38 @@ const onFileChange = (event: Event) => {
       >
         <div class="flex flex-col items-center text-center sm:items-start sm:text-right flex-1">
           <div class="relative group mb-4">
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept="image/*"
+              class="hidden"
+              @change="onFileChange"
+            />
+
             <div
-              class="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 border border-slate-800 text-xs shadow-md"
+              class="flex h-24 w-24 items-center justify-center rounded-full overflow-hidden bg-linear-to-br from-indigo-500 via-purple-500 to-cyan-500 shadow-xl shadow-indigo-500/20 group-hover:scale-102 transition-transform duration-300"
             >
-              ✨
-            </div>
-            <div class="relative group mb-4">
-              <input
-                ref="fileInputRef"
-                type="file"
-                accept="image/*"
-                class="hidden"
-                @change="onFileChange"
+              <img
+                v-if="form.avatar"
+                :src="form.avatar"
+                alt="Profile"
+                class="w-full h-full object-cover"
               />
-
-              <div
-                class="flex h-24 w-24 items-center justify-center rounded-full overflow-hidden bg-linear-to-br from-indigo-500 via-purple-500 to-cyan-500 shadow-xl shadow-indigo-500/20 group-hover:scale-102 transition-transform duration-300"
-              >
-                <img
-                  v-if="authStore.avatar"
-                  :src="authStore.avatar"
-                  alt="Profile"
-                  class="w-full h-full object-cover"
-                />
-                <span v-else class="text-3xl font-bold text-white">
-                  {{ avatarLabel }}
-                </span>
-              </div>
-
-              <button
-                @click="triggerFileInput"
-                type="button"
-                title="انتخاب عکس نمایه"
-                class="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 border border-slate-700 text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50 shadow-md cursor-pointer transition-colors duration-200"
-              >
-                <Camera :size="14" />
-              </button>
+              <span v-else class="text-3xl font-bold text-white">
+                {{ avatarLabel }}
+              </span>
             </div>
+
+            <button
+              @click="triggerFileInput"
+              type="button"
+              title="انتخاب عکس نمایه"
+              class="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 border border-slate-700 text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50 shadow-md cursor-pointer transition-colors duration-200"
+            >
+              <Camera :size="14" />
+            </button>
           </div>
+
           <h1 class="text-2xl font-bold tracking-tight text-white">تنظیمات حساب کاربری</h1>
           <p class="text-xs text-slate-400 mt-1.5">
             اطلاعات هویتی و راه‌های ارتباطی خود را به‌روزرسانی کنید
