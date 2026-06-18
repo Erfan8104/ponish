@@ -24,8 +24,8 @@ const fakeFetchDashboardData = () => {
   setTimeout(() => {
     // ۱. اگر استور پینیا کاربر خالی بود، با اطلاعات فرضی پرش می‌کنیم
     if (!authStore.name) {
-      authStore.setName('سینا محسنی')
-      authStore.setEmail('sina@example.com')
+      authStore.setName('')
+      authStore.setEmail('')
     }
 
     // ۲. بارگذاری داده‌های نمونه پروژه‌ها از پینیا استور شما
