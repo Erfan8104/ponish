@@ -33,7 +33,7 @@ const removeAvatar = () => {
 <template>
   <div
     v-if="modalStore.isOpen && modalStore.activeFormRef"
-    class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md p-4"
+    class="fixed inset-0 z-110 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md p-4"
     @click="modalStore.closeModal"
   >
     <div

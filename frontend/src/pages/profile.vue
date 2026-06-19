@@ -21,7 +21,7 @@ import {
 } from 'lucide-vue-next'
 import { useRoleStore } from '@/stores/role.store'
 import { useProfileModalStore } from '@/stores/profile.modal.store'
-import ProfileModal from '@/components/profile/ProfileModal.vue'
+import ProfileImage from '@/components/profile/ProfileImage.vue'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -84,6 +84,7 @@ const onFileChange = (event: Event) => {
       const base64Image = e.target?.result as string
       form.avatar = base64Image
       toast.success('عکس پروفایل انتخاب شد. برای ثبت نهایی "ذخیره تغییرات" را بزنید.')
+      saveProfile()
     }
     reader.readAsDataURL(file)
   }
@@ -100,11 +101,6 @@ const handleAvatarClick = () => {
 
 // ذخیره نهایی در سرور و اعمال مدیریت هوشمند در پینیا
 const saveProfile = async () => {
-  if (!isFormValid.value) {
-    toast.error('لطفاً نام و شماره تماس را وارد کنید')
-    return
-  }
-
   const currentRole = roleStore.role as 'employer' | 'freelancer'
 
   try {
@@ -460,6 +456,6 @@ const resetForm = () => {
       </div>
     </div>
 
-    <ProfileModal />
+    <ProfileImage />
   </div>
 </template>
