@@ -2,9 +2,11 @@
 import { X, Download, Trash2 } from 'lucide-vue-next'
 import { useProfileModalStore } from '@/stores/profile.modal.store'
 import { useToast } from 'vue-toastification'
+import { useAuthStore } from '@/stores/auth.store'
 
 const modalStore = useProfileModalStore()
 const toast = useToast()
+const authStore = useAuthStore()
 
 const downloadAvatar = () => {
   const avatarUrl = modalStore.activeFormRef?.avatar
@@ -23,6 +25,7 @@ const removeAvatar = () => {
   // 🌟 دستکاری مستقیم فرم اصلی از طریق مرجع موجود در استور (حذف نیاز به امیت)
   if (modalStore.activeFormRef) {
     modalStore.activeFormRef.avatar = ''
+    authStore.setAvatar('')
   }
 
   modalStore.closeModal()

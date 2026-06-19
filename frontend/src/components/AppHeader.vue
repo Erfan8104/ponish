@@ -1,20 +1,32 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRouter, RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth.store'
 import { useUiStore } from '../stores/ui.store'
 import { Search, Laptop, MessageCircle, Briefcase, Menu, X } from 'lucide-vue-next'
 import ProfileModal from '../components/Header/ProfileModal.vue'
-
+import { useRoleStore } from '../stores/role.store.ts'
 import SearchModal from './SearchModal.vue'
 
 const uiStore = useUiStore()
-const authStore = useAuthStore()
 const router = useRouter()
+const authStore = useAuthStore()
+const roleStore = useRoleStore()
 const isMobileMenuOpen = ref(false)
-
+const isEmployee = computed<boolean>(() => {
+  return roleStore.role === 'employer'
+})
 const isLoggedIn = computed(() => !!authStore.token)
+
+// تابع هدایت به صفحه ویرایش مشخصات
+const goToCreateProject = () => {
+  if (!isLoggedIn.value) {
+    router.push('/signup')
+  } else {
+    router.push('/newproject')
+  }
+}
 </script>
 
 <template>
@@ -111,7 +123,9 @@ const isLoggedIn = computed(() => !!authStore.token)
 
           <div v-if="isLoggedIn" class="px-40"></div>
           <button
+            v-if="isEmployee || !isLoggedIn"
             type="button"
+            @click="goToCreateProject"
             class="inline-flex items-center gap-2 rounded-xl bg-[#006C47] px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
           >
             ثبت سریع پروژه
@@ -193,6 +207,8 @@ const isLoggedIn = computed(() => !!authStore.token)
           </div>
 
           <button
+            @click="goToCreateProject"
+            v-if="isEmployee || !isLoggedIn"
             type="button"
             class="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#006C47] px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
           >

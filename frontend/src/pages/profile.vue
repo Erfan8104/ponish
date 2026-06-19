@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, computed, ref } from 'vue'
+import { reactive, computed, watch, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import { useToast } from 'vue-toastification'
@@ -55,6 +55,12 @@ const form = reactive({
 })
 
 // مدیریت کلیک روی آواتار
+watch(
+  () => authStore.avatar,
+  (newAvatar) => {
+    form.avatar = newAvatar || ''
+  },
+)
 
 // اعتبار سنجی ساده اولیه (فقط نام و تلفن)
 const isFormValid = computed(() => {
