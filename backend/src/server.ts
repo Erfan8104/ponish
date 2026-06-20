@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import profileRoutes from "./routes/profile.routes";
 
 import authRoutes from "./routes/auth.routes";
 import dotenv from "dotenv";
@@ -24,6 +25,8 @@ app.get("/", (_, res) => {
     message: "Ponisha API Running",
   });
 });
+
+app.use("/api/profile", profileRoutes);
 
 app.listen(3000, () => {
   console.log("Server running on port 3000");

@@ -40,7 +40,7 @@ export const ProfileService = {
       }
 
       // ارسال به آبجکت یا اندپوینت مربوط به کارفرما
-      const response = await api.put('/api/profile/employer', employerPayload)
+      const response = await api.put('/profile/employer', employerPayload)
       return response.data
     } else {
       // ساخت لود مخصوص فریلنسر/کارجو
@@ -56,7 +56,7 @@ export const ProfileService = {
       }
 
       // ارسال به آبجکت یا اندپوینت مربوط به فریلنسر
-      const response = await api.put('/api/profile/freelancer', freelancerPayload)
+      const response = await api.put('/profile/freelancer', freelancerPayload)
       return response.data
     }
   },

@@ -22,6 +22,7 @@ import {
 import { useRoleStore } from '@/stores/role.store'
 import { useProfileModalStore } from '@/stores/profile.modal.store'
 import ProfileImage from '@/components/profile/ProfileImage.vue'
+import { ProfileService } from '@/services/profile.service'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -105,36 +106,46 @@ const handleAvatarClick = () => {
   }
 }
 
-// ذخیره نهایی در سرور و اعمال مدیریت هوشمند در پینیا
 const saveProfile = async () => {
   const currentRole = roleStore.role as 'employer' | 'freelancer'
 
   try {
-    authStore.updateProfile(
-      {
-        name: form.name.trim(),
-        phone: form.phone.trim(),
-        email: form.email.trim(),
-        province: form.province.trim(),
-        city: form.city.trim(),
-        company: form.company.trim(),
-        birthDate: form.birthDate.trim(),
-        birthPlace: form.birthPlace.trim(),
-        freelancerProvince: form.freelancerProvince.trim(),
-        freelancerCity: form.freelancerCity.trim(),
-        education: form.education.trim(),
-        skills: form.skills.trim(),
-        experience: form.experience.trim(),
-        avatar: form.avatar,
-      },
-      currentRole,
-    )
+    const payload = {
+      name: form.name.trim(),
+      phone: form.phone.trim(),
+      email: form.email.trim(),
 
-    resetForm()
-    toast.success('اطلاعات پروفایل با موفقیت روی سرور ذخیره شد')
-  } catch (error) {
+      role: currentRole,
+
+      province: form.province.trim(),
+      city: form.city.trim(),
+      company: form.company.trim(),
+
+      birthDate: form.birthDate.trim(),
+      birthPlace: form.birthPlace.trim(),
+      freelancerProvince: form.freelancerProvince.trim(),
+      freelancerCity: form.freelancerCity.trim(),
+
+      education: form.education.trim(),
+      skills: form.skills.trim(),
+      experience: form.experience.trim(),
+
+      avatar: form.avatar,
+    }
+
+    const response = await ProfileService.updateProfile(payload)
+
+    if (response.success) {
+      authStore.updateProfile(payload, currentRole)
+
+      toast.success('اطلاعات پروفایل با موفقیت روی سرور ذخیره شد')
+    } else {
+      toast.error(response.message || 'خطا در ذخیره اطلاعات پروفایل')
+    }
+  } catch (error: any) {
     console.error(error)
-    toast.error('خطا در ارتباط با سرور! اطلاعات ذخیره نشد.')
+
+    toast.error(error?.response?.data?.message || 'خطا در ارتباط با سرور! اطلاعات ذخیره نشد.')
   }
 }
 
