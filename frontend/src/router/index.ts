@@ -9,8 +9,8 @@ import PasswordView from '../pages/PasswordPage.vue'
 import SignupPage from '../pages/SignupPage.vue'
 import CreateUsername from '../pages/CreateUsername.vue'
 import WelcomePage from '../pages/WelcomePage.vue'
-import NewprojectPage from '../pages/NewprojectPage.vue'
-import ProfilePage from '../pages/profile.vue'
+import NewprojectPage from '../pages/CreateProjectPage.vue'
+import ProfilePage from '../pages/profilePage.vue'
 
 const router = createRouter({
   history: createWebHistory(),

@@ -9,8 +9,8 @@ import * as turf from '@turf/turf'
 
 const store = useProjectStore()
 
-let map: L.Map
-let drawnItems: L.FeatureGroup
+let map: any
+let drawnItems: any
 
 onMounted(() => {
   map = L.map('project-map').setView([35.7219, 51.3347], 12)

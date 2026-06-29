@@ -4,11 +4,11 @@ import { useProjectStore } from '@/stores/project.store'
 import { useAuthStore } from '@/stores/auth.store'
 
 // کامپوننت‌های ماژولار شما
-
-import StatsCards from '@/components/Dashboard/StatsCards.vue'
-import QuickActions from '@/components/Dashboard/QuickActions.vue'
-import ProjectsMap from '@/components/Dashboard/ProjectsMap.vue'
-import ProfileCard from '@/components/Dashboard/ProfileCard.vue'
+import ProjectTestList from '@/components/dashboard/ProjectTestList.vue'
+import StatsCards from '@/components/dashboard/StatsCards.vue'
+import QuickActions from '@/components/dashboard/QuickActions.vue'
+import ProjectsMap from '@/components/dashboard/ProjectsMap.vue'
+import ProfileCard from '@/components/dashboard/ProfileCard.vue'
 
 const projectStore = useProjectStore()
 const authStore = useAuthStore()
@@ -73,6 +73,11 @@ onMounted(() => {
           <ProjectsMap />
         </div>
         <!-- لایه نقشه موقعیت جغرافیایی پروژه‌ها -->
+      </div>
+      <div class="p-8 bg-gray-50 min-h-screen">
+        <div class="mt-8">
+          <ProjectTestList />
+        </div>
       </div>
     </main>
   </div>

@@ -62,5 +62,3 @@ const navigateTo = (destination: 'create-project' | 'dashboard'): void => {
     </div>
   </div>
 </template>
-
-<

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useProjectStore } from '../../stores/project.store'
+import { useProjectStore } from '../../stores/project.store.ts'
 import LeafletBoundaryMap from '../map/LeafletBoundaryMap.vue'
 
 const store = useProjectStore()

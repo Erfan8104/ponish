@@ -125,7 +125,9 @@ const goBack = () => {
 
         <!-- Forgot Password -->
         <div class="text-right mb-8">
-          <button class="text-green-700 hover:text-green-800 text-sm">فراموشی رمز عبور</button>
+          <RouterLink to="/signup" class="text-green-700 hover:text-green-800 text-sm">
+            فراموشی رمز عبور
+          </RouterLink>
         </div>
 
         <!-- Login Button -->

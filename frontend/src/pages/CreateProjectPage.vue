@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useProjectStore } from '../stores/project.store'
+import { useProjectStore } from '../stores/project.store.ts'
 import { useToast } from 'vue-toastification'
 import { useRouter } from 'vue-router'
 
-import StepBasicInfo from '../components/steps/StepBasicInfo.vue'
-import StepMapBoundary from '../components/steps/StepMapBoundary.vue'
-import StepTechnicalSpecs from '../components/steps/StepTechnicalSpecs.vue'
-import StepTimingBudget from '../components/steps/StepTimingBudget.vue'
-import StepInvoice from '../components/steps/StepInvoice.vue'
-import StepSuccess from '../components/steps/SuccessCreateProject.vue' // ۱. وارد کردن صفحه موفقیت
+import StepBasicInfo from '../components/stepProjectForm/StepBasicInfo.vue'
+import StepMapBoundary from '../components/stepProjectForm/StepMapBoundary.vue'
+import StepTechnicalSpecs from '../components/stepProjectForm/StepTechnicalSpecs.vue'
+import StepTimingBudget from '../components/stepProjectForm/StepTimingBudget.vue'
+import StepInvoice from '../components/stepProjectForm/StepInvoice.vue'
+import StepSuccess from '../components/stepProjectForm/SuccessCreateProject.vue' // ۱. وارد کردن صفحه موفقیت
 
 const store = useProjectStore()
 const toast = useToast()
@@ -17,7 +17,14 @@ const router = useRouter()
 
 const isSubmitted = ref(false) // ۲. وضعیت نمایش صفحه نهایی
 
-const steps = [
+type StepDefinition = {
+  id: number
+  type: 'basic-info' | 'map-boundary' | 'technical-specs' | 'timing-budget' | 'preview'
+  title: string
+  question: string
+}
+
+const steps: StepDefinition[] = [
   { id: 1, type: 'basic-info', title: 'اطلاعات پروژه', question: 'پروژه خود را معرفی کنید' },
   {
     id: 2,
@@ -41,7 +48,10 @@ const steps = [
 ]
 
 const currentStep = ref(0)
-const currentStepData = computed(() => steps[currentStep.value])
+const currentStepData = computed<StepDefinition>(() => {
+  const safeIndex = Math.max(0, Math.min(currentStep.value, steps.length - 1))
+  return steps[safeIndex] as StepDefinition
+})
 
 const progress = computed(() => {
   return Math.round(((currentStep.value + 1) / steps.length) * 100)

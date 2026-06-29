@@ -21,7 +21,7 @@ import {
 } from 'lucide-vue-next'
 import { useRoleStore } from '@/stores/role.store'
 import { useProfileModalStore } from '@/stores/profile.modal.store'
-import ProfileImage from '@/components/profile/ProfileImage.vue'
+import ProfileImage from '@/components/modal/ProfileImage.vue'
 import { ProfileService } from '@/services/profile.service'
 
 const authStore = useAuthStore()

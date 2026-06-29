@@ -2,12 +2,12 @@
 import { computed, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 
-import { useAuthStore } from '../stores/auth.store'
-import { useUiStore } from '../stores/ui.store'
+import { useAuthStore } from '../../stores/auth.store.ts'
+import { useUiStore } from '../../stores/ui.store.ts'
 import { Search, Laptop, MessageCircle, Briefcase, Menu, X } from 'lucide-vue-next'
-import ProfileModal from '../components/Header/ProfileModal.vue'
-import { useRoleStore } from '../stores/role.store.ts'
-import SearchModal from './SearchModal.vue'
+import ProfileModal from '../modal/ProfileModal.vue'
+import { useRoleStore } from '../../stores/role.store.ts'
+import SearchModal from '../modal/SearchModal.vue'
 
 const uiStore = useUiStore()
 const router = useRouter()

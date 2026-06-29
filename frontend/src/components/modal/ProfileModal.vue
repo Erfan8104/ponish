@@ -4,7 +4,7 @@ import { useRouter, RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import { useProfileModalStore } from '@/stores/profile.modal.store'
 import { ChevronDown, LayoutDashboard, LogOut, Settings } from 'lucide-vue-next'
-import ProfileImage from '@/components/profile/ProfileImage.vue'
+import ProfileImage from '@/components/modal/ProfileImage.vue'
 
 const authStore = useAuthStore()
 const profileModalStore = useProfileModalStore()

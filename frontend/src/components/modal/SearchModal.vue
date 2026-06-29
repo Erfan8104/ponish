@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Search } from 'lucide-vue-next'
-import { useUiStore } from '../stores/ui.store'
+import { useUiStore } from '../../stores/ui.store'
 
 const uiStore = useUiStore()
 const query = computed({

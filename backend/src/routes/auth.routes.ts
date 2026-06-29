@@ -2,13 +2,24 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import jwt from "jsonwebtoken";
 import { authMiddleware, AuthRequest } from "../middleware/auth.middleware";
+
 const router = Router();
 
+/**
+ * Send OTP
+ */
 router.post("/send-otp", async (req, res) => {
   try {
     const { phone } = req.body;
 
-    const otp = "123456";
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone is required",
+      });
+    }
+
+    const otp = "123456"; // بعداً رندومش می‌کنیم
 
     await prisma.oTP.create({
       data: {
@@ -23,25 +34,20 @@ router.post("/send-otp", async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-
-    return res.status(500).json({
-      success: false,
-    });
+    return res.status(500).json({ success: false });
   }
 });
 
+/**
+ * Verify OTP
+ */
 router.post("/verify-otp", async (req, res) => {
   try {
     const { phone, code } = req.body;
 
     const otpRecord = await prisma.oTP.findFirst({
-      where: {
-        phone,
-        code,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+      where: { phone, code },
+      orderBy: { createdAt: "desc" },
     });
 
     if (!otpRecord) {
@@ -59,9 +65,7 @@ router.post("/verify-otp", async (req, res) => {
     }
 
     let user = await prisma.user.findUnique({
-      where: {
-        phone,
-      },
+      where: { phone },
     });
 
     let isNewUser = false;
@@ -70,7 +74,7 @@ router.post("/verify-otp", async (req, res) => {
       user = await prisma.user.create({
         data: {
           phone,
-          isVerified: true,
+          role: "freelancer", // ✅ اگر role enum اجباری است
         },
       });
 
@@ -82,15 +86,13 @@ router.post("/verify-otp", async (req, res) => {
         userId: user.id,
         phone: user.phone,
       },
-      process.env.JWT_SECRET!,
-      {
-        expiresIn: "7d",
-      },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "7d" },
     );
+
+    // حذف OTPهای این شماره
     await prisma.oTP.deleteMany({
-      where: {
-        phone,
-      },
+      where: { phone },
     });
 
     return res.json({
@@ -101,7 +103,6 @@ router.post("/verify-otp", async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -109,36 +110,33 @@ router.post("/verify-otp", async (req, res) => {
   }
 });
 
+/**
+ * Get current user
+ */
 router.get("/me", authMiddleware, async (req: AuthRequest, res) => {
   const user = await prisma.user.findUnique({
-    where: {
-      id: req.user!.userId,
-    },
+    where: { id: req.user!.userId },
   });
 
   return res.json(user);
 });
 
+/**
+ * Check login method
+ */
 router.post("/check-login-method", async (req, res) => {
   try {
     const { identifier } = req.body;
 
     const isPhone = /^09\d{9}$/.test(identifier);
-
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
 
     if (isPhone) {
-      return res.json({
-        success: true,
-        method: "otp",
-      });
+      return res.json({ success: true, method: "otp" });
     }
 
     if (isEmail) {
-      return res.json({
-        success: true,
-        method: "password",
-      });
+      return res.json({ success: true, method: "password" });
     }
 
     return res.status(400).json({
@@ -147,11 +145,11 @@ router.post("/check-login-method", async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-
     return res.status(500).json({
       success: false,
       message: "Internal server error",
     });
   }
 });
+
 export default router;
