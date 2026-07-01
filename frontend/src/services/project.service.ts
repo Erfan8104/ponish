@@ -1,16 +1,23 @@
 import { api } from './api'
 import type { Project, ActivityLog } from '@/types/project'
 
+export interface ProposalPayload {
+  projectId: number
+  amount: number
+  deliveryDays: number
+  coverLetter: string
+}
+
 export const projectService = {
   // ۱. دریافت پروژه‌ها با آدرس جدید بک‌اَند
   async getAllProjects(): Promise<Project[]> {
-    const response = await api.get('/projects/list') // 👈 اصلاح شد
+    const response = await api.get('/projects/list')
     return response.data.projects || response.data
   },
 
   // ۲. دریافت جزئیات یک پروژه با آدرس جدید بک‌اَند
   async getProjectById(id: number): Promise<Project> {
-    const response = await api.get(`/projects/detail/${id}`) // 👈 اصلاح شد
+    const response = await api.get(`/projects/detail/${id}`)
     return response.data.project || response.data
   },
 
@@ -60,9 +67,22 @@ export const projectService = {
     return response.data
   },
 
-  // ۴. دریافت لاگ‌های فعالیت
+  // ۴. ارسال پیشنهاد قیمت توسط فریلنسر (👈 متد جدید اضافه شده)
+  async sendProposal(payload: ProposalPayload): Promise<any> {
+    // از آنجا که روت بک‌آند شما /api/projects/proposals/submit است
+    // و نمونه api خودش پیش‌فرض /api را دارد، آدرس زیر دقیقاً درست است:
+    const response = await api.post('/projects/proposals/submit', payload)
+    return response.data
+  },
+
+  // ۵. دریافت لاگ‌های فعالیت
   async getActivityLogs(): Promise<ActivityLog[]> {
     const response = await api.get('/activity-logs')
     return response.data.logs || response.data
+  },
+  // ================== دریافت پروژه‌های خود کارفرما ==================
+  async getMyProjects(): Promise<Project[]> {
+    const response = await api.get('/projects/my-projects')
+    return response.data.projects || response.data
   },
 }

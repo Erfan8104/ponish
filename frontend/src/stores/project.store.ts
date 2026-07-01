@@ -2,11 +2,19 @@ import { defineStore } from 'pinia'
 import { reactive, ref, computed } from 'vue'
 import { projectService } from '@/services/project.service'
 import type { Project, ActivityLog, DashboardStats } from '@/types/project'
+import MyProject from '@/components/dashboard/MyProject.vue'
 
 export type Coordinate = [number, number]
 
+export interface ProposalPayload {
+  projectId: number
+  amount: number
+  deliveryDays: number
+  coverLetter: string
+}
+
 export const useProjectStore = defineStore('project', () => {
-  // ================== Form Data ==================
+  // ================== Form Data (Employer) ==================
   const formData = reactive({
     title: '',
     category: '',
@@ -31,6 +39,7 @@ export const useProjectStore = defineStore('project', () => {
     minBudget: '',
     maxBudget: '',
   })
+  const myProjects = ref<Project[]>([])
 
   const uploadedFiles = ref<File[]>([])
   const isLoading = ref(false)
@@ -48,7 +57,7 @@ export const useProjectStore = defineStore('project', () => {
     totalArea: projects.value.reduce((sum, p) => sum + (p.calculatedArea || 0), 0),
   }))
 
-  // ================== Actions ==================
+  // ================== Actions (Projects) ==================
 
   const fetchProjects = async () => {
     isLoading.value = true
@@ -57,7 +66,7 @@ export const useProjectStore = defineStore('project', () => {
       projects.value = await projectService.getAllProjects()
     } catch (err: any) {
       console.error('خطا در دریافت پروژه‌ها:', err)
-      if (err.response && err.response.data && err.response.data.message) {
+      if (err.response?.data?.message) {
         errorMessages.value = [err.response.data.message]
       } else {
         errorMessages.value = ['خطا در دریافت اطلاعات پروژه‌ها از سرور.']
@@ -75,6 +84,24 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
+  const fetchMyProjects = async () => {
+    isLoading.value = true
+    errorMessages.value = []
+
+    try {
+      myProjects.value = await projectService.getMyProjects()
+    } catch (err: any) {
+      console.error('خطا در دریافت پروژه‌های من:', err)
+      if (err.response?.data?.message) {
+        errorMessages.value = [err.response.data.message]
+      } else {
+        errorMessages.value = ['خطا در دریافت پروژه‌های شما']
+      }
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   const submitProject = async () => {
     isLoading.value = true
     errorMessages.value = []
@@ -89,7 +116,7 @@ export const useProjectStore = defineStore('project', () => {
       resetProject()
       return responseData
     } catch (err: any) {
-      if (err.response && err.response.data) {
+      if (err.response?.data) {
         const backendError = err.response.data
         if (backendError.errors && Array.isArray(backendError.errors)) {
           errorMessages.value = backendError.errors.map((e: any) => e.message || e)
@@ -168,17 +195,24 @@ export const useProjectStore = defineStore('project', () => {
   }
 
   return {
+    // States & Readonly refs
     formData,
     uploadedFiles,
     isLoading,
     errorMessages,
+
     projects,
+    myProjects,
     activityLogs,
     dashboardStats,
 
+    // Project Actions
     fetchProjects,
+    fetchMyProjects,
     fetchActivityLogs,
     submitProject,
+
+    // Management Methods
     addFiles,
     removeFile,
     clearFiles,

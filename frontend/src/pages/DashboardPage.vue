@@ -1,40 +1,33 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useProjectStore } from '@/stores/project.store'
+import { onMounted, ref, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth.store'
+import { useRoleStore } from '@/stores/role.store'
 
-// کامپوننت‌های ماژولار شما
-import ProjectTestList from '@/components/dashboard/ProjectTestList.vue'
 import StatsCards from '@/components/dashboard/StatsCards.vue'
 import QuickActions from '@/components/dashboard/QuickActions.vue'
 import ProjectsMap from '@/components/dashboard/ProjectsMap.vue'
 import ProfileCard from '@/components/dashboard/ProfileCard.vue'
-
-const projectStore = useProjectStore()
+import ProjectList from '@/components/dashboard/ProjectList.vue'
+import ProposalModal from '@/components/modal/ProposalModal.vue'
+import MyProject from '@/components/dashboard/MyProject.vue'
 const authStore = useAuthStore()
+const roleStore = useRoleStore()
 
-// استیت‌های فرانت‌اَند برای شبیه‌سازی رفتار واقعی سرور
-const isLoading = ref<boolean>(true)
+// بهتر است نام متغیر واضح‌تر باشد
+const isEmployer = computed(() => roleStore.role === 'employer')
 
-// تابع شبیه‌ساز دریافت اطلاعات (بدون نیاز به پورت و سرور بک‌اندر)
+const isLoading = ref(true)
+
 const fakeFetchDashboardData = () => {
   isLoading.value = true
 
-  // شبیه‌سازی ۲ ثانیه تاخیر شبکه برای دیدن افکت لودینگ (Skeleton)
   setTimeout(() => {
-    // ۱. اگر استور پینیا کاربر خالی بود، با اطلاعات فرضی پرش می‌کنیم
     if (!authStore.name) {
       authStore.setName('')
       authStore.setEmail('')
     }
-
-    // ۲. بارگذاری داده‌های نمونه پروژه‌ها از پینیا استور شما
-    if (projectStore.projects.length === 0) {
-      projectStore.initializeMockData()
-    }
-
     isLoading.value = false
-  }, 50) // ۱.۵ ثانیه لودینگ مصنوعی
+  }, 800)
 }
 
 onMounted(() => {
@@ -43,42 +36,47 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-grey-50/90 pb-12 antialiased">
-    <!-- نوار هدر بالای صفحه -->
+  <main class="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100">
+    <div class="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+      <!-- Profile -->
+      <section class="mb-10">
+        <ProfileCard />
+      </section>
+      <MyProject v-if="isEmployer" />
 
-    <main class="max-w-7xl mx-auto pt-6">
-      <!-- وضعیت لودینگ: نمایش اسکلتون موقت برای جذابیت بصری -->
-      <div v-if="isLoading" class="space-y-6 animate-pulse">
-        <div class="grid md:grid-cols-3 gap-6">
-          <div class="h-44 bg-gray-200 rounded-xl md:col-span-1"></div>
-          <div class="h-44 bg-gray-200 rounded-xl md:col-span-2"></div>
+      <!-- Projects - فقط برای Employer نمایش داده شود -->
+      <section v-if="!isEmployer" class="mb-12">
+        <ProjectList />
+      </section>
+
+      <!-- Quick Actions -->
+      <section class="mb-12">
+        <div class="mb-6">
+          <h2 class="text-2xl font-bold text-slate-900">دسترسی سریع</h2>
+          <p class="mt-2 text-sm text-slate-500">میانبرهای مورد نیاز شما</p>
         </div>
-        <div class="h-24 bg-gray-200 rounded-xl"></div>
-        <div class="h-36 bg-gray-200 rounded-xl"></div>
-      </div>
-
-      <!-- لود کامل و ماژولار بخش‌های مختلف فرانت‌اَند -->
-      <div v-else class="space-y-6">
-        <!-- لایه کارت‌ها (پروفایل + خوش‌آمدگویی) -->
-        <div class="bg-red-400">
-          <ProfileCard />
-        </div>
-
-        <!-- لایه آمار عددی پروژه‌ها -->
-        <StatsCards />
-
-        <!-- لایه دسترسی‌های سریع (مثل دکمه ساخت پروژه جدید) -->
         <QuickActions />
-        <div class="relative z-0 w-full h-screen">
-          <ProjectsMap />
+      </section>
+
+      <!-- Statistics -->
+      <section class="mb-12">
+        <div class="mb-6">
+          <h2 class="text-2xl font-bold text-slate-900">آمار فعالیت</h2>
+          <p class="mt-2 text-sm text-slate-500">خلاصه وضعیت حساب کاربری شما</p>
         </div>
-        <!-- لایه نقشه موقعیت جغرافیایی پروژه‌ها -->
-      </div>
-      <div class="p-8 bg-gray-50 min-h-screen">
-        <div class="mt-8">
-          <ProjectTestList />
+        <StatsCards />
+      </section>
+
+      <!-- Map -->
+      <section>
+        <div class="mb-6">
+          <h2 class="text-2xl font-bold text-slate-900">نقشه پروژه‌ها</h2>
+          <p class="mt-2 text-sm text-slate-500">پراکندگی جغرافیایی پروژه‌ها</p>
         </div>
-      </div>
-    </main>
-  </div>
+        <ProjectsMap />
+      </section>
+    </div>
+
+    <ProposalModal />
+  </main>
 </template>
