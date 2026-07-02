@@ -1,6 +1,11 @@
 import { api } from './api'
 import type { Project, ActivityLog } from '@/types/project'
 
+/**
+ * =========================
+ * Types
+ * =========================
+ */
 export interface ProposalPayload {
   projectId: number
   amount: number
@@ -8,54 +13,97 @@ export interface ProposalPayload {
   coverLetter: string
 }
 
+export interface ProjectFormPayload {
+  title: string
+  category?: string
+  description?: string
+  province?: string
+  city?: string
+  address?: string
+
+  areaSelectionMethod?: string
+  calculatedArea?: number
+  coordinateSystem?: string
+  utmZone?: string
+
+  polygonCoordinates?: any[]
+  geoJson?: any
+
+  techType?: any[]
+  outputFormats?: any[]
+  requiredAccuracy?: string
+
+  deliveryTime?: string
+  budgetType?: 'fixed' | 'hourly' | 'negotiable'
+  minBudget?: number
+  maxBudget?: number
+}
+
+/**
+ * =========================
+ * Project Service
+ * =========================
+ */
 export const projectService = {
-  // ۱. دریافت پروژه‌ها با آدرس جدید بک‌اَند
+  /**
+   * 1. دریافت لیست پروژه‌های عمومی
+   */
   async getAllProjects(): Promise<Project[]> {
     const response = await api.get('/projects/list')
-    return response.data.projects || response.data
+    return response.data.projects || []
   },
 
-  // ۲. دریافت جزئیات یک پروژه با آدرس جدید بک‌اَند
+  /**
+   * 2. دریافت جزئیات یک پروژه
+   */
   async getProjectById(id: number): Promise<Project> {
     const response = await api.get(`/projects/detail/${id}`)
-    return response.data.project || response.data
+    return response.data.project
   },
 
-  // ۳. ارسال اطلاعات فرم چند مرحله‌ای به صورت Multipart
-  async createProject(formDataRaw: any, uploadedFiles: File[]): Promise<any> {
+  /**
+   * 3. ایجاد پروژه (با فایل)
+   */
+  async createProject(formDataRaw: ProjectFormPayload, uploadedFiles: File[]): Promise<Project> {
     const data = new FormData()
 
     data.append('title', formDataRaw.title || '')
-    data.append('category', formDataRaw.category || '')
-    data.append('description', formDataRaw.description || '')
+    if (formDataRaw.category) data.append('category', formDataRaw.category)
+    if (formDataRaw.description) data.append('description', formDataRaw.description)
+
     if (formDataRaw.province) data.append('province', formDataRaw.province)
     if (formDataRaw.city) data.append('city', formDataRaw.city)
     if (formDataRaw.address) data.append('address', formDataRaw.address)
 
     if (formDataRaw.areaSelectionMethod)
       data.append('areaSelectionMethod', formDataRaw.areaSelectionMethod)
-    if (formDataRaw.calculatedArea)
-      data.append('calculatedArea', formDataRaw.calculatedArea.toString())
+
+    if (formDataRaw.calculatedArea !== undefined)
+      data.append('calculatedArea', String(formDataRaw.calculatedArea))
+
     if (formDataRaw.coordinateSystem) data.append('coordinateSystem', formDataRaw.coordinateSystem)
+
     if (formDataRaw.utmZone) data.append('utmZone', formDataRaw.utmZone)
 
-    if (formDataRaw.polygonCoordinates && formDataRaw.polygonCoordinates.length > 0) {
+    if (formDataRaw.polygonCoordinates)
       data.append('polygonCoordinates', JSON.stringify(formDataRaw.polygonCoordinates))
-    }
-    if (formDataRaw.geoJson) {
-      data.append('geoJson', JSON.stringify(formDataRaw.geoJson))
-    }
+
+    if (formDataRaw.geoJson) data.append('geoJson', JSON.stringify(formDataRaw.geoJson))
 
     data.append('techType', JSON.stringify(formDataRaw.techType || []))
     data.append('outputFormats', JSON.stringify(formDataRaw.outputFormats || []))
+
     if (formDataRaw.requiredAccuracy) data.append('requiredAccuracy', formDataRaw.requiredAccuracy)
 
     if (formDataRaw.deliveryTime) data.append('deliveryTime', formDataRaw.deliveryTime)
-    data.append('budgetType', formDataRaw.budgetType || 'fixed')
-    if (formDataRaw.minBudget) data.append('minBudget', formDataRaw.minBudget.toString())
-    if (formDataRaw.maxBudget) data.append('maxBudget', formDataRaw.maxBudget.toString())
 
-    if (uploadedFiles.length > 0) {
+    data.append('budgetType', formDataRaw.budgetType || 'fixed')
+
+    if (formDataRaw.minBudget !== undefined) data.append('minBudget', String(formDataRaw.minBudget))
+
+    if (formDataRaw.maxBudget !== undefined) data.append('maxBudget', String(formDataRaw.maxBudget))
+
+    if (uploadedFiles?.length) {
       uploadedFiles.forEach((file) => {
         data.append('attachments', file)
       })
@@ -64,25 +112,71 @@ export const projectService = {
     const response = await api.post('/projects/create', data, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
-    return response.data
+
+    return response.data.project
   },
 
-  // ۴. ارسال پیشنهاد قیمت توسط فریلنسر (👈 متد جدید اضافه شده)
+  /**
+   * 4. آپدیت پروژه (با فایل جدید)
+   */
+  async updateProject(
+    id: number,
+    formDataRaw: Partial<ProjectFormPayload>,
+    uploadedFiles: File[] = [],
+  ): Promise<Project> {
+    const data = new FormData()
+
+    Object.entries(formDataRaw).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (typeof value === 'object' && key !== 'polygonCoordinates' && key !== 'geoJson') {
+          data.append(key, JSON.stringify(value))
+        } else {
+          data.append(key, String(value))
+        }
+      }
+    })
+
+    if (uploadedFiles.length) {
+      uploadedFiles.forEach((file) => {
+        data.append('attachments', file)
+      })
+    }
+
+    const response = await api.put(`/projects/update/${id}`, data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+
+    return response.data.project
+  },
+
+  /**
+   * 5. حذف پروژه
+   */
+  async deleteProject(id: number): Promise<void> {
+    await api.delete(`/projects/delete/${id}`)
+  },
+
+  /**
+   * 6. ارسال پیشنهاد
+   */
   async sendProposal(payload: ProposalPayload): Promise<any> {
-    // از آنجا که روت بک‌آند شما /api/projects/proposals/submit است
-    // و نمونه api خودش پیش‌فرض /api را دارد، آدرس زیر دقیقاً درست است:
     const response = await api.post('/projects/proposals/submit', payload)
     return response.data
   },
 
-  // ۵. دریافت لاگ‌های فعالیت
-  async getActivityLogs(): Promise<ActivityLog[]> {
-    const response = await api.get('/activity-logs')
-    return response.data.logs || response.data
-  },
-  // ================== دریافت پروژه‌های خود کارفرما ==================
+  /**
+   * 7. پروژه‌های من (کارفرما)
+   */
   async getMyProjects(): Promise<Project[]> {
     const response = await api.get('/projects/my-projects')
-    return response.data.projects || response.data
+    return response.data.projects || []
+  },
+
+  /**
+   * 8. فعالیت‌ها (اگر استفاده داری)
+   */
+  async getActivityLogs(): Promise<ActivityLog[]> {
+    const response = await api.get('/activity-logs')
+    return response.data.logs || []
   },
 }

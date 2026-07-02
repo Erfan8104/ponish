@@ -1,82 +1,64 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
-import { useAuthStore } from '@/stores/auth.store'
+import { computed, onMounted } from 'vue'
 import { useRoleStore } from '@/stores/role.store'
+import { useProjectStore } from '@/stores/project.store'
 
-import StatsCards from '@/components/dashboard/StatsCards.vue'
-import QuickActions from '@/components/dashboard/QuickActions.vue'
-import ProjectsMap from '@/components/dashboard/ProjectsMap.vue'
 import ProfileCard from '@/components/dashboard/ProfileCard.vue'
 import ProjectList from '@/components/dashboard/ProjectList.vue'
 import ProposalModal from '@/components/modal/ProposalModal.vue'
-import MyProject from '@/components/dashboard/MyProject.vue'
-const authStore = useAuthStore()
-const roleStore = useRoleStore()
+import UserEmployerProject from '@/components/dashboard/UserEmployerProject.vue'
 
-// بهتر است نام متغیر واضح‌تر باشد
+const roleStore = useRoleStore()
+const storeProject = useProjectStore()
+
 const isEmployer = computed(() => roleStore.role === 'employer')
 
-const isLoading = ref(true)
-
-const fakeFetchDashboardData = () => {
-  isLoading.value = true
-
-  setTimeout(() => {
-    if (!authStore.name) {
-      authStore.setName('')
-      authStore.setEmail('')
-    }
-    isLoading.value = false
-  }, 800)
-}
-
-onMounted(() => {
-  fakeFetchDashboardData()
+// ✅ اینجا مهم‌ترین اصلاح
+onMounted(async () => {
+  await storeProject.fetchMyProjects()
 })
 </script>
-
 <template>
-  <main class="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100">
+  <main class="min-h-screen bg-slate-50">
     <div class="mx-auto max-w-7xl px-4 py-8 lg:px-8">
       <!-- Profile -->
       <section class="mb-10">
         <ProfileCard />
       </section>
-      <MyProject v-if="isEmployer" />
+
+      <section v-if="isEmployer" class="mb-12">
+        <div class="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
+          <!-- Header -->
+          <div
+            class="flex flex-col gap-3 border-b border-gray-100 bg-gradient-to-r from-emerald-600 to-emerald-500 p-6 text-white md:flex-row md:items-center md:justify-between"
+          >
+            <div>
+              <h2 class="text-2xl font-bold">پروژه‌های من</h2>
+
+              <p class="mt-1 text-sm text-emerald-100">
+                در این بخش می‌توانید تمام پروژه‌هایی را که ایجاد کرده‌اید مشاهده و مدیریت کنید.
+              </p>
+            </div>
+
+            <div
+              class="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 text-2xl font-bold backdrop-blur-sm"
+            >
+              {{ storeProject.myProjects.length }}
+            </div>
+          </div>
+
+          <!-- Content -->
+          <div class="p-6">
+            <UserEmployerProject />
+          </div>
+        </div>
+      </section>
 
       <!-- Projects - فقط برای Employer نمایش داده شود -->
       <section v-if="!isEmployer" class="mb-12">
         <ProjectList />
       </section>
-
-      <!-- Quick Actions -->
-      <section class="mb-12">
-        <div class="mb-6">
-          <h2 class="text-2xl font-bold text-slate-900">دسترسی سریع</h2>
-          <p class="mt-2 text-sm text-slate-500">میانبرهای مورد نیاز شما</p>
-        </div>
-        <QuickActions />
-      </section>
-
-      <!-- Statistics -->
-      <section class="mb-12">
-        <div class="mb-6">
-          <h2 class="text-2xl font-bold text-slate-900">آمار فعالیت</h2>
-          <p class="mt-2 text-sm text-slate-500">خلاصه وضعیت حساب کاربری شما</p>
-        </div>
-        <StatsCards />
-      </section>
-
-      <!-- Map -->
-      <section>
-        <div class="mb-6">
-          <h2 class="text-2xl font-bold text-slate-900">نقشه پروژه‌ها</h2>
-          <p class="mt-2 text-sm text-slate-500">پراکندگی جغرافیایی پروژه‌ها</p>
-        </div>
-        <ProjectsMap />
-      </section>
     </div>
-
     <ProposalModal />
   </main>
 </template>

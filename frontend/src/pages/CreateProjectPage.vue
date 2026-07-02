@@ -237,6 +237,7 @@ const handleResetForm = () => {
             </button>
 
             <button
+              v-if="currentStep !== steps.length - 1"
               @click="nextStep"
               :disabled="!isStepValid"
               type="button"

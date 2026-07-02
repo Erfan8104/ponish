@@ -1,20 +1,26 @@
 import { defineStore } from 'pinia'
-import { reactive, ref, computed } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { projectService } from '@/services/project.service'
-import type { Project, ActivityLog, DashboardStats } from '@/types/project'
-import MyProject from '@/components/dashboard/MyProject.vue'
+import type { Project, ActivityLog } from '@/types/project'
 
 export type Coordinate = [number, number]
 
-export interface ProposalPayload {
-  projectId: number
-  amount: number
-  deliveryDays: number
-  coverLetter: string
-}
-
 export const useProjectStore = defineStore('project', () => {
-  // ================== Form Data (Employer) ==================
+  // ==========================
+  // State
+  // ==========================
+
+  const projects = ref<Project[]>([])
+  const myProjects = ref<Project[]>([])
+  const activityLogs = ref<ActivityLog[]>([])
+
+  const isLoading = ref(false)
+  const error = ref<string | null>(null)
+
+  // ==========================
+  // Form (create project)
+  // ==========================
+
   const formData = reactive({
     title: '',
     category: '',
@@ -25,7 +31,7 @@ export const useProjectStore = defineStore('project', () => {
 
     areaSelectionMethod: 'map',
     polygonCoordinates: [] as Coordinate[],
-    geoJson: null as GeoJSON.Feature | null,
+    geoJson: null as any,
     calculatedArea: 0,
     coordinateSystem: 'WGS84',
     utmZone: '',
@@ -39,38 +45,47 @@ export const useProjectStore = defineStore('project', () => {
     minBudget: '',
     maxBudget: '',
   })
-  const myProjects = ref<Project[]>([])
 
   const uploadedFiles = ref<File[]>([])
-  const isLoading = ref(false)
-  const errorMessages = ref<string[]>([])
 
-  // ================== Real Database State ==================
-  const projects = ref<Project[]>([])
-  const activityLogs = ref<ActivityLog[]>([])
+  // ==========================
+  // Getters
+  // ==========================
 
-  const dashboardStats = computed<DashboardStats>(() => ({
+  const dashboardStats = computed(() => ({
     totalProjects: projects.value.length,
     activeProjects: projects.value.filter((p) => p.status === 'open' || p.status === 'in_progress')
       .length,
     completedProjects: projects.value.filter((p) => p.status === 'completed').length,
-    totalArea: projects.value.reduce((sum, p) => sum + (p.calculatedArea || 0), 0),
   }))
 
-  // ================== Actions (Projects) ==================
+  const openProjects = computed(() => projects.value.filter((p) => p.status === 'open'))
+
+  // ==========================
+  // API Actions
+  // ==========================
 
   const fetchProjects = async () => {
     isLoading.value = true
-    errorMessages.value = []
+    error.value = null
+
     try {
       projects.value = await projectService.getAllProjects()
     } catch (err: any) {
-      console.error('خطا در دریافت پروژه‌ها:', err)
-      if (err.response?.data?.message) {
-        errorMessages.value = [err.response.data.message]
-      } else {
-        errorMessages.value = ['خطا در دریافت اطلاعات پروژه‌ها از سرور.']
-      }
+      error.value = err.response?.data?.message || 'خطا در دریافت پروژه‌ها'
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  const fetchMyProjects = async () => {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      myProjects.value = await projectService.getMyProjects()
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'خطا در دریافت پروژه‌های من'
     } finally {
       isLoading.value = false
     }
@@ -80,61 +95,52 @@ export const useProjectStore = defineStore('project', () => {
     try {
       activityLogs.value = await projectService.getActivityLogs()
     } catch (err) {
-      console.error('خطا در دریافت لاگ‌های فعالیت:', err)
-    }
-  }
-
-  const fetchMyProjects = async () => {
-    isLoading.value = true
-    errorMessages.value = []
-
-    try {
-      myProjects.value = await projectService.getMyProjects()
-    } catch (err: any) {
-      console.error('خطا در دریافت پروژه‌های من:', err)
-      if (err.response?.data?.message) {
-        errorMessages.value = [err.response.data.message]
-      } else {
-        errorMessages.value = ['خطا در دریافت پروژه‌های شما']
-      }
-    } finally {
-      isLoading.value = false
+      console.error(err)
     }
   }
 
   const submitProject = async () => {
     isLoading.value = true
-    errorMessages.value = []
+    error.value = null
 
     try {
-      const responseData = await projectService.createProject(formData, uploadedFiles.value)
+      const res = await projectService.createProject(formData, uploadedFiles.value)
 
-      if (responseData && responseData.project) {
-        projects.value.unshift(responseData.project)
+      if (res?.project) {
+        projects.value.unshift(res.project)
+        myProjects.value.unshift(res.project) // 👈 مهم
       }
 
-      resetProject()
-      return responseData
+      resetForm()
+
+      return res
     } catch (err: any) {
-      if (err.response?.data) {
-        const backendError = err.response.data
-        if (backendError.errors && Array.isArray(backendError.errors)) {
-          errorMessages.value = backendError.errors.map((e: any) => e.message || e)
-        } else if (backendError.message) {
-          errorMessages.value = [backendError.message]
-        } else {
-          errorMessages.value = ['خطایی در اعتبارسنجی داده‌ها رخ داد.']
-        }
-      } else {
-        errorMessages.value = ['خطای ارتباط با سرور! وضعیت اتصال اینترنت خود را بررسی کنید.']
-      }
+      error.value = err.response?.data?.message || 'خطا در ثبت پروژه'
       throw err
     } finally {
       isLoading.value = false
     }
   }
 
-  // ================== File Management ==================
+  const updateProject = async (id: number, data: any, files: File[] = []) => {
+    const res = await projectService.updateProject(id, data, files)
+
+    const index = myProjects.value.findIndex((p) => p.id === id)
+    if (index !== -1) myProjects.value[index] = res
+
+    return res
+  }
+
+  const deleteProject = async (id: number) => {
+    await projectService.deleteProject(id)
+
+    myProjects.value = myProjects.value.filter((p) => p.id !== id)
+  }
+
+  // ==========================
+  // Helpers
+  // ==========================
+
   const addFiles = (files: File[]) => {
     uploadedFiles.value.push(...files)
   }
@@ -143,83 +149,50 @@ export const useProjectStore = defineStore('project', () => {
     uploadedFiles.value.splice(index, 1)
   }
 
-  const clearFiles = () => {
-    uploadedFiles.value = []
-  }
-
-  // ================== Polygon Management ==================
-  const setPolygon = (coordinates: Coordinate[], area: number, geoJson?: GeoJSON.Feature) => {
-    formData.polygonCoordinates = coordinates
-    formData.calculatedArea = area
-    if (geoJson) formData.geoJson = geoJson
-  }
-
-  const clearPolygon = () => {
-    formData.polygonCoordinates = []
-    formData.calculatedArea = 0
-    formData.geoJson = null
-  }
-
-  // ================== Form Reset ==================
-  const resetProject = () => {
+  const resetForm = () => {
     formData.title = ''
     formData.category = ''
     formData.description = ''
     formData.province = ''
     formData.city = ''
     formData.address = ''
-    formData.areaSelectionMethod = 'map'
+    formData.calculatedArea = 0
     formData.polygonCoordinates = []
     formData.geoJson = null
-    formData.calculatedArea = 0
-    formData.coordinateSystem = 'WGS84'
-    formData.utmZone = ''
     formData.techType = []
     formData.outputFormats = []
-    formData.requiredAccuracy = '1-5cm'
-    formData.deliveryTime = '1-week'
-    formData.budgetType = 'fixed'
     formData.minBudget = ''
     formData.maxBudget = ''
 
     uploadedFiles.value = []
-    errorMessages.value = []
-  }
-
-  const getRecentProjects = (limit: number = 5): Project[] => {
-    return projects.value.slice(0, limit)
-  }
-
-  const getProjectsByStatus = (status: Project['status']): Project[] => {
-    return projects.value.filter((p) => p.status === status)
+    error.value = null
   }
 
   return {
-    // States & Readonly refs
-    formData,
-    uploadedFiles,
-    isLoading,
-    errorMessages,
-
+    // state
     projects,
     myProjects,
     activityLogs,
-    dashboardStats,
+    formData,
+    uploadedFiles,
+    isLoading,
+    error,
 
-    // Project Actions
+    // getters
+    dashboardStats,
+    openProjects,
+
+    // actions
     fetchProjects,
     fetchMyProjects,
     fetchActivityLogs,
     submitProject,
+    updateProject,
+    deleteProject,
 
-    // Management Methods
+    // helpers
     addFiles,
     removeFile,
-    clearFiles,
-    setPolygon,
-    clearPolygon,
-    resetProject,
-    getRecentProjects,
-    getProjectsByStatus,
+    resetForm,
   }
 })

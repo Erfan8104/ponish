@@ -11,7 +11,7 @@ const openProposal = (projectId: number) => {
 
   if (!project) return
 
-  proposalStore.openProposalModal(project)
+  proposalStore.openModal(project)
 }
 </script>
 
