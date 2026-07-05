@@ -14,8 +14,7 @@ import {
 
 const proposalStore = useProposalStore()
 
-const { isModalOpen, selectedProject, form, isSubmitting, submitError } = storeToRefs(proposalStore)
-
+const { isModalOpen, selectedProject, form, isSubmitting, error } = storeToRefs(proposalStore)
 const onlyNumber = (event: Event, field: 'amount' | 'deliveryDays') => {
   const input = event.target as HTMLInputElement
   const value = input.value.replace(/\D/g, '')
@@ -69,7 +68,7 @@ const onlyNumber = (event: Event, field: 'amount' | 'deliveryDays') => {
             </div>
 
             <!-- Form -->
-            <form @submit.prevent="proposalStore.submitProposal" class="flex flex-col">
+            <form @submit.prevent="proposalStore.submit" class="flex flex-col">
               <div class="overflow-y-auto max-h-[calc(88vh-78px)] space-y-6 p-6">
                 <!-- Project Info -->
                 <div
@@ -166,10 +165,10 @@ const onlyNumber = (event: Event, field: 'amount' | 'deliveryDays') => {
                 <!-- Error Message -->
                 <Transition>
                   <div
-                    v-if="submitError"
-                    class="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-600 text-sm"
+                    v-if="error"
+                    class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-600"
                   >
-                    {{ submitError }}
+                    {{ error }}
                   </div>
                 </Transition>
               </div>

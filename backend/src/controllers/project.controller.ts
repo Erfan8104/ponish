@@ -254,10 +254,20 @@ export const getProjectById = async (req: Request, res: Response) => {
       include: {
         category: true,
         employer: {
-          select: { name: true, avatar: true },
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
         },
-        proposals: true,
         attachments: true,
+
+        contract: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
       },
     });
 
@@ -268,6 +278,23 @@ export const getProjectById = async (req: Request, res: Response) => {
       });
     }
 
+    const proposalCount = await prisma.proposal.count({
+      where: {
+        projectId: Number(id),
+      },
+    });
+
+    const projectResponse = {
+      ...project,
+
+      canEdit: !project.contract,
+
+      canDelete: !project.contract,
+
+      proposalCount,
+
+      attachmentCount: project.attachments.length,
+    };
     await prisma.project.update({
       where: { id: Number(id) },
       data: {
@@ -277,7 +304,7 @@ export const getProjectById = async (req: Request, res: Response) => {
 
     return res.json({
       success: true,
-      project,
+      project: projectResponse,
     });
   } catch (error) {
     return res.status(500).json({
@@ -456,6 +483,55 @@ export const submitProposal = async (req: AuthRequest, res: Response) => {
 
     const targetProjectId = Number(projectId);
 
+    console.log("Logged User:", req.user);
+    console.log("FreelancerId:", freelancerId);
+
+    // بررسی وجود پروژه
+    const project = await prisma.project.findUnique({
+      where: {
+        id: targetProjectId,
+      },
+      select: {
+        employerId: true,
+        deletedAt: true,
+        status: true,
+      },
+    });
+
+    if (!project || project.deletedAt || project.status !== "open") {
+      return res.status(404).json({
+        success: false,
+        message: "پروژه در دسترس نیست",
+      });
+    }
+
+    // جلوگیری از ثبت پیشنهاد روی پروژه خود
+    if (project.employerId === freelancerId) {
+      return res.status(400).json({
+        success: false,
+        message: "نمی‌توانید برای پروژه خودتان پیشنهاد ثبت کنید.",
+      });
+    }
+
+    // بررسی نقش کاربر
+    const user = await prisma.user.findUnique({
+      where: {
+        id: freelancerId,
+      },
+      select: {
+        role: true,
+      },
+    });
+    console.log("User From DB:", user);
+
+    if (!user || (user.role !== "freelancer" && user.role !== "both")) {
+      return res.status(403).json({
+        success: false,
+        message: "فقط فریلنسرها می‌توانند پیشنهاد ثبت کنند.",
+      });
+    }
+
+    // جلوگیری از ثبت پیشنهاد تکراری
     const existing = await prisma.proposal.findUnique({
       where: {
         projectId_freelancerId: {
@@ -472,17 +548,7 @@ export const submitProposal = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const project = await prisma.project.findUnique({
-      where: { id: targetProjectId },
-    });
-
-    if (!project || project.deletedAt || project.status !== "open") {
-      return res.status(404).json({
-        success: false,
-        message: "پروژه در دسترس نیست",
-      });
-    }
-
+    // ثبت پیشنهاد
     const proposal = await prisma.proposal.create({
       data: {
         projectId: targetProjectId,
@@ -500,7 +566,7 @@ export const submitProposal = async (req: AuthRequest, res: Response) => {
       proposal,
     });
   } catch (error) {
-    console.error(error);
+    console.error("submitProposal error:", error);
 
     return res.status(500).json({
       success: false,
@@ -508,7 +574,6 @@ export const submitProposal = async (req: AuthRequest, res: Response) => {
     });
   }
 };
-
 /**
  * =========================
  * 7. GET MY PROJECTS
@@ -529,7 +594,7 @@ export const getMyProjects = async (req: AuthRequest, res: Response) => {
       include: {
         category: true,
         attachments: true,
-        proposals: true,
+
         _count: {
           select: {
             proposals: true,
@@ -547,6 +612,67 @@ export const getMyProjects = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({
       success: false,
       message: "خطا در دریافت پروژه‌ها",
+    });
+  }
+};
+
+export const getProjectProposals = async (req: AuthRequest, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+    const employerId = Number(req.user!.userId);
+    const project = await prisma.project.findUnique({
+      where: {
+        id: projectId,
+      },
+      select: {
+        id: true,
+        employerId: true,
+        deletedAt: true,
+      },
+    });
+    if (!project || project.deletedAt) {
+      return res.status(404).json({
+        success: false,
+        message: "پروژه پیدا نشد",
+      });
+    }
+    if (project.employerId !== employerId) {
+      return res.status(403).json({
+        success: false,
+        message: "دسترسی ندارید",
+      });
+    }
+
+    const proposals = await prisma.proposal.findMany({
+      where: {
+        projectId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      include: {
+        freelancer: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+            city: true,
+            province: true,
+          },
+        },
+      },
+    });
+    return res.status(200).json({
+      success: true,
+      proposals,
+      count: proposals.length,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "خطا در دریافت پیشنهادها",
     });
   }
 };

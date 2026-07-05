@@ -1,25 +1,34 @@
 import { defineStore } from 'pinia'
 import { ref, reactive, computed } from 'vue'
 import { projectService } from '@/services/project.service'
-import type { Project, ActivityLog } from '@/types/project'
+import type { Project, ActivityLog, ProjectDetail } from '@/types/project'
 
 export type Coordinate = [number, number]
 
 export const useProjectStore = defineStore('project', () => {
-  // ==========================
-  // State
-  // ==========================
+  /**
+   * =========================
+   * State
+   * =========================
+   */
 
   const projects = ref<Project[]>([])
   const myProjects = ref<Project[]>([])
   const activityLogs = ref<ActivityLog[]>([])
 
+  // Modal State (Project Details)
+  const projectDetails = ref<ProjectDetail | null>(null)
+  const isProjectDetailsModalOpen = ref(false)
+  const isProjectDetailsLoading = ref(false)
+
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  // ==========================
-  // Form (create project)
-  // ==========================
+  /**
+   * =========================
+   * Form (Create Project)
+   * =========================
+   */
 
   const formData = reactive({
     title: '',
@@ -48,9 +57,11 @@ export const useProjectStore = defineStore('project', () => {
 
   const uploadedFiles = ref<File[]>([])
 
-  // ==========================
-  // Getters
-  // ==========================
+  /**
+   * =========================
+   * Getters
+   * =========================
+   */
 
   const dashboardStats = computed(() => ({
     totalProjects: projects.value.length,
@@ -61,9 +72,38 @@ export const useProjectStore = defineStore('project', () => {
 
   const openProjects = computed(() => projects.value.filter((p) => p.status === 'open'))
 
-  // ==========================
-  // API Actions
-  // ==========================
+  /**
+   * =========================
+   * Modal Actions (Project Details)
+   * =========================
+   */
+
+  const openProjectDetails = async (id: number) => {
+    isProjectDetailsModalOpen.value = true
+    isProjectDetailsLoading.value = true
+    error.value = null
+
+    try {
+      const res = await projectService.getProjectById(id)
+
+      projectDetails.value = res
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'خطا در دریافت جزئیات پروژه'
+      projectDetails.value = null
+    } finally {
+      isProjectDetailsLoading.value = false
+    }
+  }
+
+  const closeProjectDetails = () => {
+    isProjectDetailsModalOpen.value = false
+    projectDetails.value = null
+  }
+  /**
+   * =========================
+   * API Actions
+   * =========================
+   */
 
   const fetchProjects = async () => {
     isLoading.value = true
@@ -106,9 +146,9 @@ export const useProjectStore = defineStore('project', () => {
     try {
       const res = await projectService.createProject(formData, uploadedFiles.value)
 
-      if (res?.project) {
-        projects.value.unshift(res.project)
-        myProjects.value.unshift(res.project) // 👈 مهم
+      if (res) {
+        projects.value.unshift(res)
+        myProjects.value.unshift(res)
       }
 
       resetForm()
@@ -123,23 +163,57 @@ export const useProjectStore = defineStore('project', () => {
   }
 
   const updateProject = async (id: number, data: any, files: File[] = []) => {
-    const res = await projectService.updateProject(id, data, files)
+    isLoading.value = true
+    error.value = null
 
-    const index = myProjects.value.findIndex((p) => p.id === id)
-    if (index !== -1) myProjects.value[index] = res
+    try {
+      // ایجاد کپی برای عدم دستکاری استیت اصلی در حین آماده‌سازی فرم داده
+      const payload = { ...data }
 
-    return res
+      // اطمینان از فرمت صحیح برای آرایه‌ها و داده‌های مکانی نقشه
+      if (payload.techType) payload.techType = payload.techType
+      if (payload.outputFormats) payload.outputFormats = payload.outputFormats
+      if (payload.polygonCoordinates) payload.polygonCoordinates = payload.polygonCoordinates
+      if (payload.geoJson) payload.geoJson = payload.geoJson
+
+      const res = await projectService.updateProject(id, payload, files)
+
+      const index = myProjects.value.findIndex((p) => p.id === id)
+      if (index !== -1) {
+        myProjects.value[index] = res
+      }
+
+      if (projectDetails.value?.id === id) {
+        projectDetails.value = {
+          ...projectDetails.value,
+          ...res,
+        } as ProjectDetail
+      }
+
+      return res
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'خطا در ویرایش پروژه'
+      throw err
+    } finally {
+      isLoading.value = false
+    }
   }
 
   const deleteProject = async (id: number) => {
     await projectService.deleteProject(id)
 
     myProjects.value = myProjects.value.filter((p) => p.id !== id)
+
+    if (projectDetails.value?.id === id) {
+      closeProjectDetails()
+    }
   }
 
-  // ==========================
-  // Helpers
-  // ==========================
+  /**
+   * =========================
+   * Helpers
+   * =========================
+   */
 
   const addFiles = (files: File[]) => {
     uploadedFiles.value.push(...files)
@@ -168,13 +242,31 @@ export const useProjectStore = defineStore('project', () => {
     error.value = null
   }
 
+  const clearPolygon = () => {
+    formData.polygonCoordinates = []
+    formData.geoJson = null
+    formData.calculatedArea = 0
+  }
+
+  /**
+   * =========================
+   * Return
+   * =========================
+   */
+
   return {
     // state
     projects,
     myProjects,
     activityLogs,
+
+    projectDetails,
+    isProjectDetailsModalOpen,
+    isProjectDetailsLoading,
+
     formData,
     uploadedFiles,
+
     isLoading,
     error,
 
@@ -190,9 +282,13 @@ export const useProjectStore = defineStore('project', () => {
     updateProject,
     deleteProject,
 
+    openProjectDetails,
+    closeProjectDetails,
+
     // helpers
     addFiles,
     removeFile,
     resetForm,
+    clearPolygon,
   }
 })

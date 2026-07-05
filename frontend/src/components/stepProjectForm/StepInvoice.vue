@@ -36,8 +36,10 @@ const handlePublishProject = async () => {
   try {
     await store.submitProject()
     router.push('/dashboard')
-  } catch (err) {
+  } catch (err: any) {
     console.error('submit failed:', err)
+    console.log(err?.response?.data?.errors)
+    console.log(err?.response?.data)
   }
 }
 </script>

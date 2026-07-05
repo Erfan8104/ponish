@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  getProjectProposals,
   getMyProjects,
   createProject,
   getProjects,
@@ -16,6 +17,7 @@ const router = Router();
 // روت‌های عمومی (نیاز به لاگین ندارند - برای فید عمومی پروژه‌ها)
 router.get("/list", getProjects); // مسیر: /api/projects/list
 router.get("/detail/:id", getProjectById); // مسیر: /api/projects/detail/:id
+router.get("/detail/:id/proposals", authMiddleware, getProjectProposals);
 router.post("/proposals/submit", authMiddleware, submitProposal); // مسیر نهایی: /api/projects/proposals/submit
 // روت‌های محافظت‌شده (مخصوص کارفرما)
 router.post(

@@ -168,6 +168,7 @@ const handleDelete = async (id: number) => {
 
           <div class="flex items-center gap-3">
             <button
+              @click="store.openProjectDetails(project.id)"
               class="rounded-xl border border-gray-200 px-5 py-2 text-gray-700 hover:bg-gray-100 transition"
             >
               مشاهده

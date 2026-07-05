@@ -1,5 +1,5 @@
 import { api } from './api'
-import type { Project, ActivityLog } from '@/types/project'
+import type { Project, ActivityLog, ProjectDetail } from '@/types/project'
 
 /**
  * =========================
@@ -56,8 +56,9 @@ export const projectService = {
   /**
    * 2. دریافت جزئیات یک پروژه
    */
-  async getProjectById(id: number): Promise<Project> {
+  async getProjectById(id: number): Promise<ProjectDetail> {
     const response = await api.get(`/projects/detail/${id}`)
+    console.log(response.data)
     return response.data.project
   },
 
@@ -68,40 +69,48 @@ export const projectService = {
     const data = new FormData()
 
     data.append('title', formDataRaw.title || '')
-    if (formDataRaw.category) data.append('category', formDataRaw.category)
     if (formDataRaw.description) data.append('description', formDataRaw.description)
+
+    // اگر حوزه مشخص نبود، به بک‌میدان ارسال نشود تا دسته بندی اصلی خالی بماند یا پیش فرض ادمین شود
+    if (formDataRaw.category && formDataRaw.category !== 'unknown') {
+      data.append('category', formDataRaw.category)
+    }
 
     if (formDataRaw.province) data.append('province', formDataRaw.province)
     if (formDataRaw.city) data.append('city', formDataRaw.city)
     if (formDataRaw.address) data.append('address', formDataRaw.address)
-
     if (formDataRaw.areaSelectionMethod)
       data.append('areaSelectionMethod', formDataRaw.areaSelectionMethod)
 
     if (formDataRaw.calculatedArea !== undefined)
       data.append('calculatedArea', String(formDataRaw.calculatedArea))
-
     if (formDataRaw.coordinateSystem) data.append('coordinateSystem', formDataRaw.coordinateSystem)
+    if (formDataRaw.utmZone && formDataRaw.utmZone !== 'auto')
+      data.append('utmZone', formDataRaw.utmZone)
 
-    if (formDataRaw.utmZone) data.append('utmZone', formDataRaw.utmZone)
-
-    if (formDataRaw.polygonCoordinates)
+    // ارسال ایمن مختصات نقشه
+    if (formDataRaw.polygonCoordinates && formDataRaw.polygonCoordinates.length > 0) {
       data.append('polygonCoordinates', JSON.stringify(formDataRaw.polygonCoordinates))
-
-    if (formDataRaw.geoJson) data.append('geoJson', JSON.stringify(formDataRaw.geoJson))
+    }
+    if (formDataRaw.geoJson) {
+      data.append('geoJson', JSON.stringify(formDataRaw.geoJson))
+    }
 
     data.append('techType', JSON.stringify(formDataRaw.techType || []))
     data.append('outputFormats', JSON.stringify(formDataRaw.outputFormats || []))
-
     if (formDataRaw.requiredAccuracy) data.append('requiredAccuracy', formDataRaw.requiredAccuracy)
-
     if (formDataRaw.deliveryTime) data.append('deliveryTime', formDataRaw.deliveryTime)
 
+    // اصلاح فیلد نوع بودجه
     data.append('budgetType', formDataRaw.budgetType || 'fixed')
 
-    if (formDataRaw.minBudget !== undefined) data.append('minBudget', String(formDataRaw.minBudget))
-
-    if (formDataRaw.maxBudget !== undefined) data.append('maxBudget', String(formDataRaw.maxBudget))
+    // جلوگیری از ارسال رشته های خالی مالی
+    if (formDataRaw.minBudget && String(formDataRaw.minBudget).trim() !== '') {
+      data.append('minBudget', String(formDataRaw.minBudget))
+    }
+    if (formDataRaw.maxBudget && String(formDataRaw.maxBudget).trim() !== '') {
+      data.append('maxBudget', String(formDataRaw.maxBudget))
+    }
 
     if (uploadedFiles?.length) {
       uploadedFiles.forEach((file) => {
@@ -115,7 +124,6 @@ export const projectService = {
 
     return response.data.project
   },
-
   /**
    * 4. آپدیت پروژه (با فایل جدید)
    */
@@ -178,5 +186,13 @@ export const projectService = {
   async getActivityLogs(): Promise<ActivityLog[]> {
     const response = await api.get('/activity-logs')
     return response.data.logs || []
+  },
+
+  /**
+   * دریافت پیشنهادهای یک پروژه (مخصوص کارفرما)
+   */
+  async getProjectProposals(projectId: number) {
+    const response = await api.get(`/projects/detail/${projectId}/proposals`)
+    return response.data.proposals
   },
 }

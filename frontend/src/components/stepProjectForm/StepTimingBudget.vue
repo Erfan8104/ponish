@@ -31,14 +31,15 @@ const deliveryOptions = [
   },
 ]
 
+// جایگزین کردن گزینه‌های قبلی در کامپوننت StepTimingBudget.vue
 const budgetModes = [
   {
-    id: 'custom',
-    title: 'بودجه دلخواه',
+    id: 'fixed',
+    title: 'بودجه دلخواه (ثابت)',
   },
   {
-    id: 'open',
-    title: 'استعلام قیمت',
+    id: 'negotiable',
+    title: 'استعلام قیمت (توافقی)',
   },
 ]
 
@@ -127,7 +128,7 @@ const formatPrice = (value: number) => {
 
     <!-- بودجه دلخواه -->
 
-    <div v-if="store.formData.budgetType === 'custom'" class="grid md:grid-cols-2 gap-4">
+    <div v-if="store.formData.budgetType === 'fixed'" class="grid md:grid-cols-2 gap-4">
       <div>
         <label class="block text-xs font-bold text-gray-600 mb-2"> حداقل بودجه </label>
 

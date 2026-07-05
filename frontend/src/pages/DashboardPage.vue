@@ -7,6 +7,7 @@ import ProfileCard from '@/components/dashboard/ProfileCard.vue'
 import ProjectList from '@/components/dashboard/ProjectList.vue'
 import ProposalModal from '@/components/modal/ProposalModal.vue'
 import UserEmployerProject from '@/components/dashboard/UserEmployerProject.vue'
+import ProjectDetailModal from '@/components/modal/ProjectDetailModal.vue'
 
 const roleStore = useRoleStore()
 const storeProject = useProjectStore()
@@ -60,5 +61,6 @@ onMounted(async () => {
       </section>
     </div>
     <ProposalModal />
+    <ProjectDetailModal />
   </main>
 </template>

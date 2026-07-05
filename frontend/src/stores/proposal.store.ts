@@ -9,7 +9,7 @@ export const useProposalStore = defineStore('proposal', () => {
   const error = ref<string | null>(null)
 
   const selectedProject = ref<Project | null>(null)
-
+  const proposals = ref<any[]>([])
   const form = reactive({
     amount: null as number | null,
     deliveryDays: null as number | null,
@@ -62,16 +62,26 @@ export const useProposalStore = defineStore('proposal', () => {
     }
   }
 
+  const fetchProjectProposals = async (projectId: number) => {
+    try {
+      proposals.value = await projectService.getProjectProposals(projectId)
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'خطا در دریافت پیشنهادها'
+    }
+  }
   return {
     isModalOpen,
     isSubmitting,
     error,
     selectedProject,
     form,
+    proposals,
 
     openModal,
     closeModal,
     submit,
     reset,
+
+    fetchProjectProposals,
   }
 })
