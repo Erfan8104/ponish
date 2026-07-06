@@ -3,6 +3,49 @@ import { prisma } from "../lib/prisma";
 import { AuthRequest } from "../middleware/auth.middleware";
 
 /**
+ * دریافت اطلاعات کامل پروفایل کاربر جاری
+ */
+export const getMyProfile = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        employerProfile: true,
+        freelancerProfile: {
+          include: {
+            skills: {
+              include: {
+                skill: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "کاربر یافت نشد",
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    console.error("Error fetching profile:", error);
+    return res.status(500).json({
+      success: false,
+      message: "خطا در دریافت اطلاعات پروفایل",
+    });
+  }
+};
+
+/**
  * آپدیت پروفایل کارفرما
  */
 export const updateEmployerProfile = async (
@@ -15,7 +58,6 @@ export const updateEmployerProfile = async (
       name,
       phone,
       email,
-      avatar,
       province,
       city,
       companyName,
@@ -23,6 +65,13 @@ export const updateEmployerProfile = async (
       website,
       address,
     } = req.body;
+
+    // 🌟 استخراج مسیر فایل آواتار در صورت آپلود شدن توسط مالتر
+    let avatarPath = req.body.avatar;
+    if (req.file) {
+      // اگر فرانت فایل فرستاده باشد، مسیر فایل ذخیره شده را برمیداریم
+      avatarPath = `/uploads/${req.file.filename}`; // یا req.file.path بسته به تنظیمات آپلودتان
+    }
 
     // استفاده از Transaction برای امنیت و یکپارچگی داده‌ها
     const result = await prisma.$transaction(async (tx) => {
@@ -33,7 +82,7 @@ export const updateEmployerProfile = async (
           name,
           phone,
           email,
-          avatar,
+          avatar: avatarPath,
           province,
           city,
           role: "employer", // مقدار انوم دقیقاً مطابق اسکیما
@@ -89,7 +138,6 @@ export const updateFreelancerProfile = async (
       name,
       phone,
       email,
-      avatar,
       province,
       city,
       birthDate,
@@ -98,8 +146,25 @@ export const updateFreelancerProfile = async (
       experience,
       hourlyRate,
       portfolioUrl,
-      skillIds, // آرایه‌ای از ID مهارت‌ها که از فرانت می‌آید: [1, 4, 7]
+      skillIds, // این از فرانت به صورت رشته جی‌سان می‌آید
     } = req.body;
+
+    // 🌟 ۱. هماهنگی با فرانت برای فایل آواتار
+    let avatarPath = req.body.avatar;
+    if (req.file) {
+      avatarPath = `/uploads/${req.file.filename}`;
+    }
+
+    // 🌟 ۲. تبدیل رشته جی‌سانِ مهارت‌ها به آرایه عددی واقعی جهت استفاده در پرایزما
+    let parsedSkillIds: number[] = [];
+    if (skillIds) {
+      try {
+        parsedSkillIds =
+          typeof skillIds === "string" ? JSON.parse(skillIds) : skillIds;
+      } catch (e) {
+        parsedSkillIds = [];
+      }
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       // ۱. آپدیت اطلاعات اصلی در جدول کاربر
@@ -109,7 +174,7 @@ export const updateFreelancerProfile = async (
           name,
           phone,
           email,
-          avatar,
+          avatar: avatarPath,
           province,
           city,
           role: "freelancer",
@@ -118,9 +183,7 @@ export const updateFreelancerProfile = async (
       });
 
       // ۲. مدیریت مهارت‌ها (ابتدا مهارت‌های قبلی حذف و سپس مهارت‌های جدید ثبت می‌شوند)
-      // این بخش در صورت ارسال skillIds فعال می‌شود
-      let skillsConnection = {};
-      if (skillIds && Array.isArray(skillIds)) {
+      if (Array.isArray(parsedSkillIds)) {
         // پیدا کردن پروفایل فریلنسر اگر از قبل وجود دارد برای پاک کردن مهارت‌های قدیمی
         const existingProfile = await tx.freelancerProfile.findUnique({
           where: { userId },
@@ -130,15 +193,17 @@ export const updateFreelancerProfile = async (
             where: { freelancerProfileId: existingProfile.id },
           });
         }
-
-        // آماده‌سازی مهارت‌های جدید برای ساخت همزمان (Nested Write)
-        skillsConnection = {
-          create: skillIds.map((id: number) => ({
-            skillId: id,
-            level: "intermediate", // می‌توانید رتبه مهارتی پیش‌فرض بگذارید
-          })),
-        };
       }
+
+      // آماده‌سازی مهارت‌های جدید برای ساخت همزمان (Nested Write)
+      const skillsConnection = Array.isArray(parsedSkillIds)
+        ? {
+            create: parsedSkillIds.map((id: number) => ({
+              skillId: Number(id), // تبدیل حتمی به عدد برای دیتابیس
+              level: "intermediate",
+            })),
+          }
+        : undefined;
 
       // ۳. آپدیت یا ایجاد پروفایل فریلنسر
       const profile = await tx.freelancerProfile.upsert({
@@ -149,7 +214,7 @@ export const updateFreelancerProfile = async (
           education,
           experience,
           portfolioUrl,
-          hourlyRate,
+          hourlyRate: hourlyRate ? Number(hourlyRate) : null, // هندل کردن فرمت Decimal
           skills: skillsConnection,
         },
         create: {
@@ -159,11 +224,13 @@ export const updateFreelancerProfile = async (
           education,
           experience,
           portfolioUrl,
-          hourlyRate,
+          hourlyRate: hourlyRate ? Number(hourlyRate) : null,
           skills: skillsConnection,
         },
         include: {
-          skills: true, // بازگرداندن مهارت‌ها در پاسخ خروجی
+          skills: {
+            include: { skill: true },
+          },
         },
       });
 

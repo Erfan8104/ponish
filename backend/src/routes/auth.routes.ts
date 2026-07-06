@@ -1,155 +1,32 @@
 import { Router } from "express";
-import { prisma } from "../lib/prisma";
-import jwt from "jsonwebtoken";
-import { authMiddleware, AuthRequest } from "../middleware/auth.middleware";
+import { authMiddleware } from "../middleware/auth.middleware";
+import {
+  sendOtp,
+  verifyOtp,
+  getMe,
+  checkLoginMethod,
+} from "../controllers/auth.controller";
 
 const router = Router();
 
 /**
- * Send OTP
+ * ارسال کد تایید یکبار مصرف
  */
-router.post("/send-otp", async (req, res) => {
-  try {
-    const { phone } = req.body;
-
-    if (!phone) {
-      return res.status(400).json({
-        success: false,
-        message: "Phone is required",
-      });
-    }
-
-    const otp = "123456"; // بعداً رندومش می‌کنیم
-
-    await prisma.oTP.create({
-      data: {
-        phone,
-        code: otp,
-        expiresAt: new Date(Date.now() + 2 * 60 * 1000),
-      },
-    });
-
-    return res.json({
-      success: true,
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ success: false });
-  }
-});
+router.post("/send-otp", sendOtp);
 
 /**
- * Verify OTP
+ * تایید کد یکبار مصرف و ورود
  */
-router.post("/verify-otp", async (req, res) => {
-  try {
-    const { phone, code } = req.body;
-
-    const otpRecord = await prisma.oTP.findFirst({
-      where: { phone, code },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (!otpRecord) {
-      return res.status(400).json({
-        success: false,
-        message: "OTP is invalid",
-      });
-    }
-
-    if (otpRecord.expiresAt < new Date()) {
-      return res.status(400).json({
-        success: false,
-        message: "OTP expired",
-      });
-    }
-
-    let user = await prisma.user.findUnique({
-      where: { phone },
-    });
-
-    let isNewUser = false;
-
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          phone,
-          role: "freelancer", // ✅ اگر role enum اجباری است
-        },
-      });
-
-      isNewUser = true;
-    }
-
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        phone: user.phone,
-      },
-      process.env.JWT_SECRET as string,
-      { expiresIn: "7d" },
-    );
-
-    // حذف OTPهای این شماره
-    await prisma.oTP.deleteMany({
-      where: { phone },
-    });
-
-    return res.json({
-      success: true,
-      token,
-      isNewUser,
-      user,
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-});
+router.post("/verify-otp", verifyOtp);
 
 /**
- * Get current user
+ * دریافت اطلاعات هویت جاری
  */
-router.get("/me", authMiddleware, async (req: AuthRequest, res) => {
-  const user = await prisma.user.findUnique({
-    where: { id: req.user!.userId },
-  });
-
-  return res.json(user);
-});
+router.get("/me", authMiddleware, getMe as any);
 
 /**
- * Check login method
+ * بررسی متد لاگین
  */
-router.post("/check-login-method", async (req, res) => {
-  try {
-    const { identifier } = req.body;
-
-    const isPhone = /^09\d{9}$/.test(identifier);
-    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
-
-    if (isPhone) {
-      return res.json({ success: true, method: "otp" });
-    }
-
-    if (isEmail) {
-      return res.json({ success: true, method: "password" });
-    }
-
-    return res.status(400).json({
-      success: false,
-      message: "ورودی نامعتبر است",
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-});
+router.post("/check-login-method", checkLoginMethod);
 
 export default router;
