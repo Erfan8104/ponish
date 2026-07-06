@@ -195,4 +195,13 @@ export const projectService = {
     const response = await api.get(`/projects/detail/${projectId}/proposals`)
     return response.data.proposals
   },
+
+  /**
+   * قبول یک پیشنهاد توسط کارفرما و ایجاد قرارداد
+   */
+  async acceptProposal(proposalId: number): Promise<any> {
+    // آدرس دقیقاً منطبق با روت بک‌اند: /api/projects/proposals/:id/accept
+    const response = await api.patch(`/projects/proposals/${proposalId}/accept`)
+    return response.data
+  },
 }

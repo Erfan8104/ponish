@@ -676,3 +676,106 @@ export const getProjectProposals = async (req: AuthRequest, res: Response) => {
     });
   }
 };
+
+/**
+ * =========================
+ * 8. ACCEPT PROPOSAL & CREATE CONTRACT
+ * =========================
+ */
+export const acceptProposal = async (req: AuthRequest, res: Response) => {
+  try {
+    const proposalId = Number(req.params.id);
+    const employerId = Number(req.user!.userId);
+
+    // ۱. بررسی وجود پیشنهاد و دریافت اطلاعات پروژه مرتبط
+    const proposal = await prisma.proposal.findUnique({
+      where: { id: proposalId },
+      include: {
+        project: true,
+      },
+    });
+
+    if (!proposal) {
+      return res.status(404).json({
+        success: false,
+        message: "پیشنهاد مورد نظر یافت نشد.",
+      });
+    }
+
+    // ۲. بررسی مالکیت پروژه (فقط کارفرمای همین پروژه مجاز است)
+    if (proposal.project.employerId !== employerId) {
+      return res.status(403).json({
+        success: false,
+        message: "شما دسترسی لازم برای تایید این پیشنهاد را ندارید.",
+      });
+    }
+
+    // ۳. بررسی وضعیت پروژه و پیشنهاد (نباید قبلاً نهایی شده باشند)
+    if (proposal.project.status !== "open") {
+      return res.status(400).json({
+        success: false,
+        message: "پروژه در وضعیت باز قرار ندارد یا پیش از این تایید شده است.",
+      });
+    }
+
+    if (proposal.status !== "pending") {
+      return res.status(400).json({
+        success: false,
+        message: "این پیشنهاد قبلاً تعیین تکلیف شده است.",
+      });
+    }
+
+    /**
+     * اجرای تراکنش دیتابیس برای حفظ یکپارچگی داده‌ها مالی و ساختاری
+     */
+    const result = await prisma.$transaction(async (tx) => {
+      // الف) تغییر وضعیت پیشنهاد انتخاب شده به accepted
+      const updatedProposal = await tx.proposal.update({
+        where: { id: proposalId },
+        data: { status: "accepted" },
+      });
+
+      // ب) تغییر وضعیت پروژه به in_progress (در حال انجام)
+      await tx.project.update({
+        where: { id: proposal.projectId },
+        data: { status: "in_progress" },
+      });
+
+      // ج) رد کردن خودکار سایر پیشنهادهای ثبت شده برای این پروژه
+      await tx.proposal.updateMany({
+        where: {
+          projectId: proposal.projectId,
+          id: { not: proposalId },
+          status: "pending",
+        },
+        data: { status: "rejected" },
+      });
+
+      // د) ایجاد خودکار قرارداد (Contract) جدید بر اساس مقادیر توافق شده فریلنسر
+      const newContract = await tx.contract.create({
+        data: {
+          projectId: proposal.projectId,
+          proposalId: proposal.id,
+          employerId: employerId,
+          freelancerId: proposal.freelancerId,
+          totalAmount: proposal.amount,
+          status: "active",
+        },
+      });
+
+      return { updatedProposal, newContract };
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "پیشنهاد با موفقیت تایید شد و قرارداد آغاز گردید.",
+      data: result,
+    });
+  } catch (error) {
+    console.error("❌ acceptProposal error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "خطا در تایید پیشنهاد و ایجاد قرارداد",
+    });
+  }
+};

@@ -210,6 +210,30 @@ export const useProjectStore = defineStore('project', () => {
   }
 
   /**
+   * آپدیت محلی وضعیت پروژه پس از قبول پیشنهاد (بدون نیاز به ریکوئست مجدد)
+   */
+  const updateProjectStatusLocally = (projectId: number, newStatus: string) => {
+    // ۱. به‌روزرسانی در پروژه باز شده داخل مدال جزئیات
+    if (projectDetails.value && projectDetails.value.id === projectId) {
+      projectDetails.value.status = newStatus
+      // طبق منطق بک‌انداستان، وقتی پروژه قرارداد دارد دیگر قابل ویرایش/حذف نیست
+      projectDetails.value.canEdit = false
+      projectDetails.value.canDelete = false
+    }
+
+    // ۲. به‌روزرسانی وضعیت در لیست پروژه‌های من (کارفرما)
+    const myProjIndex = myProjects.value.findIndex((p) => p.id === projectId)
+    if (myProjIndex !== -1) {
+      myProjects.value[myProjIndex].status = newStatus
+    }
+
+    // ۳. به‌روزرسانی وضعیت در فید عمومی پروژه‌ها
+    const projIndex = projects.value.findIndex((p) => p.id === projectId)
+    if (projIndex !== -1) {
+      projects.value[projIndex].status = newStatus
+    }
+  }
+  /**
    * =========================
    * Helpers
    * =========================
@@ -281,6 +305,7 @@ export const useProjectStore = defineStore('project', () => {
     submitProject,
     updateProject,
     deleteProject,
+    updateProjectStatusLocally, // 👈 این خط را به بخش اکشن‌ها در ریترن اضافه کنید
 
     openProjectDetails,
     closeProjectDetails,

@@ -1,16 +1,46 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, watch, ref } from 'vue' // 👈 watch اضافه شد
 import { useProposalStore } from '@/stores/proposal.store'
 import { useProjectStore } from '@/stores/project.store'
 
 const proposalStore = useProposalStore()
 const projectStore = useProjectStore()
+
 const proposals = computed(() => proposalStore.proposals)
-onMounted(async () => {
-  if (projectStore.projectDetails?.id) {
-    await proposalStore.fetchProjectProposals(projectStore.projectDetails.id)
+const isProjectOpen = computed(() => projectStore.projectDetails?.status === 'open')
+
+const processingId = ref<number | null>(null)
+
+// 👈 تعریف یک computed برای زیر نظر گرفتن آی‌دی پروژه فعلی
+const currentProjectId = computed(() => projectStore.projectDetails?.id)
+
+// 👈 هر زمان آی‌دی پروژه عوض شود، این واچ ریکوئست فرچ را مجدداً با دیتای جدید اجرا میکند
+watch(
+  currentProjectId,
+  async (newId) => {
+    if (newId) {
+      await proposalStore.fetchProjectProposals(newId)
+    }
+  },
+  { immediate: true }, // این گزینه باعث می‌شود در بدو ورود (همان کار onMounted) هم اجرا شود
+)
+
+const handleAcceptProposal = async (proposalId: number) => {
+  if (
+    confirm(
+      'آیا از قبول این پیشنهاد و شروع قرارداد اطمینان دارید؟ این عمل سایر پیشنهادها را رد خواهد کرد.',
+    )
+  ) {
+    processingId.value = proposalId
+    try {
+      await proposalStore.acceptProposal(proposalId)
+    } catch (error) {
+      console.error('خطا در تایید پیشنهاد:', error)
+    } finally {
+      processingId.value = null
+    }
   }
-})
+}
 </script>
 
 <template>
@@ -49,7 +79,7 @@ onMounted(async () => {
 
         <div class="text-left">
           <p class="text-xl font-bold text-emerald-600">
-            {{ proposal.amount }}
+            {{ Number(proposal.amount).toLocaleString('fa-IR') }} تومان
           </p>
 
           <p class="text-sm text-gray-500">{{ proposal.deliveryDays }} روز</p>
@@ -57,15 +87,36 @@ onMounted(async () => {
       </div>
 
       <div class="mt-4 border-t pt-4">
-        <p class="text-sm leading-7 text-gray-700">
+        <p class="text-sm leading-7 text-gray-700 whitespace-pre-line">
           {{ proposal.coverLetter }}
         </p>
       </div>
 
-      <div class="mt-4 flex items-center justify-between">
-        <span class="rounded-full bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700">
-          {{ proposal.status }}
-        </span>
+      <div class="mt-4 flex items-center justify-between border-t pt-4">
+        <div class="flex items-center gap-3">
+          <span
+            :class="{
+              'bg-yellow-100 text-yellow-700': proposal.status === 'pending',
+              'bg-emerald-100 text-emerald-700': proposal.status === 'accepted',
+              'bg-red-100 text-red-700': proposal.status === 'rejected',
+            }"
+            class="rounded-full px-3 py-1 text-xs font-medium"
+          >
+            <template v-if="proposal.status === 'pending'">در انتظار بررسی</template>
+            <template v-else-if="proposal.status === 'accepted'">قبول شده</template>
+            <template v-else-if="proposal.status === 'rejected'">رد شده</template>
+            <template v-else>{{ proposal.status }}</template>
+          </span>
+
+          <button
+            v-if="isProjectOpen && proposal.status === 'pending'"
+            @click="handleAcceptProposal(proposal.id)"
+            :disabled="processingId !== null"
+            class="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+          >
+            {{ processingId === proposal.id ? 'در حال ثبت...' : 'قبول پیشنهاد' }}
+          </button>
+        </div>
 
         <span class="text-xs text-gray-400">
           {{ new Date(proposal.createdAt).toLocaleDateString('fa-IR') }}
