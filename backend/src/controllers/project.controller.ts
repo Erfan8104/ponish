@@ -266,6 +266,24 @@ export const getProjectById = async (req: Request, res: Response) => {
           select: {
             id: true,
             status: true,
+
+            employer: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+                role: true,
+              },
+            },
+
+            freelancer: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+                role: true,
+              },
+            },
           },
         },
       },
