@@ -779,3 +779,57 @@ export const acceptProposal = async (req: AuthRequest, res: Response) => {
     });
   }
 };
+
+/**
+ * =========================
+ * 9. GET FREELANCER CONTRACTS (MY PROJECTS AS FREELANCER)
+ * =========================
+ */
+export const getFreelancerContracts = async (
+  req: AuthRequest,
+  res: Response,
+) => {
+  try {
+    // ۱. اصلاح نام فیلد به userId و تبدیل اجباری به عدد (Number)
+    const freelancerId = Number(req.user!.userId);
+
+    if (!freelancerId) {
+      return res.status(401).json({
+        success: false,
+        message: "کاربر احراز هویت نشده است.",
+      });
+    }
+
+    // ۲. دریافت قراردادهایی که فقط و فقط متعلق به این فریلنسر است
+    const contracts = await prisma.contract.findMany({
+      where: {
+        freelancerId: freelancerId, // 🟢 حالا فیلتر به درستی و با عدد واقعی اعمال می‌شود
+        status: "active",
+      },
+      include: {
+        project: {
+          include: {
+            category: true,
+            attachments: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    // ۳. استانداردسازی خروجی مشابه بقیه APIها
+    return res.status(200).json({
+      success: true,
+      contracts,
+      count: contracts.length,
+    });
+  } catch (error) {
+    console.error("❌ getFreelancerContracts error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "خطا در دریافت پروژه‌های فریلنسر",
+    });
+  }
+};

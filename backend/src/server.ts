@@ -2,14 +2,18 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
+import { createServer } from "http"; // 👈 اضافه شد
+import { initSocket } from "./services/socket.service"; // 👈 اضافه شد
 
 import authRoutes from "./routes/auth.routes";
 import profileRoutes from "./routes/profile.routes";
 import projectRouter from "./routes/project.routes";
+import messageRoutes from "./routes/message.routes"; // 👈 اضافه شد
 
 dotenv.config();
 
 const app = express();
+const httpServer = createServer(app); // 👈 ساخت سرور HTTP از روی اکسپرس برای سوکت
 
 // ==============================
 // Middlewares
@@ -24,7 +28,6 @@ app.use(
 );
 
 app.use(express.json());
-
 app.use(express.urlencoded({ extended: true }));
 
 // ==============================
@@ -39,10 +42,9 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 // ==============================
 
 app.use("/api/auth", authRoutes);
-
 app.use("/api/profile", profileRoutes);
-
 app.use("/api/projects", projectRouter);
+app.use("/api/messages", messageRoutes); // 👈 ثبت روت دریافت تاریخچه پیام‌های چت
 
 // ==============================
 // Health Check
@@ -88,11 +90,15 @@ app.use(
 );
 
 // ==============================
-// Start Server
+// Start Server & Initialize Socket
 // ==============================
 
 const PORT = Number(process.env.PORT) || 3000;
 
-app.listen(PORT, () => {
+// راه اندازی وب‌سوکت روی سرور مشترک با اکسپرس
+initSocket(httpServer); // 👈 فعال‌سازی لایه چت آنلاین و لحظه‌ای
+
+// 👈 حالا سرور httpServer را گوش می‌دهیم نه app را
+httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

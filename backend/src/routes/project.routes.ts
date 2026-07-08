@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   getProjectProposals,
+  getFreelancerContracts,
   getMyProjects,
   createProject,
   getProjects,
@@ -15,6 +16,11 @@ import { upload } from "../middleware/upload.middleware";
 
 const router = Router();
 
+router.get(
+  "/freelancer/active-contracts",
+  authMiddleware,
+  getFreelancerContracts,
+);
 // روت‌های عمومی (نیاز به لاگین ندارند - برای فید عمومی پروژه‌ها)
 router.get("/list", getProjects); // مسیر: /api/projects/list
 router.get("/detail/:id", getProjectById); // مسیر: /api/projects/detail/:id
