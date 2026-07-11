@@ -1,4 +1,5 @@
 import { Response } from "express";
+import bcrypt from "bcrypt";
 import { prisma } from "../lib/prisma";
 import { AuthRequest } from "../middleware/auth.middleware";
 
@@ -58,6 +59,7 @@ export const updateEmployerProfile = async (
       name,
       phone,
       email,
+      password,
       province,
       city,
       companyName,
@@ -73,6 +75,10 @@ export const updateEmployerProfile = async (
       avatarPath = `/uploads/${req.file.filename}`; // یا req.file.path بسته به تنظیمات آپلودتان
     }
 
+    const hashedPassword = password
+      ? await bcrypt.hash(String(password), 10)
+      : undefined;
+
     // استفاده از Transaction برای امنیت و یکپارچگی داده‌ها
     const result = await prisma.$transaction(async (tx) => {
       // ۱. آپدیت اطلاعات اصلی در جدول کاربر
@@ -82,6 +88,7 @@ export const updateEmployerProfile = async (
           name,
           phone,
           email,
+          ...(hashedPassword ? { password: hashedPassword } : {}),
           avatar: avatarPath,
           province,
           city,
@@ -138,6 +145,7 @@ export const updateFreelancerProfile = async (
       name,
       phone,
       email,
+      password,
       province,
       city,
       birthDate,
@@ -166,6 +174,10 @@ export const updateFreelancerProfile = async (
       }
     }
 
+    const hashedPassword = password
+      ? await bcrypt.hash(String(password), 10)
+      : undefined;
+
     const result = await prisma.$transaction(async (tx) => {
       // ۱. آپدیت اطلاعات اصلی در جدول کاربر
       const updatedUser = await tx.user.update({
@@ -174,6 +186,7 @@ export const updateFreelancerProfile = async (
           name,
           phone,
           email,
+          ...(hashedPassword ? { password: hashedPassword } : {}),
           avatar: avatarPath,
           province,
           city,

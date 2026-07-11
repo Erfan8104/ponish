@@ -4,6 +4,7 @@ import {
   sendOtp,
   verifyOtp,
   getMe,
+  loginWithPassword,
   checkLoginMethod,
 } from "../controllers/auth.controller";
 
@@ -23,6 +24,11 @@ router.post("/verify-otp", verifyOtp);
  * دریافت اطلاعات هویت جاری
  */
 router.get("/me", authMiddleware, getMe as any);
+
+/**
+ * ورود با ایمیل/شماره همراه و رمز عبور
+ */
+router.post("/login-password", loginWithPassword);
 
 /**
  * بررسی متد لاگین

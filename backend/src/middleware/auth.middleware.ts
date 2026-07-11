@@ -6,6 +6,10 @@ export interface AuthRequest extends Request {
     userId: number;
     phone: string;
   };
+  file?: {
+    filename: string;
+    path?: string;
+  };
 }
 
 export const authMiddleware = (
