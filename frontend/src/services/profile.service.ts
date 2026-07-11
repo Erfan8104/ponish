@@ -1,63 +1,92 @@
+// src/services/profile.service.ts
+
 import { api } from './api'
 
-// ۱. تعریف یک اینترفیس برای ورودی متد (دقیقاً مشابه چیزی که در استور داری)
-interface UpdateProfilePayload {
+export interface UpdateProfilePayload {
   name: string
   phone: string
   email: string
-  role: 'employer' | 'freelancer' // نقشی که از roleStore می‌آید
+  role: 'employer' | 'freelancer'
+
   province: string
   city: string
+
   company: string
+
   birthDate: string
   birthPlace: string
   freelancerProvince: string
   freelancerCity: string
+
   education: string
   skills: string
   experience: string
+
   avatar: string
 }
 
 export const ProfileService = {
   async updateProfile(data: UpdateProfilePayload) {
-    // ۲. فیلدهای عمومی و مشترک که در هر دو حالت ارسال می‌شوند
     const baseData = {
       name: data.name,
       phone: data.phone,
       email: data.email,
-      avatar: data.avatar, // عکس پروفایل مشترک
+      avatar: data.avatar,
     }
 
-    // ۳. تفکیک دیتای ارسالی بر اساس نقش کاربر
     if (data.role === 'employer') {
-      // ساخت لود مخصوص کارفرما
       const employerPayload = {
         ...baseData,
+
         province: data.province,
         city: data.city,
-        company: data.company,
+
+        // کنترلر بک‌اند این نام‌ها را انتظار دارد
+        companyName: data.company,
+        companyType: '',
+        website: '',
+        address: '',
       }
 
-      // ارسال به آبجکت یا اندپوینت مربوط به کارفرما
-      const response = await api.put('/profile/employer', employerPayload)
-      return response.data
-    } else {
-      // ساخت لود مخصوص فریلنسر/کارجو
-      const freelancerPayload = {
-        ...baseData,
-        birth_date: data.birthDate,
-        birth_place: data.birthPlace,
-        province: data.freelancerProvince, // تبدیل به کلید استاندارد مورد نیاز دیتابیس
-        city: data.freelancerCity,
-        education: data.education,
-        skills: data.skills,
-        experience: data.experience,
-      }
+      const { data: response } = await api.put('/profile/employer', employerPayload)
 
-      // ارسال به آبجکت یا اندپوینت مربوط به فریلنسر
-      const response = await api.put('/profile/freelancer', freelancerPayload)
-      return response.data
+      return response
     }
+
+    const freelancerPayload = {
+      ...baseData,
+
+      // کنترلر این دو مقدار را در جدول User ذخیره می‌کند
+      province: data.freelancerProvince,
+      city: data.freelancerCity,
+
+      // دقیقا مطابق کنترلر
+      birthDate: data.birthDate,
+      birthPlace: data.birthPlace,
+
+      education: data.education,
+      experience: data.experience,
+
+      // کنترلر انتظار این دو فیلد را دارد
+      hourlyRate: null,
+      portfolioUrl: '',
+
+      /**
+       * کنترلر انتظار skillIds دارد.
+       * فعلاً چون هنوز سیستم مهارت‌ها را نساخته‌ایم
+       * آرایه خالی ارسال می‌کنیم.
+       */
+      skillIds: [],
+
+      /**
+       * فعلاً مقدار متنی skills
+       * در بک‌اند استفاده نمی‌شود.
+       */
+      skills: data.skills,
+    }
+
+    const { data: response } = await api.put('/profile/freelancer', freelancerPayload)
+
+    return response
   },
 }

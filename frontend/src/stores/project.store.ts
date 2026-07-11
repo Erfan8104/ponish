@@ -15,6 +15,7 @@ export const useProjectStore = defineStore('project', () => {
   const projects = ref<Project[]>([])
   const myProjects = ref<Project[]>([])
   const activityLogs = ref<ActivityLog[]>([])
+  const acceptedProjects = ref<any[]>([])
 
   // Modal State (Project Details)
   const projectDetails = ref<ProjectDetail | null>(null)
@@ -272,6 +273,19 @@ export const useProjectStore = defineStore('project', () => {
     formData.calculatedArea = 0
   }
 
+  const fetchAcceptedProjects = async () => {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      acceptedProjects.value = await projectService.getAcceptedProjects()
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'خطا در دریافت پروژه‌های پذیرفته شده'
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   /**
    * =========================
    * Return
@@ -283,7 +297,7 @@ export const useProjectStore = defineStore('project', () => {
     projects,
     myProjects,
     activityLogs,
-
+    acceptedProjects,
     projectDetails,
     isProjectDetailsModalOpen,
     isProjectDetailsLoading,
@@ -306,6 +320,7 @@ export const useProjectStore = defineStore('project', () => {
     updateProject,
     deleteProject,
     updateProjectStatusLocally, // 👈 این خط را به بخش اکشن‌ها در ریترن اضافه کنید
+    fetchAcceptedProjects,
 
     openProjectDetails,
     closeProjectDetails,

@@ -1,3 +1,5 @@
+// src/components/modal/ProjectDetailModal.vue
+
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useProjectStore } from '@/stores/project.store'

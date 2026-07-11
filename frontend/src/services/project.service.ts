@@ -204,4 +204,9 @@ export const projectService = {
     const response = await api.patch(`/projects/proposals/${proposalId}/accept`)
     return response.data
   },
+
+  async getAcceptedProjects() {
+    const response = await api.get('/projects/accepted-projects')
+    return response.data.projects || []
+  },
 }
