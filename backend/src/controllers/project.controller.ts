@@ -245,14 +245,22 @@ export const getProjects = async (req: Request, res: Response) => {
  * 3. Get Project By ID
  * =========================
  */
+/**
+ * =========================
+ * 3. Get Project By ID
+ * =========================
+ */
 export const getProjectById = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = Number(req.params.id);
+
+    console.log("Project ID:", id);
 
     const project = await prisma.project.findUnique({
-      where: { id: Number(id) },
+      where: { id },
       include: {
         category: true,
+
         employer: {
           select: {
             id: true,
@@ -260,6 +268,7 @@ export const getProjectById = async (req: Request, res: Response) => {
             avatar: true,
           },
         },
+
         attachments: true,
 
         contract: {
@@ -289,6 +298,8 @@ export const getProjectById = async (req: Request, res: Response) => {
       },
     });
 
+    console.log("Project Found:", project);
+
     if (!project || project.deletedAt) {
       return res.status(404).json({
         success: false,
@@ -298,33 +309,32 @@ export const getProjectById = async (req: Request, res: Response) => {
 
     const proposalCount = await prisma.proposal.count({
       where: {
-        projectId: Number(id),
+        projectId: id,
       },
     });
 
-    const projectResponse = {
-      ...project,
-
-      canEdit: !project.contract,
-
-      canDelete: !project.contract,
-
-      proposalCount,
-
-      attachmentCount: project.attachments.length,
-    };
     await prisma.project.update({
-      where: { id: Number(id) },
+      where: { id },
       data: {
-        viewCount: { increment: 1 },
+        viewCount: {
+          increment: 1,
+        },
       },
     });
 
-    return res.json({
+    return res.status(200).json({
       success: true,
-      project: projectResponse,
+      project: {
+        ...project,
+        canEdit: !project.contract,
+        canDelete: !project.contract,
+        proposalCount,
+        attachmentCount: project.attachments.length,
+      },
     });
   } catch (error) {
+    console.error("getProjectById error:", error);
+
     return res.status(500).json({
       success: false,
       message: "خطا در دریافت جزئیات پروژه",
@@ -848,6 +858,71 @@ export const getFreelancerContracts = async (
     return res.status(500).json({
       success: false,
       message: "خطا در دریافت پروژه‌های فریلنسر",
+    });
+  }
+};
+
+/**
+ * =========================
+ * 10. GET ACCEPTED PROJECTS FOR FREELANCER
+ * =========================
+ */
+export const getAcceptedProjects = async (req: AuthRequest, res: Response) => {
+  try {
+    const freelancerId = Number(req.user!.userId);
+
+    const projects = await prisma.contract.findMany({
+      where: {
+        freelancerId,
+        status: "active",
+      },
+
+      orderBy: {
+        createdAt: "desc",
+      },
+
+      include: {
+        project: {
+          include: {
+            category: true,
+            attachments: true,
+
+            employer: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+                province: true,
+                city: true,
+              },
+            },
+          },
+        },
+
+        proposal: {
+          select: {
+            id: true,
+            amount: true,
+            deliveryDays: true,
+            coverLetter: true,
+            status: true,
+          },
+        },
+      },
+    });
+    console.log(JSON.stringify(projects, null, 2));
+
+    return res.status(200).json({
+      success: true,
+      projects,
+      count: projects.length,
+    });
+  } catch (error) {
+    console.error("getAcceptedProjects error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "خطا در دریافت پروژه‌های پذیرفته شده",
     });
   }
 };

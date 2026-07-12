@@ -9,7 +9,8 @@ import {
   updateProject,
   deleteProject,
   acceptProposal,
-  submitProposal, // 👈 اضافه شد
+  submitProposal,
+  getAcceptedProjects,
 } from "../controllers/project.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
 import { upload } from "../middleware/upload.middleware";
@@ -37,5 +38,6 @@ router.put("/update/:id", authMiddleware, updateProject); // مسیر: /api/proj
 router.delete("/delete/:id", authMiddleware, deleteProject); // مسیر: /api/projects/delete/:id
 router.get("/my-projects", authMiddleware, getMyProjects); // ← این را اضافه کن
 router.patch("/proposals/:id/accept", authMiddleware, acceptProposal); // 👈 اضافه شد
+router.get("/accepted-projects", authMiddleware, getAcceptedProjects);
 
 export default router;
