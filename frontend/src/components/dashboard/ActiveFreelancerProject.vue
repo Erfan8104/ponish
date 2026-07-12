@@ -50,63 +50,73 @@ const openProject = async (contractId: number) => {
       </p>
     </div>
 
-    <div v-else class="grid gap-6 lg:grid-cols-2">
+    <div v-else class="space-y-4">
       <div
         v-for="project in acceptedProjects"
         :key="project.contractId"
-        class="rounded-3xl border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
+        class="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition-all duration-300 hover:border-blue-200 hover:shadow-lg"
       >
-        <div class="border-b border-slate-100 p-6">
-          <div class="flex items-start justify-between">
-            <div class="flex gap-4">
-              <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100">
-                <FolderKanban class="h-7 w-7 text-blue-600" />
+        <div class="flex flex-col gap-6 p-6 lg:flex-row lg:items-center">
+          <!-- Icon -->
+          <div
+            class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100"
+          >
+            <FolderKanban class="h-8 w-8 text-blue-600" />
+          </div>
+
+          <!-- Main -->
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-3">
+              <h2
+                class="truncate text-lg font-bold text-slate-800 transition group-hover:text-blue-600"
+              >
+                {{ project.title }}
+              </h2>
+
+              <span
+                class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700"
+              >
+                فعال
+              </span>
+            </div>
+
+            <p class="mt-3 line-clamp-2 text-sm leading-7 text-slate-500">
+              {{ project.description }}
+            </p>
+
+            <div class="mt-5 flex flex-wrap items-center gap-x-8 gap-y-3 text-sm text-slate-600">
+              <div class="flex items-center gap-2">
+                <MapPin class="h-4 w-4 text-slate-400" />
+                <span>{{ project.province || '---' }} - {{ project.city || '---' }}</span>
               </div>
-              <div>
-                <h2 class="text-lg font-bold text-slate-800">
-                  {{ project.title }}
-                </h2>
-                <p class="mt-2 line-clamp-2 text-sm text-slate-500">
-                  {{ project.description }}
-                </p>
+
+              <div class="flex items-center gap-2">
+                <CalendarDays class="h-4 w-4 text-slate-400" />
+                <span>{{ project.deliveryTime || 'ثبت نشده' }}</span>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <BadgeDollarSign class="h-4 w-4 text-slate-400" />
+                <span>{{ formatPrice(project.maxBudget || project.minBudget) }}</span>
               </div>
             </div>
-            <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
-              فعال
-            </span>
-          </div>
-        </div>
-
-        <div class="space-y-4 p-6">
-          <div class="flex items-center gap-3 text-slate-600">
-            <MapPin class="h-5 w-5 text-slate-400" />
-            <span>{{ project.province || '---' }} - {{ project.city || '---' }}</span>
           </div>
 
-          <div class="flex items-center gap-3 text-slate-600">
-            <CalendarDays class="h-5 w-5 text-slate-400" />
-            <span>{{ project.deliveryTime || 'ثبت نشده' }}</span>
-          </div>
+          <!-- Right -->
+          <div class="flex shrink-0 flex-col items-end justify-between gap-5 lg:min-w-[170px]">
+            <div class="text-sm text-slate-500">
+              وضعیت
+              <div class="mt-1 font-bold text-emerald-600">در حال انجام</div>
+            </div>
 
-          <div class="flex items-center gap-3 text-slate-600">
-            <BadgeDollarSign class="h-5 w-5 text-slate-400" />
-            <span>{{ formatPrice(project.maxBudget || project.minBudget) }}</span>
+            <button
+              @click="openProject(project.contractId)"
+              class="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+            >
+              <Eye class="h-4 w-4" />
+              مشاهده جزئیات و گفتگو
+            </button>
           </div>
-        </div>
-
-        <div class="flex items-center justify-between border-t border-slate-100 p-6">
-          <div class="text-sm text-slate-500">
-            وضعیت:
-            <span class="font-bold text-emerald-600"> در حال انجام </span>
-          </div>
-
-          <button
-            @click="openProject(project.contractId)"
-            class="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
-          >
-            <Eye class="h-4 w-4" />
-            مشاهده جزئیات
-          </button>
         </div>
       </div>
     </div>

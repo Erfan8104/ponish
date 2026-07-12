@@ -79,7 +79,7 @@ onMounted(async () => {
             class="flex flex-col gap-3 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-cyan-500 p-6 text-white md:flex-row md:items-center md:justify-between"
           >
             <div>
-              <h2 class="text-2xl font-bold">پروژه‌های فعال من</h2>
+              <h2 class="text-2xl font-bold">پروژه‌های پذیرفته شده توسط کارفرما</h2>
 
               <p class="mt-1 text-sm text-blue-100">
                 پروژه‌هایی که پیشنهاد شما توسط کارفرما پذیرفته شده است.
