@@ -58,7 +58,9 @@ export const projectService = {
    */
   async getProjectById(id: number): Promise<ProjectDetail> {
     const response = await api.get(`/projects/detail/${id}`)
+    console.log('DETAIL RESPONSE')
     console.log(response.data)
+
     return response.data.project
   },
 
