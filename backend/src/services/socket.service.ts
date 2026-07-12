@@ -1,11 +1,11 @@
-import { Server as HttpServer } from "http";
 import { Server } from "socket.io";
-import { prisma } from "../lib/prisma";
+import { Server as HttpServer } from "http";
+import { prisma } from "../lib/prisma"; // فرض بر این است که پریزما در این مسیر است
 
-export const initSocket = (server: HttpServer) => {
-  const io = new Server(server, {
+export const initSocket = (httpServer: HttpServer) => {
+  const io = new Server(httpServer, {
     cors: {
-      origin: "*",
+      origin: ["http://localhost:5173", "http://localhost:5174"],
       methods: ["GET", "POST"],
     },
   });
@@ -13,54 +13,71 @@ export const initSocket = (server: HttpServer) => {
   io.on("connection", (socket) => {
     console.log(`🔌 User connected: ${socket.id}`);
 
-    // ۱. ورود به اتاق (اطمینان از تبدیل به String یکدست)
-    socket.on("join_room", ({ contractId }) => {
-      const roomName = `contract_${String(contractId)}`;
-      socket.join(roomName);
-      console.log(`👥 User ${socket.id} joined room: ${roomName}`);
+    // کاربر با انتخاب یک قرارداد، وارد روم اختصاصی آن می‌شود
+    socket.on("join_contract", (contractId: number) => {
+      socket.join(`contract_${contractId}`);
+      console.log(`👥 User joined room: contract_${contractId}`);
     });
 
-    // ۲. دریافت و پردازش پیام
+    // مدیریت ارسال پیام جدید
+    // مدیریت ارسال پیام جدید
+    // در فایل socket.ts
     socket.on("send_message", async (data) => {
-      const { contractId, senderId, receiverId, content, type } = data;
+      const { contractId, content, senderId, type } = data;
 
-      // اعتبارسنجی اولیه آی‌دی فرستنده
-      if (!senderId || Number(senderId) === 0) {
-        console.error("❌ Error: senderId cannot be 0 or undefined");
-        return;
-      }
+      const parsedSenderId = parseInt(senderId as string);
+      const parsedContractId = parseInt(contractId as string);
+      console.log("========== SEND MESSAGE ==========");
+      console.log("senderId:", senderId);
+      console.log("parsedSenderId:", parsedSenderId);
+      console.log("contractId:", parsedContractId);
 
       try {
-        // ذخیره پیام در دیتابیس
-        const newMessage = await prisma.message.create({
-          data: {
-            contractId: Number(contractId),
-            senderId: Number(senderId),
-            receiverId: Number(receiverId),
-            content: content,
-            type: type || "text",
-          },
-          include: {
-            sender: {
-              select: { id: true, name: true, avatar: true },
-            },
+        const contract = await prisma.contract.findUnique({
+          where: { id: parsedContractId },
+          select: { employerId: true, freelancerId: true },
+        });
+
+        if (!contract) return;
+
+        const receiverId =
+          parsedSenderId === contract.employerId
+            ? contract.freelancerId
+            : contract.employerId;
+
+        // اصلاح بخش زیر:
+        // فایل socket.ts - بخش ذخیره پیام
+        const sender = await prisma.user.findUnique({
+          where: {
+            id: parsedSenderId,
           },
         });
 
-        // ارسال به اتاق مشخص با نام استاندارد شده
-        const roomName = `contract_${String(contractId)}`;
-        io.to(roomName).emit("receive_message", newMessage);
-        console.log(`✉️ Message sent to room ${roomName}`);
-      } catch (err) {
-        // حتماً متن کامل خطا را در کنسول بک‌اند بررسی کنید
-        console.error("❌ Socket message savings error:", err);
+        console.log("SENDER =", sender);
+        const newMessage = await prisma.message.create({
+          data: {
+            content: content,
+            type: type || "text",
+            // فیلدهای عددی را مستقیماً ست کنید (بدون نیاز به connect)
+            contractId: parsedContractId,
+            senderId: parsedSenderId,
+            receiverId: receiverId,
+          },
+          include: {
+            sender: { select: { id: true, name: true, avatar: true } },
+          },
+        });
+
+        io.to(`contract_${parsedContractId}`).emit(
+          "receive_message",
+          newMessage,
+        );
+      } catch (error) {
+        console.error("Socket send_message error:", error);
       }
     });
-
     socket.on("disconnect", () => {
-      console.log(`❌ User disconnected: ${socket.id}`);
+      console.log("❌ User disconnected");
     });
   });
-
-  return io;
 };

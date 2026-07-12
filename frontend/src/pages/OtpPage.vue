@@ -46,8 +46,12 @@ const handleVerifyOtp = async () => {
 
     if (response.success) {
       // ۳. ذخیره توکن و دیتای کاربر در استور پینیا
-      authStore.setToken(response.token, response.user.phone, response.user.name || '')
-
+      authStore.setToken(
+        response.token,
+        String(response.user.id),
+        response.user.phone,
+        response.user.name || '',
+      )
       if (response.user.email) {
         authStore.setEmail(response.user.email)
       }

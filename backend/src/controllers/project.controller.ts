@@ -871,58 +871,45 @@ export const getAcceptedProjects = async (req: AuthRequest, res: Response) => {
   try {
     const freelancerId = Number(req.user!.userId);
 
-    const projects = await prisma.contract.findMany({
+    const contracts = await prisma.contract.findMany({
       where: {
         freelancerId,
         status: "active",
       },
-
-      orderBy: {
-        createdAt: "desc",
-      },
-
       include: {
+        // دریافت اطلاعات پروژه مربوط به این قرارداد
         project: {
-          include: {
-            category: true,
-            attachments: true,
-
-            employer: {
-              select: {
-                id: true,
-                name: true,
-                avatar: true,
-                province: true,
-                city: true,
-              },
-            },
-          },
-        },
-
-        proposal: {
           select: {
-            id: true,
-            amount: true,
-            deliveryDays: true,
-            coverLetter: true,
-            status: true,
+            title: true,
+            description: true,
+            province: true,
+            city: true,
+            deliveryTime: true,
+            minBudget: true,
+            maxBudget: true,
           },
         },
       },
     });
-    console.log(JSON.stringify(projects, null, 2));
+
+    // اینجا ما ساختار داده را کمی تمیز می‌کنیم تا فرانت‌اند راحت‌تر نمایش دهد
+    const projects = contracts.map((contract) => ({
+      ...contract.project, // اطلاعات پروژه
+      contractId: contract.id, // شناسه قرارداد
+      contractStatus: contract.status, // وضعیت قرارداد
+      // سایر اطلاعاتی که نیاز دارید
+    }));
 
     return res.status(200).json({
       success: true,
-      projects,
+      projects, // حالا این لیست دقیقاً همان چیزی است که فرانت‌اند می‌خواهد
       count: projects.length,
     });
   } catch (error) {
     console.error("getAcceptedProjects error:", error);
-
     return res.status(500).json({
       success: false,
-      message: "خطا در دریافت پروژه‌های پذیرفته شده",
+      message: "خطا در دریافت پروژه‌ها",
     });
   }
 };

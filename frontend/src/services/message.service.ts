@@ -1,22 +1,19 @@
-import { api } from './api'
+import { api } from './api' // همان فایلی که در سایر سرویس‌ها استفاده کردید
 
 export const messageService = {
-  async getChatHistory(contractId: number) {
-    const response = await api.get(`/messages/history/${contractId}`)
-    return response.data
+  /**
+   * دریافت تاریخچه پیام‌های یک قرارداد
+   */
+  async getMessages(contractId: number) {
+    const response = await api.get(`/messages/contracts/${contractId}/messages`)
+    return response.data.messages || []
   },
 
-  async uploadChatFile(contractId: number, file: File) {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('contractId', String(contractId))
-
-    const response = await api.post(`/messages/upload/${contractId}`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-
-    return response.data
+  /**
+   * (اختیاری) اگر بخواهید ارسال پیام را به جای سوکت از طریق API انجام دهید
+   */
+  async sendMessage(contractId: number, data: { content: string; type: string }) {
+    const response = await api.post(`/messages/contracts/${contractId}/messages`, data)
+    return response.data.message
   },
 }

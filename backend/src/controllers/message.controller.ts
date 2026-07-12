@@ -3,31 +3,29 @@ import { prisma } from "../lib/prisma";
 import { AuthRequest } from "../middleware/auth.middleware";
 
 /**
- * ۱. دریافت تاریخچه پیام‌های یک قرارداد (اتاق چت)
+ * دریافت لیست پیام‌های یک قرارداد
  */
-export const getChatHistory = async (req: AuthRequest, res: Response) => {
+export const getMessages = async (req: AuthRequest, res: Response) => {
   try {
     const contractId = Number(req.params.contractId);
     const userId = Number(req.user!.userId);
 
-    // بررسی اینکه آیا کاربر عضو این قرارداد هست یا خیر (امنیت چت)
-    const contract = await prisma.contract.findUnique({
-      where: { id: contractId },
+    // ۱. بررسی دسترسی: کاربر حتماً باید یکی از طرفین قرارداد باشد
+    const contract = await prisma.contract.findFirst({
+      where: {
+        id: contractId,
+        OR: [{ employerId: userId }, { freelancerId: userId }],
+      },
     });
 
     if (!contract) {
-      return res
-        .status(404)
-        .json({ success: false, message: "اتاق چت یافت نشد." });
+      return res.status(403).json({
+        success: false,
+        message: "دسترسی غیرمجاز: شما عضو این قرارداد نیستید",
+      });
     }
 
-    if (contract.employerId !== userId && contract.freelancerId !== userId) {
-      return res
-        .status(403)
-        .json({ success: false, message: "شما به این چت دسترسی ندارید." });
-    }
-
-    // دریافت پیام‌ها به ترتیب زمان ارسال
+    // ۲. دریافت پیام‌ها به همراه اطلاعات فرستنده
     const messages = await prisma.message.findMany({
       where: { contractId },
       orderBy: { createdAt: "asc" },
@@ -40,9 +38,65 @@ export const getChatHistory = async (req: AuthRequest, res: Response) => {
 
     return res.json({ success: true, messages });
   } catch (error) {
-    console.error("❌ getChatHistory error:", error);
+    console.error("Error in getMessages:", error);
     return res
       .status(500)
-      .json({ success: false, message: "خطا در دریافت تاریخچه پیام‌ها" });
+      .json({ success: false, message: "خطا در دریافت پیام‌ها" });
+  }
+};
+
+/**
+ * ارسال پیام جدید در محیط قرارداد
+ */
+export const sendMessage = async (req: AuthRequest, res: Response) => {
+  try {
+    const contractId = Number(req.params.contractId);
+    const senderId = Number(req.user!.userId);
+    const { content, type } = req.body;
+
+    // ۱. پیدا کردن قرارداد جهت احراز وجود آن و تشخیص طرفین
+    const contract = await prisma.contract.findUnique({
+      where: { id: contractId },
+      select: { employerId: true, freelancerId: true },
+    });
+
+    if (!contract) {
+      return res
+        .status(404)
+        .json({ success: false, message: "قرارداد یافت نشد" });
+    }
+
+    // ۲. تشخیص هوشمندانه گیرنده
+    const receiverId =
+      senderId === contract.employerId
+        ? contract.freelancerId
+        : contract.employerId;
+
+    // ۳. ثبت پیام در دیتابیس
+    const newMessage = await prisma.message.create({
+      data: {
+        contractId,
+        content,
+        type: type || "text",
+        sender: {
+          connect: { id: senderId },
+        },
+        receiver: {
+          connect: { id: receiverId },
+        },
+      },
+      include: {
+        sender: {
+          select: { id: true, name: true, avatar: true },
+        },
+      },
+    });
+
+    return res.status(201).json({ success: true, message: newMessage });
+  } catch (error) {
+    console.error("Error in sendMessage:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در ارسال پیام" });
   }
 };

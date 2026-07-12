@@ -1,7 +1,5 @@
-// src/components/modal/ProjectDetailModal.vue
-
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue' // اضافه شدن computed
 import { useProjectStore } from '@/stores/project.store'
 
 import ProjectHeader from './ProjectDetailModal/ProjectHeader.vue'
@@ -10,11 +8,16 @@ import ProjectTabs from './ProjectDetailModal/ProjectTabs.vue'
 import ProjectInfoTab from './ProjectDetailModal/ProjectInfoTab.vue'
 import ProjectProposalTab from './ProjectDetailModal/ProjectProposalTab.vue'
 import ProjectMapTab from './ProjectDetailModal/ProjectMapTab.vue'
+import ProjectChatTab from './ProjectDetailModal/ProjectChatTab.vue' // کامپوننت چت
 import ProjectFooter from './ProjectDetailModal/ProjectFooter.vue'
 
 const store = useProjectStore()
 
-const activeTab = ref<'info' | 'proposals' | 'map'>('info')
+// بروزرسانی نوع تب‌های مجاز
+const activeTab = ref<'info' | 'proposals' | 'map' | 'chat'>('info')
+
+// برای امنیت: چک کردن اینکه آیا پروژه قرارداد دارد یا خیر
+const hasContract = computed(() => !!store.projectDetails?.contract)
 </script>
 
 <template>
@@ -36,7 +39,12 @@ const activeTab = ref<'info' | 'proposals' | 'map'>('info')
 
             <ProjectProposalTab v-else-if="activeTab === 'proposals'" />
 
-            <ProjectMapTab v-model="activeTab" v-else />
+            <ProjectMapTab v-else-if="activeTab === 'map'" />
+
+            <ProjectChatTab
+              v-else-if="activeTab === 'chat' && hasContract"
+              :contractId="store.projectDetails!.contract!.id"
+            />
           </div>
 
           <ProjectFooter />

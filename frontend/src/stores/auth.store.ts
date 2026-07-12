@@ -41,12 +41,17 @@ export const useAuthStore = defineStore('auth', {
     skills: localStorage.getItem('skills') || '',
     experience: localStorage.getItem('experience') || '',
     avatar: localStorage.getItem('avatar') || '',
+
+    id: localStorage.getItem('userId') || '', // 👈 این فیلد را اضافه کنید
   }),
 
   actions: {
-    setToken(token: string, phone?: string, name?: string) {
+    setToken(token: string, id: string, phone?: string, name?: string) {
       this.token = token
       localStorage.setItem('token', token)
+
+      this.id = id
+      localStorage.setItem('userId', id)
 
       if (phone) {
         this.phone = phone
@@ -184,6 +189,8 @@ export const useAuthStore = defineStore('auth', {
       this.education = ''
       this.skills = ''
       this.experience = ''
+      this.id = ''
+      localStorage.removeItem('userId')
 
       localStorage.removeItem('avatar')
       localStorage.removeItem('token')

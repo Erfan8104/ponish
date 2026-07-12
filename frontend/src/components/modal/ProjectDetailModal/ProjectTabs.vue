@@ -1,21 +1,14 @@
 <script setup lang="ts">
-const activeTab = defineModel<'info' | 'proposals' | 'map'>({
+// اضافه شدن 'chat' به نوع‌های مجاز
+const activeTab = defineModel<'info' | 'proposals' | 'map' | 'chat'>({
   required: true,
 })
 
 const tabs = [
-  {
-    key: 'info',
-    label: 'اطلاعات',
-  },
-  {
-    key: 'proposals',
-    label: 'پیشنهادها',
-  },
-  {
-    key: 'map',
-    label: 'نقشه',
-  },
+  { key: 'info', label: 'اطلاعات' },
+  { key: 'proposals', label: 'پیشنهادها' },
+  { key: 'map', label: 'نقشه' },
+  { key: 'chat', label: 'گفتگو' }, // تب جدید
 ]
 </script>
 

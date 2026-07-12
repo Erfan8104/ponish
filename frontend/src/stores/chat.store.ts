@@ -2,81 +2,43 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { messageService } from '@/services/message.service'
 
-export interface ChatMessage {
-  id: number | string
-  contractId?: number
-  senderId: number | string
-  receiverId?: number | string
-  content: string
-  messageType?: 'text' | 'file' | 'system'
-  fileUrl?: string | null
-  createdAt?: string
-  sender?: {
-    id: number | string
-    name?: string
-    avatar?: string | null
-  }
-}
-
 export const useChatStore = defineStore('chat', () => {
-  const messages = ref<ChatMessage[]>([])
+  // State
+  const messages = ref<any[]>([])
   const isLoading = ref(false)
-  const currentContractId = ref<number | null>(null)
+  const error = ref<string | null>(null)
 
-  const fetchChatHistory = async (contractId: number) => {
+  // Actions
+
+  // ۱. دریافت تاریخچه پیام‌ها
+  const fetchMessages = async (contractId: number) => {
     isLoading.value = true
-
+    error.value = null
     try {
-      const response = await messageService.getChatHistory(contractId)
-      messages.value = Array.isArray(response?.messages) ? response.messages : []
-      currentContractId.value = contractId
-    } catch (error) {
-      console.error('Failed to load chat history:', error)
-      messages.value = []
+      messages.value = await messageService.getMessages(contractId)
+    } catch (err: any) {
+      error.value = err.message || 'خطا در دریافت پیام‌ها'
     } finally {
       isLoading.value = false
     }
   }
 
-  const initializeChat = (contractId: number) => {
-    currentContractId.value = contractId
+  // ۲. افزودن پیام جدید به لیست (هنگام دریافت از سوکت)
+  const addMessage = (message: any) => {
+    messages.value.push(message)
   }
 
-  const sendMessage = (
-    contractId: number,
-    senderId: number,
-    receiverId: number,
-    content: string,
-    type: 'text' | 'file' | 'system' = 'text',
-    fileUrl?: string,
-  ) => {
-    messages.value.push({
-      id: Date.now(),
-      contractId,
-      senderId,
-      receiverId,
-      content,
-      messageType: type,
-      fileUrl,
-      createdAt: new Date().toISOString(),
-      sender: {
-        id: senderId,
-        name: 'شما',
-      },
-    })
-  }
-
-  const disconnectChat = () => {
-    currentContractId.value = null
+  // ۳. پاک کردن پیام‌ها (مثلاً هنگام خروج از مودال)
+  const clearMessages = () => {
+    messages.value = []
   }
 
   return {
     messages,
     isLoading,
-    currentContractId,
-    fetchChatHistory,
-    initializeChat,
-    sendMessage,
-    disconnectChat,
+    error,
+    fetchMessages,
+    addMessage,
+    clearMessages,
   }
 })
