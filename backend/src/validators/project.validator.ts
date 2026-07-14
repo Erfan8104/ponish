@@ -25,6 +25,18 @@ export const createProjectSchema = z
     minBudget: z.union([z.string(), z.number()]).optional(),
     maxBudget: z.union([z.string(), z.number()]).optional(),
   })
-  .partial(); // 👈 این متد تمام فیلدهای بالا را یکجا اختیاری می‌کند
+  .partial(); // 👈 تمام فیلدهای بالا را یکجا اختیاری می‌کند
 
 export const updateProjectSchema = createProjectSchema;
+
+/**
+ * ==========================================
+ * اسکیمای تایید پروپوزال (تغییر قیمت توافقی چت)
+ * ==========================================
+ */
+export const acceptProposalSchema = z.object({
+  // فیلد فینال‌امونت کاملاً اختیاری است و می‌تواند عدد یا رشته عددی باشد
+  finalAmount: z
+    .union([z.number().positive(), z.string().regex(/^\d+$/)])
+    .optional(),
+});

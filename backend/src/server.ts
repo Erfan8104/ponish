@@ -9,6 +9,7 @@ import authRoutes from "./routes/auth.routes";
 import profileRoutes from "./routes/profile.routes";
 import projectRouter from "./routes/project.routes";
 import messageRoutes from "./routes/message.routes"; // 👈 اضافه شد
+import contractRoutes from "./routes/contract.routes"; // 👈 این خط را اضافه کن
 
 dotenv.config();
 
@@ -45,7 +46,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/projects", projectRouter);
 app.use("/api/messages", messageRoutes); // 👈 ثبت روت دریافت تاریخچه پیام‌های چت
-
+app.use("/api/contracts", contractRoutes); // 👈 این خط را اضافه کن
 // ==============================
 // Health Check
 // ==============================

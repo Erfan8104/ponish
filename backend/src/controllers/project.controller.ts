@@ -245,11 +245,6 @@ export const getProjects = async (req: Request, res: Response) => {
  * 3. Get Project By ID
  * =========================
  */
-/**
- * =========================
- * 3. Get Project By ID
- * =========================
- */
 export const getProjectById = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
@@ -342,6 +337,11 @@ export const getProjectById = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * =========================
+ * 4. Update Project
+ * =========================
+ */
 export const updateProject = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -514,7 +514,6 @@ export const submitProposal = async (req: AuthRequest, res: Response) => {
     console.log("Logged User:", req.user);
     console.log("FreelancerId:", freelancerId);
 
-    // بررسی وجود پروژه
     const project = await prisma.project.findUnique({
       where: {
         id: targetProjectId,
@@ -533,7 +532,6 @@ export const submitProposal = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // جلوگیری از ثبت پیشنهاد روی پروژه خود
     if (project.employerId === freelancerId) {
       return res.status(400).json({
         success: false,
@@ -541,7 +539,6 @@ export const submitProposal = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // بررسی نقش کاربر
     const user = await prisma.user.findUnique({
       where: {
         id: freelancerId,
@@ -559,7 +556,6 @@ export const submitProposal = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // جلوگیری از ثبت پیشنهاد تکراری
     const existing = await prisma.proposal.findUnique({
       where: {
         projectId_freelancerId: {
@@ -576,7 +572,6 @@ export const submitProposal = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // ثبت پیشنهاد
     const proposal = await prisma.proposal.create({
       data: {
         projectId: targetProjectId,
@@ -602,6 +597,7 @@ export const submitProposal = async (req: AuthRequest, res: Response) => {
     });
   }
 };
+
 /**
  * =========================
  * 7. GET MY PROJECTS
@@ -707,13 +703,16 @@ export const getProjectProposals = async (req: AuthRequest, res: Response) => {
 
 /**
  * =========================
- * 8. ACCEPT PROPOSAL & CREATE CONTRACT
+ * 8. ACCEPT PROPOSAL & CREATE CONTRACT (SUPPORTING CHAT AGREEMENTS)
  * =========================
  */
 export const acceptProposal = async (req: AuthRequest, res: Response) => {
   try {
     const proposalId = Number(req.params.id);
     const employerId = Number(req.user!.userId);
+
+    // 🌟 دریافت مبلغ نهایی توافق‌شده جدید در چت از بدنه درخواست (اختیاری)
+    const { finalAmount } = req.body;
 
     // ۱. بررسی وجود پیشنهاد و دریافت اطلاعات پروژه مرتبط
     const proposal = await prisma.proposal.findUnique({
@@ -779,14 +778,19 @@ export const acceptProposal = async (req: AuthRequest, res: Response) => {
         data: { status: "rejected" },
       });
 
-      // د) ایجاد خودکار قرارداد (Contract) جدید بر اساس مقادیر توافق شده فریلنسر
+      // 🌟 د) تعیین مبلغ قرارداد: اگر مبلغ جدیدی فرستاده شده باشد اعمال می‌شود، در غیر این‌صورت مبلغ اولیه پروپوزال فریلنسر
+      const contractAmount = finalAmount
+        ? new Prisma.Decimal(finalAmount)
+        : proposal.amount;
+
+      // ه) ایجاد خودکار قرارداد (Contract) جدید بر اساس مقادیر توافق شده
       const newContract = await tx.contract.create({
         data: {
           projectId: proposal.projectId,
           proposalId: proposal.id,
           employerId: employerId,
           freelancerId: proposal.freelancerId,
-          totalAmount: proposal.amount,
+          totalAmount: contractAmount,
           status: "active",
         },
       });
@@ -818,7 +822,6 @@ export const getFreelancerContracts = async (
   res: Response,
 ) => {
   try {
-    // ۱. اصلاح نام فیلد به userId و تبدیل اجباری به عدد (Number)
     const freelancerId = Number(req.user!.userId);
 
     if (!freelancerId) {
@@ -828,10 +831,9 @@ export const getFreelancerContracts = async (
       });
     }
 
-    // ۲. دریافت قراردادهایی که فقط و فقط متعلق به این فریلنسر است
     const contracts = await prisma.contract.findMany({
       where: {
-        freelancerId: freelancerId, // 🟢 حالا فیلتر به درستی و با عدد واقعی اعمال می‌شود
+        freelancerId: freelancerId,
         status: "active",
       },
       include: {
@@ -847,7 +849,6 @@ export const getFreelancerContracts = async (
       },
     });
 
-    // ۳. استانداردسازی خروجی مشابه بقیه APIها
     return res.status(200).json({
       success: true,
       contracts,
@@ -877,9 +878,9 @@ export const getAcceptedProjects = async (req: AuthRequest, res: Response) => {
         status: "active",
       },
       include: {
-        // دریافت اطلاعات پروژه مربوط به این قرارداد
         project: {
           select: {
+            id: true,
             title: true,
             description: true,
             province: true,
@@ -892,17 +893,15 @@ export const getAcceptedProjects = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    // اینجا ما ساختار داده را کمی تمیز می‌کنیم تا فرانت‌اند راحت‌تر نمایش دهد
     const projects = contracts.map((contract) => ({
-      ...contract.project, // اطلاعات پروژه
-      contractId: contract.id, // شناسه قرارداد
-      contractStatus: contract.status, // وضعیت قرارداد
-      // سایر اطلاعاتی که نیاز دارید
+      ...contract.project,
+      contractId: contract.id,
+      contractStatus: contract.status,
     }));
 
     return res.status(200).json({
       success: true,
-      projects, // حالا این لیست دقیقاً همان چیزی است که فرانت‌اند می‌خواهد
+      projects,
       count: projects.length,
     });
   } catch (error) {
