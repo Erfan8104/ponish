@@ -91,9 +91,14 @@ export interface ProjectAttachment {
 
 export interface ProjectContract {
   id: number
-  status: 'active' | 'completed' | 'cancelled' | 'disputed'
-}
+  // اضافه کردن وضعیت‌های 'in_progress' و 'terminated' به لیست
+  status: 'active' | 'in_progress' | 'completed' | 'cancelled' | 'terminated' | 'disputed'
 
+  // فیلدهای مالی و زمانی که در مرحله قبل اضافه کردیم:
+  amount?: number | string
+  finalAmount?: number | string
+  createdAt?: string
+}
 /**
  * =========================
  * Proposal (minimal)

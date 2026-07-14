@@ -26,10 +26,8 @@ const formatPrice = (value: any) => {
   return Number(value).toLocaleString('fa-IR') + ' تومان'
 }
 
-const openProject = async (contractId: number) => {
-  // توجه: اینجا ممکن است در آینده نیاز باشد در استور
-  // تابع openProjectDetails را طوری تغییر دهید که با contractId کار کند
-  await projectStore.openProjectDetails(contractId)
+const openProject = async (projectId: number) => {
+  await projectStore.openProjectDetails(projectId)
 }
 </script>
 
@@ -110,7 +108,7 @@ const openProject = async (contractId: number) => {
             </div>
 
             <button
-              @click="openProject(project.contractId)"
+              @click="openProject(project.id)"
               class="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
             >
               <Eye class="h-4 w-4" />

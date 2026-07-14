@@ -190,13 +190,10 @@ export const contractController = {
         contract.employerId !== loggedInUserId &&
         contract.freelancerId !== loggedInUserId
       ) {
-        return res
-          .status(403)
-          .json({
-            success: false,
-            message:
-              "شما دسترسی لازم برای مشاهده اطلاعات این قرارداد را ندارید.",
-          });
+        return res.status(403).json({
+          success: false,
+          message: "شما دسترسی لازم برای مشاهده اطلاعات این قرارداد را ندارید.",
+        });
       }
 
       // دریافت تمام اصلاحیه‌ها به ترتیب جدیدترین
@@ -211,12 +208,10 @@ export const contractController = {
       });
     } catch (error) {
       console.error(error);
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: "خطا در سرور هنگام دریافت اصلاحیه‌ها",
-        });
+      return res.status(500).json({
+        success: false,
+        message: "خطا در سرور هنگام دریافت اصلاحیه‌ها",
+      });
     }
   },
 };

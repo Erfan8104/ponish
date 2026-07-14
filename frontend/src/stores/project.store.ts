@@ -11,7 +11,6 @@ export const useProjectStore = defineStore('project', () => {
    * State
    * =========================
    */
-
   const projects = ref<Project[]>([])
   const myProjects = ref<Project[]>([])
   const activityLogs = ref<ActivityLog[]>([])
@@ -30,7 +29,6 @@ export const useProjectStore = defineStore('project', () => {
    * Form (Create Project)
    * =========================
    */
-
   const formData = reactive({
     title: '',
     category: '',
@@ -63,7 +61,6 @@ export const useProjectStore = defineStore('project', () => {
    * Getters
    * =========================
    */
-
   const dashboardStats = computed(() => ({
     totalProjects: projects.value.length,
     activeProjects: projects.value.filter((p) => p.status === 'open' || p.status === 'in_progress')
@@ -78,7 +75,6 @@ export const useProjectStore = defineStore('project', () => {
    * Modal Actions (Project Details)
    * =========================
    */
-
   const openProjectDetails = async (id: number) => {
     isProjectDetailsModalOpen.value = true
     isProjectDetailsLoading.value = true
@@ -86,7 +82,6 @@ export const useProjectStore = defineStore('project', () => {
 
     try {
       const res = await projectService.getProjectById(id)
-
       projectDetails.value = res
     } catch (err: any) {
       error.value = err.response?.data?.message || 'خطا در دریافت جزئیات پروژه'
@@ -100,12 +95,12 @@ export const useProjectStore = defineStore('project', () => {
     isProjectDetailsModalOpen.value = false
     projectDetails.value = null
   }
+
   /**
    * =========================
    * API Actions
    * =========================
    */
-
   const fetchProjects = async () => {
     isLoading.value = true
     error.value = null
@@ -153,7 +148,6 @@ export const useProjectStore = defineStore('project', () => {
       }
 
       resetForm()
-
       return res
     } catch (err: any) {
       error.value = err.response?.data?.message || 'خطا در ثبت پروژه'
@@ -168,15 +162,7 @@ export const useProjectStore = defineStore('project', () => {
     error.value = null
 
     try {
-      // ایجاد کپی برای عدم دستکاری استیت اصلی در حین آماده‌سازی فرم داده
       const payload = { ...data }
-
-      // اطمینان از فرمت صحیح برای آرایه‌ها و داده‌های مکانی نقشه
-      if (payload.techType) payload.techType = payload.techType
-      if (payload.outputFormats) payload.outputFormats = payload.outputFormats
-      if (payload.polygonCoordinates) payload.polygonCoordinates = payload.polygonCoordinates
-      if (payload.geoJson) payload.geoJson = payload.geoJson
-
       const res = await projectService.updateProject(id, payload, files)
 
       const index = myProjects.value.findIndex((p) => p.id === id)
@@ -210,36 +196,68 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
+  const fetchAcceptedProjects = async () => {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      acceptedProjects.value = await projectService.getAcceptedProjects()
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'خطا در دریافت پروژه‌های پذیرفته شده'
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   /**
-   * آپدیت محلی وضعیت پروژه پس از قبول پیشنهاد (بدون نیاز به ریکوئست مجدد)
+   * 🌟 اکشن پذیرش پروپوزال و شروع قرارداد (هماهنگ با تغییر قیمت چت در بک‌اند)
+   */
+  const acceptProposal = async (proposalId: number, projectId: number, finalAmount?: number) => {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      // صدا زدن سرویس با پارامتر قیمت اختیاری
+      const res = await projectService.acceptProposal(proposalId, finalAmount)
+
+      // آپدیت محلی وضعیت پروژه در استیت‌های مختلف کامپوننت بدون ریلود صفحه
+      updateProjectStatusLocally(projectId, 'in_progress')
+
+      return res
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'خطا در تایید پیشنهاد پروژه'
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  /**
+   * آپدیت محلی وضعیت پروژه پس از قبول پیشنهاد
    */
   const updateProjectStatusLocally = (projectId: number, newStatus: string) => {
-    // ۱. به‌روزرسانی در پروژه باز شده داخل مدال جزئیات
     if (projectDetails.value && projectDetails.value.id === projectId) {
       projectDetails.value.status = newStatus
-      // طبق منطق بک‌انداستان، وقتی پروژه قرارداد دارد دیگر قابل ویرایش/حذف نیست
       projectDetails.value.canEdit = false
       projectDetails.value.canDelete = false
     }
 
-    // ۲. به‌روزرسانی وضعیت در لیست پروژه‌های من (کارفرما)
     const myProjIndex = myProjects.value.findIndex((p) => p.id === projectId)
     if (myProjIndex !== -1) {
       myProjects.value[myProjIndex].status = newStatus
     }
 
-    // ۳. به‌روزرسانی وضعیت در فید عمومی پروژه‌ها
     const projIndex = projects.value.findIndex((p) => p.id === projectId)
     if (projIndex !== -1) {
       projects.value[projIndex].status = newStatus
     }
   }
+
   /**
    * =========================
    * Helpers
    * =========================
    */
-
   const addFiles = (files: File[]) => {
     uploadedFiles.value.push(...files)
   }
@@ -273,25 +291,11 @@ export const useProjectStore = defineStore('project', () => {
     formData.calculatedArea = 0
   }
 
-  const fetchAcceptedProjects = async () => {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      acceptedProjects.value = await projectService.getAcceptedProjects()
-    } catch (err: any) {
-      error.value = err.response?.data?.message || 'خطا در دریافت پروژه‌های پذیرفته شده'
-    } finally {
-      isLoading.value = false
-    }
-  }
-
   /**
    * =========================
    * Return
    * =========================
    */
-
   return {
     // state
     projects,
@@ -301,10 +305,8 @@ export const useProjectStore = defineStore('project', () => {
     projectDetails,
     isProjectDetailsModalOpen,
     isProjectDetailsLoading,
-
     formData,
     uploadedFiles,
-
     isLoading,
     error,
 
@@ -319,9 +321,9 @@ export const useProjectStore = defineStore('project', () => {
     submitProject,
     updateProject,
     deleteProject,
-    updateProjectStatusLocally, // 👈 این خط را به بخش اکشن‌ها در ریترن اضافه کنید
+    acceptProposal, // 👈 اضافه شدن اکشن اصلی به ریترن
+    updateProjectStatusLocally,
     fetchAcceptedProjects,
-
     openProjectDetails,
     closeProjectDetails,
 

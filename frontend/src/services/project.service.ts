@@ -199,11 +199,11 @@ export const projectService = {
   },
 
   /**
-   * قبول یک پیشنهاد توسط کارفرما و ایجاد قرارداد
+   * قبول یک پیشنهاد توسط کارفرما و ایجاد قرارداد (با امکان تغییر قیمت توافقی)
    */
-  async acceptProposal(proposalId: number): Promise<any> {
-    // آدرس دقیقاً منطبق با روت بک‌اند: /api/projects/proposals/:id/accept
-    const response = await api.patch(`/projects/proposals/${proposalId}/accept`)
+  async acceptProposal(proposalId: number, finalAmount?: number): Promise<any> {
+    const payload = finalAmount ? { finalAmount } : {}
+    const response = await api.patch(`/projects/proposals/${proposalId}/accept`, payload)
     return response.data
   },
 

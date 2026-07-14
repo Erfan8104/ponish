@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch, ref } from 'vue' // 👈 watch اضافه شد
+import { computed, watch, ref } from 'vue'
 import { useProposalStore } from '@/stores/proposal.store'
 import { useProjectStore } from '@/stores/project.store'
 
@@ -11,10 +11,10 @@ const isProjectOpen = computed(() => projectStore.projectDetails?.status === 'op
 
 const processingId = ref<number | null>(null)
 
-// 👈 تعریف یک computed برای زیر نظر گرفتن آی‌دی پروژه فعلی
+// تعریف یک computed برای زیر نظر گرفتن آی‌دی پروژه فعلی
 const currentProjectId = computed(() => projectStore.projectDetails?.id)
 
-// 👈 هر زمان آی‌دی پروژه عوض شود، این واچ ریکوئست فرچ را مجدداً با دیتای جدید اجرا میکند
+// هر زمان آی‌دی پروژه عوض شود، پیشنهادها مجدداً واکشی می‌شوند
 watch(
   currentProjectId,
   async (newId) => {
@@ -22,7 +22,7 @@ watch(
       await proposalStore.fetchProjectProposals(newId)
     }
   },
-  { immediate: true }, // این گزینه باعث می‌شود در بدو ورود (همان کار onMounted) هم اجرا شود
+  { immediate: true },
 )
 
 const handleAcceptProposal = async (proposalId: number) => {
@@ -33,9 +33,20 @@ const handleAcceptProposal = async (proposalId: number) => {
   ) {
     processingId.value = proposalId
     try {
+      // ۱. تایید پیشنهاد در استور پروپوزال‌ها
       await proposalStore.acceptProposal(proposalId)
+
+      // ⚡ ۲. حیاتی: واکشی مجدد جزئیات پروژه برای به روز شدن وضعیت قرارداد در استور پروژه
+      if (currentProjectId.value) {
+        await projectStore.openProjectDetails(currentProjectId.value)
+      }
+
+      alert(
+        '🎉 پیشنهاد با موفقیت تایید شد و قرارداد فعال گردید. اکنون می‌توانید از تب گفتگو با متخصص در ارتباط باشید.',
+      )
     } catch (error) {
       console.error('خطا در تایید پیشنهاد:', error)
+      alert('متاسفانه در تایید پیشنهاد خطایی رخ داد.')
     } finally {
       processingId.value = null
     }

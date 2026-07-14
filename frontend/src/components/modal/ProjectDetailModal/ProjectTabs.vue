@@ -13,7 +13,7 @@ const showChatTab = computed(() => {
   return !!store.projectDetails?.contract
 })
 
-const activeTab = defineModel<'info' | 'proposals' | 'map' | 'chat'>({
+const activeTab = defineModel<'info' | 'proposals' | 'map' | 'chat' | 'contract'>({
   required: true,
 })
 
@@ -43,6 +43,10 @@ const tabs = computed(() => [
         {
           key: 'chat',
           label: 'گفتگو',
+        },
+        {
+          key: 'contract',
+          label: 'قرارداد',
         },
       ]
     : []),

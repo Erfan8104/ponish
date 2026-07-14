@@ -10,10 +10,11 @@ import ProjectProposalTab from './ProjectDetailModal/ProjectProposalTab.vue'
 import ProjectMapTab from './ProjectDetailModal/ProjectMapTab.vue'
 import ProjectChatTab from './ProjectDetailModal/ProjectChatTab.vue'
 import ProjectFooter from './ProjectDetailModal/ProjectFooter.vue'
+import ProjectContractTab from './ProjectDetailModal/ProjectContractTab.vue'
 
 const store = useProjectStore()
 
-const activeTab = ref<'info' | 'proposals' | 'map' | 'chat'>('info')
+const activeTab = ref<'info' | 'proposals' | 'map' | 'chat' | 'contract'>('info')
 
 const hasContract = computed(() => !!store.projectDetails?.contract)
 
@@ -60,6 +61,11 @@ const closeModal = () => {
             <ProjectChatTab
               v-else-if="activeTab === 'chat' && hasContract"
               :contractId="store.projectDetails!.contract!.id"
+            />
+            <ProjectContractTab
+              v-else-if="activeTab === 'contract' && hasContract"
+              :contract="store.projectDetails!.contract"
+              :project="store.projectDetails!"
             />
           </div>
 
