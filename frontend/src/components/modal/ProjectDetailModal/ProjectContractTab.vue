@@ -36,19 +36,45 @@ const activeAmendment = computed(() => contractStore.activeAmendment)
 const isContractLocked = computed(() => activeAmendment.value?.status === 'accepted')
 
 const displayAmount = computed(() => {
+  // ۱. بررسی می‌کنیم آیا الحاقیه تایید شده‌ای وجود دارد؟
+  const isAccepted = activeAmendment.value?.status === 'accepted'
+
+  // ۲. اگر الحاقیه تایید شده بود، مبلغ پیشنهادی جدید را اولویت قرار بده
+  if (isAccepted && activeAmendment.value?.proposed_amount) {
+    return Number(activeAmendment.value.proposed_amount).toLocaleString('fa-IR')
+  }
+
+  // ۳. در غیر این صورت، از مبالغ خود قرارداد استفاده کن
   const price = contract.value?.amount || contract.value?.finalAmount || 0
   return Number(price).toLocaleString('fa-IR')
 })
 
 const displayDate = computed(() => {
-  const rawDate = contract.value?.createdAt || project.value?.createdAt
+  // ۱. بررسی وضعیت تایید الحاقیه
+  const isAccepted = activeAmendment.value?.status === 'accepted'
+
+  // ۲. انتخاب تاریخ مناسب (اگر الحاقیه تایید شده بود، تاریخ الحاقیه و در غیر این صورت تاریخ قرارداد)
+  const rawDate =
+    (isAccepted && activeAmendment.value?.updatedAt) ||
+    activeAmendment.value?.createdAt ||
+    contract.value?.createdAt ||
+    project.value?.createdAt
+
   if (!rawDate) return 'ثبت نشده'
+
   const dateObj = new Date(rawDate)
   if (isNaN(dateObj.getTime())) return 'فرمت تاریخ نامعتبر'
+
   return dateObj.toLocaleDateString('fa-IR')
 })
 
 const statusLabel = computed(() => {
+  // ۱. اگر الحاقیه تایید شده بود، مستقیماً وضعیت را «نهایی و قفل شده» نشان بده
+  if (activeAmendment.value?.status === 'accepted') {
+    return 'نهایی و اصلاح شده'
+  }
+
+  // ۲. در غیر این صورت، بر اساس وضعیت اصلی قرارداد در بک‌اَند عمل کن
   const status = contract.value?.status || 'active'
   switch (status) {
     case 'active':

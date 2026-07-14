@@ -76,6 +76,7 @@ export const contractController = {
   },
 
   // ۲. پاسخ فریلنسر (تایید یا رد الحاقیه)
+  // ۲. پاسخ فریلنسر (تایید یا رد الحاقیه)
   async respondToAmendment(req: AuthRequest, res: Response): Promise<Response> {
     try {
       const { amendmentId } = req.params;
@@ -118,7 +119,7 @@ export const contractController = {
         });
       }
 
-      // ⚡ استفاده از Transaction برای ثبت همزمان تغییرات در سه جدول
+      // استفاده از Transaction برای ثبت همزمان تغییرات در دیتابیس
       const updatedAmendment = await prisma.$transaction(async (tx) => {
         // ۱. آپدیت وضعیت الحاقیه
         const updated = await tx.contractAmendment.update({
@@ -134,10 +135,14 @@ export const contractController = {
             data: { totalAmount: amendment.proposed_amount },
           });
 
-          // آپدیت calculatedArea پروژه
+          // آپدیت calculatedArea و تغییر وضعیت پروژه به completed
           await tx.project.update({
             where: { id: amendment.contract.projectId },
-            data: { calculatedArea: amendment.proposed_area },
+            data: {
+              calculatedArea: amendment.proposed_area,
+              // ⚡ اضافه شده برای تغییر وضعیت پروژه به completed
+              status: "completed",
+            },
           });
         }
 
@@ -148,7 +153,7 @@ export const contractController = {
         success: true,
         message:
           status === "accepted"
-            ? "اصلاحیه تایید و قرارداد بروزرسانی شد."
+            ? "اصلاحیه تایید، قرارداد بروزرسانی و پروژه خاتمه یافت (Completed)."
             : "اصلاحیه توسط شما رد شد.",
         amendment: updatedAmendment,
       });

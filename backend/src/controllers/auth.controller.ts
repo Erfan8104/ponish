@@ -128,6 +128,41 @@ export const verifyOtp = async (req: Request, res: Response) => {
 };
 
 /**
+ * تکمیل مشخصات اولیه (نام کاربری و نقش) پس از ثبت‌نام
+ */
+export const completeRegistration = async (req: AuthRequest, res: Response) => {
+  try {
+    const { username, role } = req.body;
+    const userId = req.user!.userId; // دریافت آیدی از روی توکن لاگین شده
+
+    if (!role || !["employer", "freelancer"].includes(role)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "نقش ارسالی نامعتبر است" });
+    }
+
+    // آپدیت نقش کاربر در دیتابیس (نام کاربری را هم اگر فیلدش را در اسکیما داری اینجا اضافه کن، در غیر این صورت فقط نقش)
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        role: role,
+        name: username, // یا هر فیلدی که برای نام کاربری در نظر گرفتی
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: "مشخصات کاربری با موفقیت آپدیت شد",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Complete Registration Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطای سرور در تکمیل ثبت‌نام" });
+  }
+};
+/**
  * دریافت اطلاعات کاربر لاگین شده
  */
 export const getMe = async (req: AuthRequest, res: Response) => {

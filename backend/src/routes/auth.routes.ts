@@ -6,6 +6,7 @@ import {
   getMe,
   loginWithPassword,
   checkLoginMethod,
+  completeRegistration,
 } from "../controllers/auth.controller";
 
 const router = Router();
@@ -34,5 +35,11 @@ router.post("/login-password", loginWithPassword);
  * بررسی متد لاگین
  */
 router.post("/check-login-method", checkLoginMethod);
+
+router.put(
+  "/complete-registration",
+  authMiddleware,
+  completeRegistration as any,
+);
 
 export default router;

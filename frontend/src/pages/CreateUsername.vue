@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRoleStore } from '@/stores/role.store'
 import type { UserRole } from '@/types/RoleUser'
+import { completeRegistrationApi } from '@/services/auth.service' // 👈 ایمپورت کردن سرویس جدید
 
 const router = useRouter()
 const roleStore = useRoleStore()
@@ -24,14 +25,25 @@ const isFormValid = computed<boolean>(() => {
 })
 
 // Submit Handler
-const handleRegister = (): void => {
+const handleRegister = async (): Promise<void> => {
+  // 👈 تبدیل به async شد
   if (!isFormValid.value) return
 
-  const cleanedUsername = username.value.toLowerCase()
-  roleStore.setUserRegistration(cleanedUsername, role.value as UserRole)
+  try {
+    const cleanedUsername = username.value.toLowerCase()
 
-  // برای هدایت به مرحله بعد پروژه:
-  router.push('/dashboard')
+    // ۱. ارسال اطلاعات به سرور برای آپدیت نقش در پایگاه داده واقعی
+    await completeRegistrationApi(cleanedUsername, role.value as string)
+
+    // ۲. ذخیره در استور محلی فرانت‌اند (کدهای قبلی خودت)
+    roleStore.setUserRegistration(cleanedUsername, role.value as UserRole)
+
+    // هدایت به داشبورد پس از موفقیت‌آمیز بودن عملیات دیتابیس
+    router.push('/dashboard')
+  } catch (error) {
+    console.error('خطا در ثبت نقش کاربر:', error)
+    alert('مشکلی در ثبت نقش رخ داد. مجدداً تلاش کنید.')
+  }
 }
 </script>
 
