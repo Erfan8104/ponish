@@ -207,9 +207,13 @@ export const projectService = {
     return response.data
   },
 
-  async getAcceptedProjects() {
-    const response = await api.get('/projects/accepted-projects')
-    // اینجا ما لیستی از پروژه‌ها را دریافت می‌کنیم که در سرور "flat" شده‌اند
+  async getAcceptedProjects(status: 'all' | 'active' | 'completed' = 'all') {
+    const response = await api.get('/projects/accepted-projects', {
+      params: {
+        status,
+      },
+    })
+
     return response.data.projects || []
   },
 }

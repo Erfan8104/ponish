@@ -1,7 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, reactive, computed } from 'vue'
 import { projectService } from '@/services/project.service'
-import type { Project, ActivityLog, ProjectDetail } from '@/types/project'
+import type {
+  Project,
+  ActivityLog,
+  ProjectDetail,
+  ProjectStatus,
+  AcceptedProject,
+} from '@/types/project'
 
 export type Coordinate = [number, number]
 
@@ -14,9 +20,7 @@ export const useProjectStore = defineStore('project', () => {
   const projects = ref<Project[]>([])
   const myProjects = ref<Project[]>([])
   const activityLogs = ref<ActivityLog[]>([])
-  const acceptedProjects = ref<any[]>([])
-
-  // Modal State (Project Details)
+  const acceptedProjects = ref<AcceptedProject[]>([]) // Modal State (Project Details)
   const projectDetails = ref<ProjectDetail | null>(null)
   const isProjectDetailsModalOpen = ref(false)
   const isProjectDetailsLoading = ref(false)
@@ -196,14 +200,14 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
-  const fetchAcceptedProjects = async () => {
+  const fetchAcceptedProjects = async (status: 'all' | 'active' | 'completed' = 'all') => {
     isLoading.value = true
     error.value = null
 
     try {
-      acceptedProjects.value = await projectService.getAcceptedProjects()
+      acceptedProjects.value = await projectService.getAcceptedProjects(status)
     } catch (err: any) {
-      error.value = err.response?.data?.message || 'خطا در دریافت پروژه‌های پذیرفته شده'
+      error.value = err.response?.data?.message || 'خطا در دریافت پروژه‌ها'
     } finally {
       isLoading.value = false
     }
@@ -236,23 +240,46 @@ export const useProjectStore = defineStore('project', () => {
    * آپدیت محلی وضعیت پروژه پس از قبول پیشنهاد
    */
   const updateProjectStatusLocally = (projectId: number, newStatus: string) => {
+    // این خط خطا را برطرف می‌کند:
+    const status = newStatus as ProjectStatus
+
+    // ۱. آپدیت جزئیات مودال
     if (projectDetails.value && projectDetails.value.id === projectId) {
-      projectDetails.value.status = newStatus
-      projectDetails.value.canEdit = false
-      projectDetails.value.canDelete = false
+      projectDetails.value.status = status
     }
 
+    // ۱. آپدیت لیست پروژه‌های ایجاد شده توسط کاربر
     const myProjIndex = myProjects.value.findIndex((p) => p.id === projectId)
     if (myProjIndex !== -1) {
-      myProjects.value[myProjIndex].status = newStatus
+      // استفاده از ! به جای ?.
+      myProjects.value[myProjIndex]!.status = status
     }
 
+    // ۲. آپدیت لیست اصلی
     const projIndex = projects.value.findIndex((p) => p.id === projectId)
     if (projIndex !== -1) {
-      projects.value[projIndex].status = newStatus
+      // استفاده از ! به جای ?.
+      projects.value[projIndex]!.status = status
+    }
+
+    // ۳. آپدیت لیست پروژه‌های پذیرفته‌شده
+    const acceptedIndex = acceptedProjects.value.findIndex((p) => p.id === projectId)
+    if (acceptedIndex !== -1) {
+      // استفاده از ! به جای ?.
+      acceptedProjects.value[acceptedIndex]!.status = status
     }
   }
 
+  // در استور اضافه کنید
+  const syncProjects = async () => {
+    try {
+      // دریافت مجدد لیست‌ها برای اطمینان از تطابق با دیتابیس
+      await fetchMyProjects()
+      await fetchAcceptedProjects()
+    } catch (err) {
+      console.error('خطا در همگام‌سازی پروژه‌ها:', err)
+    }
+  }
   /**
    * =========================
    * Helpers
@@ -316,6 +343,7 @@ export const useProjectStore = defineStore('project', () => {
 
     // actions
     fetchProjects,
+    syncProjects,
     fetchMyProjects,
     fetchActivityLogs,
     submitProject,

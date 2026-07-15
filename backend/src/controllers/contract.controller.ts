@@ -131,8 +131,14 @@ export const contractController = {
         if (status === "accepted") {
           // آپدیت totalAmount قرارداد
           await tx.contract.update({
-            where: { id: amendment.contractId },
-            data: { totalAmount: amendment.proposed_amount },
+            where: {
+              id: amendment.contractId,
+            },
+            data: {
+              totalAmount: amendment.proposed_amount,
+              status: "completed",
+              completedAt: new Date(), // اگر این فیلد را داری
+            },
           });
 
           // آپدیت calculatedArea و تغییر وضعیت پروژه به completed

@@ -6,14 +6,6 @@
  * =========================
  */
 
-export type ProjectStatus =
-  | 'draft'
-  | 'open'
-  | 'in_progress'
-  | 'completed'
-  | 'cancelled'
-  | 'disputed'
-
 export type BudgetType = 'fixed' | 'hourly' | 'negotiable'
 
 /**
@@ -21,6 +13,7 @@ export type BudgetType = 'fixed' | 'hourly' | 'negotiable'
  * Base Project (DB Shape)
  * =========================
  */
+export type ProjectStatus = 'open' | 'in_progress' | 'accepted' | 'completed'
 
 export interface Project {
   id: number
@@ -172,4 +165,14 @@ export interface DashboardStats {
   activeProjects: number
   completedProjects: number
   totalArea: number
+}
+
+// src/types/project.ts
+
+export interface AcceptedProject extends Project {
+  contractId: number
+  contractStatus: 'active' | 'completed'
+  totalAmount: number
+  startedAt: string
+  completedAt?: string
 }

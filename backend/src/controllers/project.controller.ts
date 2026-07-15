@@ -872,24 +872,39 @@ export const getAcceptedProjects = async (req: AuthRequest, res: Response) => {
   try {
     const freelancerId = Number(req.user!.userId);
 
+    const status = String(req.query.status || "all");
+
+    let contractWhere: any = {
+      freelancerId,
+    };
+
+    if (status === "active") {
+      contractWhere.status = "active";
+    } else if (status === "completed") {
+      contractWhere.status = "completed";
+    } else {
+      contractWhere.status = {
+        in: ["active", "completed"],
+      };
+    }
+
     const contracts = await prisma.contract.findMany({
-      where: {
-        freelancerId,
-        status: "active",
-      },
+      where: contractWhere,
       include: {
         project: {
-          select: {
-            id: true,
-            title: true,
-            description: true,
-            province: true,
-            city: true,
-            deliveryTime: true,
-            minBudget: true,
-            maxBudget: true,
+          include: {
+            employer: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+              },
+            },
           },
         },
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     });
 
@@ -897,6 +912,9 @@ export const getAcceptedProjects = async (req: AuthRequest, res: Response) => {
       ...contract.project,
       contractId: contract.id,
       contractStatus: contract.status,
+      totalAmount: contract.totalAmount,
+      startedAt: contract.startedAt,
+      completedAt: contract.completedAt,
     }));
 
     return res.status(200).json({
@@ -906,6 +924,7 @@ export const getAcceptedProjects = async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error("getAcceptedProjects error:", error);
+
     return res.status(500).json({
       success: false,
       message: "خطا در دریافت پروژه‌ها",

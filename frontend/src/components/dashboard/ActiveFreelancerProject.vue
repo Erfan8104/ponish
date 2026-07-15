@@ -1,122 +1,177 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { storeToRefs } from 'pinia'
+import { ref, onMounted, watch } from 'vue'
 import { useProjectStore } from '@/stores/project.store'
-import {
-  MapPin,
-  CalendarDays,
-  BadgeDollarSign,
-  LoaderCircle,
-  CircleAlert,
-  FolderKanban,
-  Eye,
-} from 'lucide-vue-next'
+import ProjectDetailModal from '@/components/modal/ProjectDetailModal.vue'
 
-const projectStore = useProjectStore()
-const { acceptedProjects, isLoading } = storeToRefs(projectStore)
+const store = useProjectStore()
 
-onMounted(async () => {
-  if (!acceptedProjects.value.length) {
-    await projectStore.fetchAcceptedProjects()
-  }
+const currentTab = ref<'all' | 'active' | 'completed'>('all')
+
+onMounted(() => {
+  store.fetchAcceptedProjects(currentTab.value)
 })
 
-const formatPrice = (value: any) => {
-  if (!value) return 'توافقی'
-  return Number(value).toLocaleString('fa-IR') + ' تومان'
-}
+watch(currentTab, (status) => {
+  store.fetchAcceptedProjects(status)
+})
 
 const openProject = async (projectId: number) => {
-  await projectStore.openProjectDetails(projectId)
+  await store.openProjectDetails(projectId)
+}
+
+const formatPrice = (price?: number | string | null) => {
+  if (!price) return '-'
+
+  return Number(price).toLocaleString('fa-IR')
+}
+
+const formatDate = (date?: string | null) => {
+  if (!date) return '-'
+
+  return new Date(date).toLocaleDateString('fa-IR')
 }
 </script>
 
 <template>
   <div class="space-y-6">
-    <div v-if="isLoading" class="flex items-center justify-center py-20">
-      <LoaderCircle class="h-10 w-10 animate-spin text-blue-600" />
+    <!-- Tabs -->
+    <div class="flex gap-3 border-b border-slate-200 pb-4">
+      <button
+        @click="currentTab = 'all'"
+        :class="[
+          'rounded-xl px-5 py-2 text-sm font-medium transition',
+          currentTab === 'all'
+            ? 'bg-indigo-600 text-white'
+            : 'bg-slate-100 text-slate-700 hover:bg-slate-200',
+        ]"
+      >
+        همه
+      </button>
+
+      <button
+        @click="currentTab = 'active'"
+        :class="[
+          'rounded-xl px-5 py-2 text-sm font-medium transition',
+          currentTab === 'active'
+            ? 'bg-green-600 text-white'
+            : 'bg-slate-100 text-slate-700 hover:bg-slate-200',
+        ]"
+      >
+        در حال انجام
+      </button>
+
+      <button
+        @click="currentTab = 'completed'"
+        :class="[
+          'rounded-xl px-5 py-2 text-sm font-medium transition',
+          currentTab === 'completed'
+            ? 'bg-blue-600 text-white'
+            : 'bg-slate-100 text-slate-700 hover:bg-slate-200',
+        ]"
+      >
+        تکمیل شده
+      </button>
     </div>
 
-    <div
-      v-else-if="acceptedProjects.length === 0"
-      class="rounded-3xl border border-dashed border-slate-300 bg-slate-50 py-16 text-center"
-    >
-      <CircleAlert class="mx-auto mb-4 h-14 w-14 text-slate-400" />
-      <h3 class="text-xl font-bold text-slate-700">پروژه فعالی وجود ندارد</h3>
-      <p class="mt-2 text-sm text-slate-500">
-        هنوز هیچ پیشنهادی از طرف کارفرما برای شما پذیرفته نشده است.
-      </p>
+    <!-- Loading -->
+
+    <div v-if="store.isLoading" class="space-y-4">
+      <div v-for="i in 5" :key="i" class="h-32 animate-pulse rounded-2xl bg-slate-200" />
     </div>
+
+    <!-- Empty State -->
+
+    <div
+      v-else-if="store.acceptedProjects.length === 0"
+      class="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center"
+    >
+      <h3 class="text-lg font-bold text-slate-700">پروژه‌ای پیدا نشد</h3>
+
+      <p class="mt-2 text-sm text-slate-500">هنوز پروژه‌ای در این بخش وجود ندارد.</p>
+    </div>
+
+    <!-- List -->
 
     <div v-else class="space-y-4">
       <div
-        v-for="project in acceptedProjects"
-        :key="project.contractId"
-        class="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition-all duration-300 hover:border-blue-200 hover:shadow-lg"
+        v-for="project in store.acceptedProjects"
+        :key="project.id"
+        class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-lg"
       >
-        <div class="flex flex-col gap-6 p-6 lg:flex-row lg:items-center">
-          <!-- Icon -->
-          <div
-            class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100"
-          >
-            <FolderKanban class="h-8 w-8 text-blue-600" />
-          </div>
+        <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <!-- اطلاعات پروژه -->
 
-          <!-- Main -->
-          <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-3">
-              <h2
-                class="truncate text-lg font-bold text-slate-800 transition group-hover:text-blue-600"
-              >
-                {{ project.title }}
-              </h2>
+          <div class="flex-1">
+            <h2 class="text-xl font-bold text-slate-800">
+              {{ project.title }}
+            </h2>
 
-              <span
-                class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700"
-              >
-                فعال
-              </span>
-            </div>
-
-            <p class="mt-3 line-clamp-2 text-sm leading-7 text-slate-500">
+            <p class="mt-3 line-clamp-2 text-sm leading-7 text-slate-600">
               {{ project.description }}
             </p>
 
-            <div class="mt-5 flex flex-wrap items-center gap-x-8 gap-y-3 text-sm text-slate-600">
-              <div class="flex items-center gap-2">
-                <MapPin class="h-4 w-4 text-slate-400" />
-                <span>{{ project.province || '---' }} - {{ project.city || '---' }}</span>
-              </div>
+            <div class="mt-6 flex flex-wrap gap-x-8 gap-y-3 text-sm text-slate-600">
+              <span>
+                <strong>کارفرما:</strong>
 
-              <div class="flex items-center gap-2">
-                <CalendarDays class="h-4 w-4 text-slate-400" />
-                <span>{{ project.deliveryTime || 'ثبت نشده' }}</span>
-              </div>
+                {{ project.employer?.name || '-' }}
+              </span>
 
-              <div class="flex items-center gap-2">
-                <BadgeDollarSign class="h-4 w-4 text-slate-400" />
-                <span>{{ formatPrice(project.maxBudget || project.minBudget) }}</span>
-              </div>
+              <span>
+                <strong>مبلغ قرارداد:</strong>
+
+                {{ formatPrice(project.totalAmount) }}
+
+                تومان
+              </span>
+
+              <span>
+                <strong>شهر:</strong>
+
+                {{ project.city || '-' }}
+              </span>
+
+              <span>
+                <strong>تاریخ شروع:</strong>
+
+                {{ formatDate(project.startedAt) }}
+              </span>
             </div>
           </div>
 
-          <!-- Right -->
-          <div class="flex shrink-0 flex-col items-end justify-between gap-5 lg:min-w-[170px]">
-            <div class="text-sm text-slate-500">
-              وضعیت
-              <div class="mt-1 font-bold text-emerald-600">در حال انجام</div>
+          <!-- وضعیت و عملیات -->
+
+          <div class="flex w-full flex-col gap-3 lg:w-64">
+            <div
+              class="rounded-xl py-2 text-center text-sm font-semibold"
+              :class="
+                project.contractStatus === 'active'
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-blue-100 text-blue-700'
+              "
+            >
+              {{ project.contractStatus === 'active' ? 'در حال انجام' : 'تکمیل شده' }}
             </div>
 
             <button
               @click="openProject(project.id)"
-              class="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+              class="rounded-xl bg-indigo-600 py-3 text-white transition hover:bg-indigo-700"
             >
-              <Eye class="h-4 w-4" />
-              مشاهده جزئیات و گفتگو
+              مشاهده جزئیات
+            </button>
+
+            <button
+              class="rounded-xl border border-slate-300 py-3 text-slate-700 transition hover:bg-slate-100"
+            >
+              ورود به چت
             </button>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Modal -->
+
+    <ProjectDetailModal />
   </div>
 </template>
