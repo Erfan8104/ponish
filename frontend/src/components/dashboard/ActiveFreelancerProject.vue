@@ -157,13 +157,7 @@ const formatDate = (date?: string | null) => {
               @click="openProject(project.id)"
               class="rounded-xl bg-indigo-600 py-3 text-white transition hover:bg-indigo-700"
             >
-              مشاهده جزئیات
-            </button>
-
-            <button
-              class="rounded-xl border border-slate-300 py-3 text-slate-700 transition hover:bg-slate-100"
-            >
-              ورود به چت
+              مشاهده چزئیات و گفتگو
             </button>
           </div>
         </div>

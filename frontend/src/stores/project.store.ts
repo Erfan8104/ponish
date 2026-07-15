@@ -270,6 +270,30 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
+  const rejectProposal = async (contractId: number, projectId: number) => {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      await projectService.rejectProposal(contractId, projectId)
+
+      // بازگرداندن وضعیت پروژه به open در کلاینت
+      updateProjectStatusLocally(projectId, 'open')
+
+      // پاک کردن قرارداد از جزئیات در صورت باز بودن مودال
+      if (projectDetails.value?.id === projectId) {
+        projectDetails.value.contract = null
+      }
+
+      return true
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'خطا در لغو توافق'
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   // در استور اضافه کنید
   const syncProjects = async () => {
     try {
@@ -343,6 +367,7 @@ export const useProjectStore = defineStore('project', () => {
 
     // actions
     fetchProjects,
+    rejectProposal,
     syncProjects,
     fetchMyProjects,
     fetchActivityLogs,

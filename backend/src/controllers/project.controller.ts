@@ -710,65 +710,47 @@ export const acceptProposal = async (req: AuthRequest, res: Response) => {
   try {
     const proposalId = Number(req.params.id);
     const employerId = Number(req.user!.userId);
-
-    // 🌟 دریافت مبلغ نهایی توافق‌شده جدید در چت از بدنه درخواست (اختیاری)
     const { finalAmount } = req.body;
 
-    // ۱. بررسی وجود پیشنهاد و دریافت اطلاعات پروژه مرتبط
     const proposal = await prisma.proposal.findUnique({
       where: { id: proposalId },
-      include: {
-        project: true,
-      },
+      include: { project: true },
     });
 
     if (!proposal) {
-      return res.status(404).json({
-        success: false,
-        message: "پیشنهاد مورد نظر یافت نشد.",
-      });
+      return res
+        .status(404)
+        .json({ success: false, message: "پیشنهاد مورد نظر یافت نشد." });
     }
 
-    // ۲. بررسی مالکیت پروژه (فقط کارفرمای همین پروژه مجاز است)
     if (proposal.project.employerId !== employerId) {
-      return res.status(403).json({
-        success: false,
-        message: "شما دسترسی لازم برای تایید این پیشنهاد را ندارید.",
-      });
+      return res
+        .status(403)
+        .json({ success: false, message: "شما دسترسی لازم را ندارید." });
     }
 
-    // ۳. بررسی وضعیت پروژه و پیشنهاد (نباید قبلاً نهایی شده باشند)
+    // شرط پروژه را منعطف‌تر می‌کنیم تا اگر پروژه دوباره باز شد (وضعیت open)، قابل قبول باشد
     if (proposal.project.status !== "open") {
       return res.status(400).json({
         success: false,
-        message: "پروژه در وضعیت باز قرار ندارد یا پیش از این تایید شده است.",
+        message: "پروژه در وضعیت مناسبی برای تایید پیشنهاد نیست.",
       });
     }
 
-    if (proposal.status !== "pending") {
-      return res.status(400).json({
-        success: false,
-        message: "این پیشنهاد قبلاً تعیین تکلیف شده است.",
-      });
-    }
-
-    /**
-     * اجرای تراکنش دیتابیس برای حفظ یکپارچگی داده‌ها مالی و ساختاری
-     */
     const result = await prisma.$transaction(async (tx) => {
-      // الف) تغییر وضعیت پیشنهاد انتخاب شده به accepted
+      // ۱. آپدیت وضعیت پیشنهاد فعلی
       const updatedProposal = await tx.proposal.update({
         where: { id: proposalId },
         data: { status: "accepted" },
       });
 
-      // ب) تغییر وضعیت پروژه به in_progress (در حال انجام)
+      // ۲. آپدیت وضعیت پروژه
       await tx.project.update({
         where: { id: proposal.projectId },
         data: { status: "in_progress" },
       });
 
-      // ج) رد کردن خودکار سایر پیشنهادهای ثبت شده برای این پروژه
+      // ۳. رد کردن سایر پیشنهادها
       await tx.proposal.updateMany({
         where: {
           projectId: proposal.projectId,
@@ -778,14 +760,23 @@ export const acceptProposal = async (req: AuthRequest, res: Response) => {
         data: { status: "rejected" },
       });
 
-      // 🌟 د) تعیین مبلغ قرارداد: اگر مبلغ جدیدی فرستاده شده باشد اعمال می‌شود، در غیر این‌صورت مبلغ اولیه پروپوزال فریلنسر
       const contractAmount = finalAmount
         ? new Prisma.Decimal(finalAmount)
         : proposal.amount;
 
-      // ه) ایجاد خودکار قرارداد (Contract) جدید بر اساس مقادیر توافق شده
-      const newContract = await tx.contract.create({
-        data: {
+      // ۴. 🌟 استفاده از upsert به جای create برای جلوگیری از خطای Unique constraint
+      const contract = await tx.contract.upsert({
+        where: {
+          projectId: proposal.projectId, // شرط پیدا کردن قرارداد قبلی
+        },
+        update: {
+          proposalId: proposal.id,
+          freelancerId: proposal.freelancerId,
+          totalAmount: contractAmount,
+          status: "active", // فعال کردن مجدد قرارداد
+          cancelledAt: null, // پاک کردن تاریخ لغو قبلی
+        },
+        create: {
           projectId: proposal.projectId,
           proposalId: proposal.id,
           employerId: employerId,
@@ -795,23 +786,21 @@ export const acceptProposal = async (req: AuthRequest, res: Response) => {
         },
       });
 
-      return { updatedProposal, newContract };
+      return { updatedProposal, contract };
     });
 
     return res.status(200).json({
       success: true,
-      message: "پیشنهاد با موفقیت تایید شد و قرارداد آغاز گردید.",
+      message: "پیشنهاد با موفقیت تایید شد.",
       data: result,
     });
   } catch (error) {
     console.error("❌ acceptProposal error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "خطا در تایید پیشنهاد و ایجاد قرارداد",
-    });
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در تایید پیشنهاد" });
   }
 };
-
 /**
  * =========================
  * 9. GET FREELANCER CONTRACTS (MY PROJECTS AS FREELANCER)
@@ -929,5 +918,57 @@ export const getAcceptedProjects = async (req: AuthRequest, res: Response) => {
       success: false,
       message: "خطا در دریافت پروژه‌ها",
     });
+  }
+};
+
+export const rejectAcceptedProposal = async (
+  req: AuthRequest,
+  res: Response,
+) => {
+  try {
+    // ۱. اطمینان از دریافت پارامترها از req.params یا req.body
+    // طبق روت شما که :contractId داشت، باید از params بگیرید:
+    const contractId = Number(req.params.contractId);
+    const { projectId } = req.body;
+    const employerId = Number(req.user!.userId);
+
+    // بررسی اینکه آیا IDها معتبر هستند
+    if (isNaN(contractId) || isNaN(Number(projectId))) {
+      return res
+        .status(400)
+        .json({ success: false, message: "شناسه نامعتبر است" });
+    }
+
+    // ... (بقیه کدهای بررسی مالکیت پروژه)
+
+    await prisma.$transaction(async (tx) => {
+      // الف) لغو قرارداد - حتما از متغیری که عدد شده استفاده کنید
+      await tx.contract.update({
+        where: { id: contractId }, // 👈 اینجا باید عدد باشد
+        data: {
+          status: "cancelled",
+          cancelledAt: new Date(),
+        },
+      });
+
+      // ب) بازگرداندن پروژه به وضعیت open
+      await tx.project.update({
+        where: { id: Number(projectId) },
+        data: { status: "open" },
+      });
+
+      // ج) تغییر وضعیت پیشنهاد قبلی به rejected
+      await tx.proposal.updateMany({
+        where: { projectId: Number(projectId), status: "accepted" },
+        data: { status: "rejected" },
+      });
+    });
+
+    return res.status(200).json({ success: true, message: "توافق لغو شد" });
+  } catch (error) {
+    console.error(error); // برای دیدن جزئیات خطا در کنسول سرور
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در لغو توافق" });
   }
 };

@@ -216,4 +216,14 @@ export const projectService = {
 
     return response.data.projects || []
   },
+
+  // ... سایر متدها
+
+  rejectProposal: async (contractId: number, projectId: number) => {
+    // ارسال درخواست PATCH به روت جدیدی که ساختیم
+    const response = await api.patch(`/projects/proposals/${contractId}/reject`, {
+      projectId,
+    })
+    return response.data
+  },
 }

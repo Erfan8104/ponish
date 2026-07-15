@@ -11,6 +11,7 @@ import {
   acceptProposal,
   submitProposal,
   getAcceptedProjects,
+  rejectAcceptedProposal, // 👈 این متد را ایمپورت کنید
 } from "../controllers/project.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
 import { upload } from "../middleware/upload.middleware";
@@ -18,9 +19,8 @@ import { upload } from "../middleware/upload.middleware";
 const router = Router();
 
 /* ==============================================
-   ۱. روت‌های ثابت و محافظت‌شده (بدون متغیر :id)
+   ۱. روت‌های ثابت و محافظت‌شده
    ============================================== */
-// روت‌های مربوط به فریلنسر
 router.get(
   "/freelancer/active-contracts",
   authMiddleware,
@@ -29,8 +29,7 @@ router.get(
 router.get("/accepted-projects", authMiddleware, getAcceptedProjects);
 router.post("/proposals/submit", authMiddleware, submitProposal);
 
-// روت‌های مربوط به کارفرما
-router.get("/my-projects", authMiddleware, getMyProjects); // ⚠️ حتماً باید بالاتر از روت‌های دارای :id باشد
+router.get("/my-projects", authMiddleware, getMyProjects);
 router.post(
   "/create",
   authMiddleware,
@@ -39,19 +38,26 @@ router.post(
 );
 
 /* ==============================================
-   ۲. روت‌های عمومی (نیاز به توکن ندارند)
+   ۲. روت‌های عمومی
    ============================================== */
 router.get("/list", getProjects);
 
 /* ==============================================
-   ۳. روت‌های دارای متغیر پویا (:id) - در انتهای فایل
+   ۳. روت‌های دارای متغیر پویا (:id)
    ============================================== */
 router.get("/detail/:id", getProjectById);
 router.get("/detail/:id/proposals", authMiddleware, getProjectProposals);
 router.put("/update/:id", authMiddleware, updateProject);
 router.delete("/delete/:id", authMiddleware, deleteProject);
 
-// 🌟 روتی که متد acceptProposal را صدا می‌زند (مبلغ جدید چت در req.body ارسال می‌شود)
+// تایید پیشنهاد (قبلاً داشتید)
 router.patch("/proposals/:id/accept", authMiddleware, acceptProposal);
+
+// 🌟 جدید: رد کردن توافق توسط کارفرما (برگرداندن پروژه به حالت open)
+router.patch(
+  "/proposals/:contractId/reject",
+  authMiddleware,
+  rejectAcceptedProposal,
+);
 
 export default router;
