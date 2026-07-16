@@ -9,15 +9,18 @@ export const useContractStore = defineStore('contract', () => {
   const errorMessage = ref<string | null>(null)
   const amendments = ref<any[]>([])
 
-  // ⚡ کنترل باز و بسته شدن مودال الحاقیه کارفرما از داخل استور
+  // ⚡ کنترل باز و بسته شدن مودال الحاقیه کارفرما
   const isOpenAmendmentModal = ref(false)
 
-  // ⚡ دسترسی مستقیم به قرارداد فعلی پروژه از استور پروژه (حذف نیاز به props)
+  // ⚡ مودال اختصاصی جزئیات برای فریلنسر (ویژگی جدید)
+  const isDetailModalOpen = ref(false)
+
+  // ⚡ دسترسی مستقیم به قرارداد فعلی پروژه از استور پروژه
   const currentContract = computed(() => {
     return projectStore.projectDetails?.contract || null
   })
 
-  // ⚡ دسترسی مستقیم به اطلاعات کلی پروژه از استور پروژه (حذف نیاز به props)
+  // ⚡ دسترسی مستقیم به اطلاعات کلی پروژه
   const currentProject = computed(() => {
     return projectStore.projectDetails || null
   })
@@ -52,15 +55,10 @@ export const useContractStore = defineStore('contract', () => {
     isProcessing.value = true
     try {
       await contractService.createAmendment(contractId, data)
-
-      // به‌روزرسانی اطلاعات کلی پروژه
       if (projectStore.projectDetails?.id && projectStore.projectDetails.contract) {
         await projectStore.openProjectDetails(projectStore.projectDetails.id)
-        // رفرش کردن لیست الحاقیه‌ها پس از ثبت کارفرما
         await fetchAmendments(projectStore.projectDetails.contract.id)
       }
-
-      // بستن مودال پس از ثبت موفقیت‌آمیز
       isOpenAmendmentModal.value = false
     } catch (error: any) {
       console.error('Error in contractStore (create):', error)
@@ -79,7 +77,9 @@ export const useContractStore = defineStore('contract', () => {
     try {
       await contractService.respondToAmendment(amendmentId, status)
 
-      // رفرش کردن اطلاعات پروژه و الحاقیه‌ها برای همگام‌سازی آنی فرانت‌اَند
+      // بستن مودال جزئیات پس از پاسخ
+      isDetailModalOpen.value = false
+
       if (projectStore.projectDetails?.id) {
         await projectStore.openProjectDetails(projectStore.projectDetails.id)
         if (projectStore.projectDetails.contract?.id) {
@@ -101,7 +101,8 @@ export const useContractStore = defineStore('contract', () => {
     currentProject,
     isProcessing,
     errorMessage,
-    isOpenAmendmentModal,
+    isOpenAmendmentModal, // برای مودال کارفرما
+    isDetailModalOpen, // برای مودال فریلنسر (ویژگی جدید)
     fetchAmendments,
     createContractAmendment,
     handleAmendmentResponse,

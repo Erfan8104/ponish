@@ -6,6 +6,7 @@ import { useRoleStore } from '@/stores/role.store'
 import ContractUpdateWizard from './ContractUpdateWizard.vue'
 import AmendmentFreelancerActions from './componentcontract/AmendmentFreelancerActions.vue'
 import AmendmentStatusBanner from './componentcontract/AmendmentStatusBanner.vue'
+import AmendmentDetailModal from './componentcontract/AmendmentDetailModal.vue'
 
 import {
   FileText,
@@ -235,6 +236,8 @@ const statusLabel = computed(() => {
     <!-- ویزارد آپدیت بدون پاس دادن پراپس‌های اضافه -->
     <ContractUpdateWizard v-if="!isContractLocked" />
   </div>
+  <!-- در انتهای فایل ProjectContractTab.vue قبل از بستن تگ div اصلی -->
+  <AmendmentDetailModal v-if="activeAmendment" />
 </template>
 
 <style scoped>
