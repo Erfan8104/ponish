@@ -88,5 +88,5 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div id="project-map" class="w-full h-[500px] rounded-2xl overflow-hidden" />
+  <div id="project-map" class="w-full h-[500px] rounded-2xl overflow-hidden relative z-0" />
 </template>
