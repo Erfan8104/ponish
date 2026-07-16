@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import { useRoleStore } from '@/stores/role.store' // 🌟 اضافه شد
 import { Plus, UserRoundPen, User, Mail, Phone } from 'lucide-vue-next'
+// اضافه کردن این خط به لیست ایمپورت‌ها
+import ProjectTriggerButton from '@/components/common/ProjectTriggerButton.vue'
 
 const authStore = useAuthStore()
 const roleStore = useRoleStore() // 🌟 اضافه شد
@@ -72,15 +74,11 @@ const goToProfile = () => {
             </button>
 
             <!-- دکمه ثبت پروژه فقط برای کارفرما معنی دارد، اگر کاربر فریلنسر بود می‌توانی دکمه را مخفی کنی یا تغییر دهی -->
-            <button
-              v-if="isEmployee"
-              @click="router.push('/newproject')"
-              type="button"
-              class="flex flex-1 sm:flex-none items-center justify-center gap-2 rounded-xl bg-[#008f55] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-[#007446] transition-all cursor-pointer"
-            >
+            <!-- کد جدید -->
+            <ProjectTriggerButton v-if="isEmployee">
               <Plus :size="15" />
               <span>ثبت پروژه جدید</span>
-            </button>
+            </ProjectTriggerButton>
           </div>
         </div>
       </div>
