@@ -18,4 +18,5 @@ export interface CreateProjectInput {
   budgetType: string;
   minBudget: string;
   maxBudget: string;
+  terrainTypes?: string[];
 }

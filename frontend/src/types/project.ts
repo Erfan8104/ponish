@@ -38,6 +38,7 @@ export interface Project {
   calculatedArea?: number
   coordinateSystem?: string
   utmZone?: string
+  terrainTypes?: string[] // این خط را اضافه کنید
 
   requiredAccuracy?: string
   deliveryTime?: string

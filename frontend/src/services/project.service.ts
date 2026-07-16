@@ -25,6 +25,7 @@ export interface ProjectFormPayload {
   calculatedArea?: number
   coordinateSystem?: string
   utmZone?: string
+  terrainTypes?: string[]
 
   polygonCoordinates?: any[]
   geoJson?: any
@@ -89,6 +90,12 @@ export const projectService = {
     if (formDataRaw.coordinateSystem) data.append('coordinateSystem', formDataRaw.coordinateSystem)
     if (formDataRaw.utmZone && formDataRaw.utmZone !== 'auto')
       data.append('utmZone', formDataRaw.utmZone)
+    // در متد createProject داخل services/project.service.ts
+
+    // اضافه کردن این چند خط بعد از سایر appendها
+    if (formDataRaw.terrainTypes && formDataRaw.terrainTypes.length > 0) {
+      data.append('terrainTypes', JSON.stringify(formDataRaw.terrainTypes))
+    }
 
     // ارسال ایمن مختصات نقشه
     if (formDataRaw.polygonCoordinates && formDataRaw.polygonCoordinates.length > 0) {

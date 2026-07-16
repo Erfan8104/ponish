@@ -62,9 +62,16 @@ const isStepValid = computed(() => {
   if (type === 'basic-info')
     return store.formData.title?.trim().length && store.formData.province && store.formData.city
   if (type === 'map-boundary') {
-    if (store.formData.areaSelectionMethod === 'map')
-      return store.formData.polygonCoordinates?.length >= 3
-    return store.uploadedFiles?.length > 0
+    // شرط‌های قبلی شما
+    const isMapValid =
+      store.formData.areaSelectionMethod === 'map'
+        ? store.formData.polygonCoordinates?.length >= 3
+        : store.uploadedFiles?.length > 0
+
+    // اضافه کردن شرط جدید برای نوع منطقه
+    const isTerrainValid = store.formData.terrainTypes?.length > 0
+
+    return isMapValid && isTerrainValid
   }
   if (type === 'technical-specs')
     return store.formData.techType?.length > 0 && store.formData.outputFormats?.length > 0

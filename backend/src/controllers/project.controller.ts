@@ -18,6 +18,13 @@ const preprocessMultipartData = (body: any) => {
       processed.techType = JSON.parse(processed.techType);
     } catch {}
   }
+  if (typeof processed.terrainTypes === "string") {
+    try {
+      processed.terrainTypes = JSON.parse(processed.terrainTypes);
+    } catch {
+      processed.terrainTypes = [];
+    }
+  }
 
   if (typeof processed.outputFormats === "string") {
     try {
@@ -105,6 +112,7 @@ export const createProject = async (req: AuthRequest, res: Response) => {
           calculatedArea: data.calculatedArea ?? null,
           coordinateSystem: data.coordinateSystem ?? null,
           utmZone: data.utmZone ?? null,
+          terrainTypes: data.terrainTypes ?? [],
           requiredAccuracy: data.requiredAccuracy ?? null,
           deliveryTime: data.deliveryTime ?? null,
           budgetType: data.budgetType ?? "fixed",
@@ -388,6 +396,8 @@ export const updateProject = async (req: AuthRequest, res: Response) => {
         where: { id: Number(id) },
         data: {
           ...validation.data,
+
+          terrainTypes: validation.data.terrainTypes ?? undefined,
           minBudget: validation.data.minBudget
             ? new Prisma.Decimal(validation.data.minBudget)
             : undefined,

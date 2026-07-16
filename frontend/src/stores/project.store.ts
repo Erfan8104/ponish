@@ -40,6 +40,7 @@ export const useProjectStore = defineStore('project', () => {
     province: '',
     city: '',
     address: '',
+    terrainTypes: [] as string[],
 
     areaSelectionMethod: 'map',
     polygonCoordinates: [] as Coordinate[],
@@ -331,6 +332,7 @@ export const useProjectStore = defineStore('project', () => {
     formData.outputFormats = []
     formData.minBudget = ''
     formData.maxBudget = ''
+    formData.terrainTypes = []
 
     uploadedFiles.value = []
     error.value = null

@@ -213,7 +213,8 @@
     title            String?
     slug             String?       @unique
     description      String?
-
+    
+    terrainTypes Json?  @default("[]")
     status           ProjectStatus @default(draft)
 
     province         String?

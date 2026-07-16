@@ -5,12 +5,14 @@ export const createProjectSchema = z
     title: z.string().optional().or(z.literal("")),
     category: z.string().optional().or(z.literal("")),
     description: z.string().optional().or(z.literal("")),
+
     province: z.string().optional(),
     city: z.string().optional(),
     address: z.string().optional(),
     areaSelectionMethod: z.string().optional().default("map"),
     polygonCoordinates: z.array(z.array(z.number())).optional(),
     geoJson: z.any().nullable().optional(),
+    terrainTypes: z.array(z.string()).optional(), // حتماً این خط را اضافه کنید
     calculatedArea: z.number().nonnegative().optional(),
     coordinateSystem: z.string().optional(),
     utmZone: z.string().optional(),

@@ -7,6 +7,23 @@ const store = useProjectStore()
 
 const showCoordinateSettings = ref(false)
 
+const terrainOptions = [
+  { id: 'hard_mountain', label: 'کوهستانی سخت' },
+  { id: 'mountain', label: 'کوهستانی' },
+  { id: 'hilly', label: 'تپه ماهور' },
+  { id: 'forest', label: 'جنگل' },
+  { id: 'urban_rural', label: 'شهری / روستایی' }, // گزینه ترکیبی شما
+]
+
+const toggleTerrain = (id: string) => {
+  const index = store.formData.terrainTypes.indexOf(id)
+  if (index === -1) {
+    store.formData.terrainTypes.push(id)
+  } else {
+    store.formData.terrainTypes.splice(index, 1)
+  }
+}
+
 const handleBoundaryFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement
   if (!target.files?.length) return
@@ -174,6 +191,26 @@ onMounted(() => {
         >
           {{ zone }}
         </button>
+      </div>
+    </div>
+    <div class="mt-6 pt-6 border-t border-gray-100">
+      <label class="block text-xs font-bold text-gray-600 mb-3 mr-1">
+        نوع منطقه (انتخاب چندگانه)
+      </label>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div
+          v-for="terrain in terrainOptions"
+          :key="terrain.id"
+          @click="toggleTerrain(terrain.id)"
+          class="border rounded-xl p-3 cursor-pointer transition-all text-center text-xs font-bold"
+          :class="
+            store.formData.terrainTypes.includes(terrain.id)
+              ? 'border-[#008f55] bg-emerald-50 text-[#008f55]'
+              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+          "
+        >
+          {{ terrain.label }}
+        </div>
       </div>
     </div>
   </div>
