@@ -220,7 +220,8 @@
     province         String?
     city             String?
     address          String?
-
+    corridorLength   Float? 
+    mappingType      String?
     calculatedArea   Float?
     coordinateSystem String?
     utmZone          String?
