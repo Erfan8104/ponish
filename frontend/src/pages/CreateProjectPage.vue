@@ -59,25 +59,46 @@ const progress = computed(() => {
 
 const isStepValid = computed(() => {
   const type = currentStepData.value.type
-  if (type === 'basic-info')
-    return store.formData.title?.trim().length && store.formData.province && store.formData.city
+
+  if (type === 'basic-info') {
+    // اعتبارسنجی فیلدهای متنی اولیه
+    return (
+      store.formData.title?.trim().length > 0 &&
+      store.formData.province?.trim().length > 0 &&
+      store.formData.city?.trim().length > 0
+    )
+  }
+
   if (type === 'map-boundary') {
-    // شرط‌های قبلی شما
+    // ۱. بررسی انتخاب نوع پروژه (طولی یا مساحتی)
+    if (!store.formData.mappingType) return false
+
+    // ۲. بررسی شرط‌های ترسیم نقشه یا آپلود
     const isMapValid =
       store.formData.areaSelectionMethod === 'map'
-        ? store.formData.polygonCoordinates?.length >= 3
+        ? store.formData.mappingType === 'area'
+          ? store.formData.polygonCoordinates?.length >= 3 // برای مساحتی حداقل ۳ نقطه
+          : store.formData.polygonCoordinates?.length >= 2 // برای کریدور حداقل ۲ نقطه (یک خط)
         : store.uploadedFiles?.length > 0
 
-    // اضافه کردن شرط جدید برای نوع منطقه
+    // ۳. بررسی فیلد طولی (اگر کریدور انتخاب شده، باید طول وارد شده باشد)
+    const isCorridorValid =
+      store.formData.mappingType === 'area' ? true : store.formData.corridorLength > 0
+
+    // ۴. بررسی نوع منطقه (اجباری)
     const isTerrainValid = store.formData.terrainTypes?.length > 0
 
-    return isMapValid && isTerrainValid
+    return isMapValid && isCorridorValid && isTerrainValid
   }
-  if (type === 'technical-specs')
+
+  if (type === 'technical-specs') {
     return store.formData.techType?.length > 0 && store.formData.outputFormats?.length > 0
+  }
+
   if (type === 'timing-budget') {
     return true
   }
+
   return true
 })
 
