@@ -13,6 +13,28 @@ import { updateProjectSchema } from "../validators/project.validator";
 const preprocessMultipartData = (body: any) => {
   const processed = { ...body };
 
+  Object.keys(processed).forEach((key) => {
+    if (
+      processed[key] === "" ||
+      processed[key] === "null" ||
+      processed[key] === "undefined"
+    ) {
+      processed[key] = undefined; // تبدیل به undefined تا Zod فیلدهای optional را رد کند
+    }
+  });
+
+  if (
+    processed.calculatedArea !== undefined &&
+    processed.calculatedArea !== ""
+  ) {
+    processed.calculatedArea = Number(processed.calculatedArea);
+  }
+  if (
+    processed.corridorLength !== undefined &&
+    processed.corridorLength !== ""
+  ) {
+    processed.corridorLength = Number(processed.corridorLength);
+  }
   if (typeof processed.techType === "string") {
     try {
       processed.techType = JSON.parse(processed.techType);
@@ -71,13 +93,19 @@ export const createProject = async (req: AuthRequest, res: Response) => {
 
     const validation = createProjectSchema.safeParse(processedBody);
 
+    // 🌟 جای صحیح بررسی خطا: اگر اعتبارسنجی Zod رد شد
     if (!validation.success) {
+      console.log("❌ Zod Validation Error Details:");
+      console.log(
+        JSON.stringify(validation.error.flatten().fieldErrors, null, 2),
+      );
+
       return res.status(400).json({
         success: false,
+        message: "خطای اعتبارسنجی داده‌ها",
         errors: validation.error.issues,
       });
     }
-
     const data = validation.data;
 
     let categoryId: number | null = null;
@@ -109,7 +137,12 @@ export const createProject = async (req: AuthRequest, res: Response) => {
           city: data.city ?? null,
           address: data.address ?? null,
           areaSelectionMethod: data.areaSelectionMethod ?? "map",
+          mappingType: data.mappingType ?? null, // اطمینان از ذخیره نوع
+
+          // اصلاح منطق ذخیره سازی:
+          // اگر مقدار وارد شده (حتی اگر type اشتباه باشد، داده از بین نرود)
           calculatedArea: data.calculatedArea ?? null,
+          corridorLength: data.corridorLength ?? null,
           coordinateSystem: data.coordinateSystem ?? null,
           utmZone: data.utmZone ?? null,
           terrainTypes: data.terrainTypes ?? [],
@@ -155,6 +188,19 @@ export const createProject = async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error("❌ createProject error:", error);
+    // در فایل controllers/project.controller.ts
+    const validation = createProjectSchema.safeParse(processedBody);
+
+    if (!validation.success) {
+      // این لاگ را اضافه کنید تا بفهمید مشکل از کدام فیلد است
+      console.log("Validation Errors:", validation.error.flatten().fieldErrors);
+
+      return res.status(400).json({
+        success: false,
+        message: "خطای اعتبارسنجی",
+        errors: validation.error.issues,
+      });
+    }
 
     return res.status(500).json({
       success: false,
@@ -396,6 +442,15 @@ export const updateProject = async (req: AuthRequest, res: Response) => {
         where: { id: Number(id) },
         data: {
           ...validation.data,
+          mappingType: validation.data.mappingType,
+          calculatedArea:
+            validation.data.mappingType === "area"
+              ? validation.data.calculatedArea
+              : null,
+          corridorLength:
+            validation.data.mappingType === "corridor"
+              ? validation.data.corridorLength
+              : null,
 
           terrainTypes: validation.data.terrainTypes ?? undefined,
           minBudget: validation.data.minBudget

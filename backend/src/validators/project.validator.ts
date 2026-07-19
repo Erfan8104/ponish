@@ -9,15 +9,20 @@ export const createProjectSchema = z
     province: z.string().optional(),
     city: z.string().optional(),
     address: z.string().optional(),
-    areaSelectionMethod: z.string().optional().default("map"),
-    polygonCoordinates: z.array(z.array(z.number())).optional(),
-    geoJson: z.any().nullable().optional(),
-    terrainTypes: z.array(z.string()).optional(), // حتماً این خط را اضافه کنید
+
+    // فیلدهای جدید برای نقشه برداری
+    mappingType: z.enum(["area", "corridor"]).optional(),
     calculatedArea: z.number().nonnegative().optional(),
+    corridorLength: z.number().nonnegative().optional(),
+
+    areaSelectionMethod: z.string().optional().default("map"),
+    polygonCoordinates: z.any().optional(), // استفاده از any برای انعطاف بیشتر در پارس اولیه
+    geoJson: z.any().nullable().optional(),
+    terrainTypes: z.array(z.string()).optional(),
     coordinateSystem: z.string().optional(),
     utmZone: z.string().optional(),
-    techType: z.array(z.string()).optional(),
-    outputFormats: z.array(z.string()).optional(),
+    techType: z.any().optional(),
+    outputFormats: z.any().optional(),
     requiredAccuracy: z.string().optional(),
     deliveryTime: z.string().optional(),
     budgetType: z
@@ -27,17 +32,11 @@ export const createProjectSchema = z
     minBudget: z.union([z.string(), z.number()]).optional(),
     maxBudget: z.union([z.string(), z.number()]).optional(),
   })
-  .partial(); // 👈 تمام فیلدهای بالا را یکجا اختیاری می‌کند
+  .partial();
 
 export const updateProjectSchema = createProjectSchema;
 
-/**
- * ==========================================
- * اسکیمای تایید پروپوزال (تغییر قیمت توافقی چت)
- * ==========================================
- */
 export const acceptProposalSchema = z.object({
-  // فیلد فینال‌امونت کاملاً اختیاری است و می‌تواند عدد یا رشته عددی باشد
   finalAmount: z
     .union([z.number().positive(), z.string().regex(/^\d+$/)])
     .optional(),

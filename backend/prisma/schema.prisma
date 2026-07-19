@@ -479,7 +479,8 @@ model ContractAmendment {
   contractId      Int
   contract        Contract        @relation(fields: [contractId], references: [id], onDelete: Cascade)
   
-  proposed_area   Float
+  proposed_area   Float?          // مساحت پیشنهادی جدید (اگر نوع پروژه مساحتی است)
+  proposed_length Float?
   proposed_amount Decimal         @db.Decimal(14, 2)
   notes           String?
   
