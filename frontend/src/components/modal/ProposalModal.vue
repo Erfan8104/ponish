@@ -102,7 +102,7 @@ const onlyNumber = (event: Event, field: 'amount' | 'deliveryDays') => {
                     <div class="rounded-xl border border-slate-100 bg-white p-3.5">
                       <p class="text-[11px] font-medium text-slate-400">دسته‌بندی</p>
                       <p class="mt-1 text-xs font-semibold text-slate-700">
-                        {{ selectedProject.category }}
+                        {{ selectedProject.category?.name }}
                       </p>
                     </div>
 

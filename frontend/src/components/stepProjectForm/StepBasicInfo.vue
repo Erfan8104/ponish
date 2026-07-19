@@ -7,41 +7,42 @@ const store = useProjectStore()
 // مدیریت نمایش/مخفی کردن بخش دسته‌بندی تخصصی
 const showAdvancedOptions = ref(false)
 
-// گزینه‌های تخصصی نقشه‌برداری
+// لیست جدید مطابق با اسلاگ‌های دیتابیس اصلاح شده
 const surveyCategories = [
   {
-    id: 'unknown',
-    name: 'اطلاع ندارم (مشاوره با کارشناس)',
-    icon: '💡',
-    desc: 'اگر نوع دقیق خدمات را نمی‌دانید، این گزینه را انتخاب کنید.',
-  },
-  {
-    id: 'terrestrial',
+    id: 'mapping', // مطابق با slug دیتابیس
     name: 'نقشه‌برداری زمینی',
     icon: '📐',
     desc: 'برداشت با توتال استیشن و GPS',
   },
-  { id: 'uav', name: 'فتوگرامتری با پهپاد', icon: '✈️', desc: 'تصویربرداری هوایی و تهیه ارتوفتو' },
   {
-    id: 'gis',
-    name: 'سامانه اطلاعات جغرافیایی (GIS)',
+    id: 'drone', // مطابق با slug دیتابیس
+    name: 'عکس‌برداری هوایی',
+    icon: '✈️',
+    desc: 'تصویربرداری هوایی و تهیه ارتوفتو',
+  },
+  {
+    id: 'gis', // مطابق با slug دیتابیس
+    name: 'خدمات GIS',
     icon: '🗺️',
     desc: 'تحلیل داده، ژئورفرنس و پایگاه داده',
   },
   {
-    id: 'cadastral',
-    name: 'کاداستر و تفکیک اراضی',
+    id: 'drafting', // مطابق با slug دیتابیس
+    name: 'ترسیم و کارتوگرافی',
     icon: '📋',
-    desc: 'امور ثبتی، سند و تعیین حدود',
+    desc: 'امور ثبتی، نقشه‌کشی و کارتوگرافی',
   },
 ]
 
 onMounted(() => {
+  // اگر مقدار پیش‌فرض خالی بود، یکی را انتخاب کن یا بگذار خالی بماند
   if (!store.formData.category) {
-    store.formData.category = 'unknown'
+    store.formData.category = ''
   }
-  // اگر از قبل دسته‌بندی خاصی (بجز گزینه عمومی) انتخاب شده بود، این بخش باز بماند
-  if (store.formData.category !== 'unknown') {
+
+  // اگر از قبل دسته‌بندی انتخاب شده بود، بخش تخصصی باز بماند
+  if (store.formData.category && store.formData.category !== '') {
     showAdvancedOptions.value = true
   }
 })
@@ -119,9 +120,7 @@ onMounted(() => {
         class="text-xs font-bold text-[#008f55] hover:text-[#007646] flex items-center gap-1.5 bg-emerald-50/50 hover:bg-emerald-50 px-4 py-2.5 rounded-xl transition-all border border-emerald-100"
       >
         <span>{{
-          showAdvancedOptions
-            ? '➖ عدم نمایش حوزه تخصصی'
-            : '🎯 تعیین نوع حوزه نقشه‌برداری (اختیاری و تخصصی)'
+          showAdvancedOptions ? '➖ عدم نمایش حوزه تخصصی' : '🎯 تعیین نوع حوزه نقشه‌برداری'
         }}</span>
       </button>
     </div>

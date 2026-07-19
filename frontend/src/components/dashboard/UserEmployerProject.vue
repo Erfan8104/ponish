@@ -142,7 +142,7 @@ const handleDelete = async (id: number) => {
 
               <div class="flex gap-2 mt-1 flex-wrap">
                 <span class="text-sm text-gray-500">
-                  {{ project.category }}
+                  {{ project.category?.name }}
                 </span>
                 <span class="text-gray-300">•</span>
                 <span class="text-sm text-gray-500">

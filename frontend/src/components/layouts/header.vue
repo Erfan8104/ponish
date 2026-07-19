@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink } from 'vue-router'
+import ProjectTriggerButton from '../common/ProjectTriggerButton.vue'
 
 import { useAuthStore } from '../../stores/auth.store.ts'
 import { useUiStore } from '../../stores/ui.store.ts'
@@ -10,7 +11,7 @@ import { useRoleStore } from '../../stores/role.store.ts'
 import SearchModal from '../modal/SearchModal.vue'
 
 const uiStore = useUiStore()
-const router = useRouter()
+
 const authStore = useAuthStore()
 const roleStore = useRoleStore()
 const isMobileMenuOpen = ref(false)
@@ -20,13 +21,6 @@ const isEmployee = computed<boolean>(() => {
 const isLoggedIn = computed(() => !!authStore.token)
 
 // تابع هدایت به صفحه ویرایش مشخصات
-const goToCreateProject = () => {
-  if (!isLoggedIn.value) {
-    router.push('/signup')
-  } else {
-    router.push('/newproject')
-  }
-}
 </script>
 
 <template>
@@ -122,14 +116,10 @@ const goToCreateProject = () => {
           </div>
 
           <div v-if="isLoggedIn" class="px-40"></div>
-          <button
-            v-if="isEmployee || !isLoggedIn"
-            type="button"
-            @click="goToCreateProject"
-            class="inline-flex items-center gap-2 rounded-xl bg-[#006C47] px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
-          >
-            ثبت سریع پروژه
-          </button>
+          <ProjectTriggerButton v-if="isEmployee">
+            <Plus :size="15" />
+            <span>ثبت پروژه جدید</span>
+          </ProjectTriggerButton>
           <div v-if="isLoggedIn" class=""></div>
           <ProfileModal v-if="isLoggedIn" />
         </div>
@@ -206,14 +196,10 @@ const goToCreateProject = () => {
             </button>
           </div>
 
-          <button
-            @click="goToCreateProject"
-            v-if="isEmployee || !isLoggedIn"
-            type="button"
-            class="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#006C47] px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
-          >
-            ثبت سریع پروژه
-          </button>
+          <ProjectTriggerButton v-if="isEmployee">
+            <Plus :size="15" />
+            <span>ثبت پروژه جدید</span>
+          </ProjectTriggerButton>
         </div>
       </div>
     </div>

@@ -1,3 +1,27 @@
+<script setup lang="ts">
+import { useRouter } from 'vue-router'
+import { ClipboardList, Zap } from 'lucide-vue-next'
+import { useButtonCreateProjectStore } from '../../stores/buttoncreateproject.store'
+// ۱. وارد کردن استور جدید برای مودال سریع
+import { useQuickProjectModalStore } from '@/stores/QuickProject.modal.store'
+
+const modalStore = useButtonCreateProjectStore()
+// ۲. مقداردهی استور جدید
+const quickModalStore = useQuickProjectModalStore()
+const router = useRouter()
+
+const handleDetailed = () => {
+  modalStore.closeModal()
+  router.push('/newproject')
+}
+
+// ۳. اصلاح تابع ثبت سریع
+const handleQuick = () => {
+  modalStore.closeModal() // بستن مودالِ انتخاب روش
+  quickModalStore.openModal() // باز کردن مودالِ ثبت سریع
+}
+</script>
+
 <template>
   <!-- استفاده از Transition برای انیمیشن ورود و خروج -->
   <Transition name="fade">
@@ -60,24 +84,6 @@
     </div>
   </Transition>
 </template>
-
-<script setup lang="ts">
-import { useRouter } from 'vue-router'
-import { ClipboardList, Zap } from 'lucide-vue-next' // آیکون‌های مدرن
-import { useButtonCreateProjectStore } from '../../stores/buttoncreateproject.store'
-
-const modalStore = useButtonCreateProjectStore()
-const router = useRouter()
-
-const handleDetailed = () => {
-  modalStore.closeModal()
-  router.push('/newproject')
-}
-
-const handleQuick = () => {
-  modalStore.closeModal()
-}
-</script>
 
 <style scoped>
 /* انیمیشن محو شدن نرم */

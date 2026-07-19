@@ -35,7 +35,9 @@ export interface Project {
   city?: string
   address?: string
 
-  calculatedArea?: number
+  mappingType: 'area' | 'corridor' | null
+  calculatedArea: number // مساحت
+  corridorLength: number // طول
   coordinateSystem?: string
   utmZone?: string
   terrainTypes?: string[] // این خط را اضافه کنید

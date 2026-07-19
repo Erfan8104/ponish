@@ -14,26 +14,35 @@ export interface ProposalPayload {
 }
 
 export interface ProjectFormPayload {
+  // اطلاعات پایه
   title: string
   category?: string
   description?: string
+
+  // اطلاعات موقعیت
   province?: string
   city?: string
   address?: string
 
+  // اطلاعات نقشه‌برداری و کریدور
+  mappingType?: string // نوع نقشه‌برداری
+  corridorLength?: number // طول کریدور (جدید)
   areaSelectionMethod?: string
   calculatedArea?: number
   coordinateSystem?: string
   utmZone?: string
   terrainTypes?: string[]
 
+  // داده‌های جغرافیایی
   polygonCoordinates?: any[]
   geoJson?: any
 
+  // جزئیات فنی و خروجی
   techType?: any[]
   outputFormats?: any[]
   requiredAccuracy?: string
 
+  // زمان‌بندی و مالی
   deliveryTime?: string
   budgetType?: 'fixed' | 'hourly' | 'negotiable'
   minBudget?: number
@@ -85,8 +94,14 @@ export const projectService = {
     if (formDataRaw.areaSelectionMethod)
       data.append('areaSelectionMethod', formDataRaw.areaSelectionMethod)
 
-    if (formDataRaw.calculatedArea !== undefined)
-      data.append('calculatedArea', String(formDataRaw.calculatedArea))
+    // اضافه کردن این بخش برای ارسال طول و نوع نقشه برداری
+    if (formDataRaw.mappingType) {
+      data.append('mappingType', formDataRaw.mappingType)
+    }
+    if (formDataRaw.corridorLength !== undefined && formDataRaw.corridorLength !== null) {
+      data.append('corridorLength', String(formDataRaw.corridorLength))
+    }
+
     if (formDataRaw.coordinateSystem) data.append('coordinateSystem', formDataRaw.coordinateSystem)
     if (formDataRaw.utmZone && formDataRaw.utmZone !== 'auto')
       data.append('utmZone', formDataRaw.utmZone)

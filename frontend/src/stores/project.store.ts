@@ -24,6 +24,8 @@ export const useProjectStore = defineStore('project', () => {
   const projectDetails = ref<ProjectDetail | null>(null)
   const isProjectDetailsModalOpen = ref(false)
   const isProjectDetailsLoading = ref(false)
+  // در استیت استور اضافه کنید
+  const isQuickEntry = ref(false)
 
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -42,19 +44,23 @@ export const useProjectStore = defineStore('project', () => {
     address: '',
     terrainTypes: [] as string[],
 
+    // فیلدهای جدید
+    mappingType: null as 'area' | 'corridor' | null,
+    calculatedArea: 0,
+    corridorLength: 0,
+
     areaSelectionMethod: 'map',
     polygonCoordinates: [] as Coordinate[],
     geoJson: null as any,
-    calculatedArea: 0,
-    coordinateSystem: 'WGS84',
+    coordinateSystem: '',
     utmZone: '',
 
     techType: [] as string[],
     outputFormats: [] as string[],
-    requiredAccuracy: '1-5cm',
+    requiredAccuracy: '',
 
-    deliveryTime: '1-week',
-    budgetType: 'fixed',
+    deliveryTime: '',
+    budgetType: '',
     minBudget: '',
     maxBudget: '',
   })
@@ -139,13 +145,18 @@ export const useProjectStore = defineStore('project', () => {
       console.error(err)
     }
   }
-
   const submitProject = async () => {
     isLoading.value = true
     error.value = null
 
     try {
-      const res = await projectService.createProject(formData, uploadedFiles.value)
+      // ارسال داده‌ها همراه با فلگ (بک‌اند می‌تواند بر اساس این فلگ اعتبارسنجی را مدیریت کند)
+      const payload = {
+        ...formData,
+        isQuick: isQuickEntry.value,
+      }
+
+      const res = await projectService.createProject(payload, uploadedFiles.value)
 
       if (res) {
         projects.value.unshift(res)
@@ -159,6 +170,8 @@ export const useProjectStore = defineStore('project', () => {
       throw err
     } finally {
       isLoading.value = false
+      // ریست کردن فلگ بعد از هر بار تلاش (موفق یا ناموفق)
+      isQuickEntry.value = false
     }
   }
 
@@ -295,6 +308,16 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
+  // این را می‌توانید به ریترن استور اضافه کنید
+  const setMappingType = (type: 'area' | 'corridor') => {
+    formData.mappingType = type
+    if (type === 'area') {
+      formData.corridorLength = 0
+    } else {
+      formData.calculatedArea = 0
+    }
+  }
+
   // در استور اضافه کنید
   const syncProjects = async () => {
     try {
@@ -325,14 +348,19 @@ export const useProjectStore = defineStore('project', () => {
     formData.province = ''
     formData.city = ''
     formData.address = ''
+    formData.terrainTypes = []
+
+    // ریست فیلدهای جدید
+    formData.mappingType = null
     formData.calculatedArea = 0
+    formData.corridorLength = 0
+
     formData.polygonCoordinates = []
     formData.geoJson = null
     formData.techType = []
     formData.outputFormats = []
     formData.minBudget = ''
     formData.maxBudget = ''
-    formData.terrainTypes = []
 
     uploadedFiles.value = []
     error.value = null
@@ -358,6 +386,8 @@ export const useProjectStore = defineStore('project', () => {
     projectDetails,
     isProjectDetailsModalOpen,
     isProjectDetailsLoading,
+    isQuickEntry,
+
     formData,
     uploadedFiles,
     isLoading,
@@ -368,6 +398,7 @@ export const useProjectStore = defineStore('project', () => {
     openProjects,
 
     // actions
+    setMappingType,
     fetchProjects,
     rejectProposal,
     syncProjects,
