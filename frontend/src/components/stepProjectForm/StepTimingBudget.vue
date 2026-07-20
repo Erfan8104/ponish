@@ -1,8 +1,17 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useProjectStore } from '../../stores/project.store'
 
 const store = useProjectStore()
+
+// استخراج عدد از داخل رشته ذخیره شده در استور (مثلاً "10 روز" -> "10")
+const getInitialCustomDays = () => {
+  if (!store.formData.deliveryTime) return ''
+  const staticOptions = ['urgent', '3-days', '1-week', '2-weeks']
+  if (staticOptions.includes(store.formData.deliveryTime)) return ''
+  const match = store.formData.deliveryTime.match(/\d+/)
+  return match ? match[0] : store.formData.deliveryTime
+}
 
 // بررسی اینکه آیا مقدار اولیه تحویل جزو گزینه‌های ثابت است یا کاربر روز دستی وارد کرده است
 const isCustomDays = ref(
@@ -10,7 +19,7 @@ const isCustomDays = ref(
     Boolean(store.formData.deliveryTime),
 )
 
-const customDaysInput = ref(isCustomDays.value ? store.formData.deliveryTime : '')
+const customDaysInput = ref(getInitialCustomDays())
 
 const deliveryOptions = [
   {
@@ -84,38 +93,21 @@ const selectBudgetMode = (modeId: string) => {
   }
 }
 
-const estimatedPrice = computed(() => {
-  let area = Number(store.formData.calculatedArea || 0)
-
-  if (!area) return 0
-
-  let basePrice = area * 2500000
-
-  if (store.formData.category === 'uav') basePrice *= 1.2
-  if (store.formData.category === 'gis') basePrice *= 0.8
-  if (store.formData.category === 'cadastral') basePrice *= 1.5
-  if (store.formData.requiredAccuracy === '1-2cm') basePrice *= 1.4
-  if (store.formData.requiredAccuracy === '2-5cm') basePrice *= 1.2
-
-  const delivery = deliveryOptions.find((d) => d.id === store.formData.deliveryTime)
-
-  if (delivery) {
-    basePrice *= delivery.multiplier
+onMounted(() => {
+  // اگر مقدار پیش‌فرضی از قبل هست و custom انتخاب شده، مقدار اینپوت ست شود
+  if (isCustomDays.value && !customDaysInput.value) {
+    store.formData.deliveryTime = ''
   }
-
-  return Math.round(basePrice)
 })
-
-const formatPrice = (value: number) => {
-  return new Intl.NumberFormat('fa-IR').format(value)
-}
 </script>
 
 <template>
   <div class="space-y-8 text-right" style="direction: rtl">
     <!-- زمان تحویل -->
     <div>
-      <label class="block text-xs font-bold text-gray-600 mb-3"> زمان تحویل مورد انتظار </label>
+      <label class="block text-xs font-bold text-gray-600 mb-3">
+        زمان تحویل مورد انتظار <span class="text-red-500">*</span>
+      </label>
 
       <div class="grid md:grid-cols-2 gap-3">
         <button
@@ -142,14 +134,19 @@ const formatPrice = (value: number) => {
 
       <!-- اینپوت تعداد روز دستی (در صورت انتخاب گزینه روز دلخواه) -->
       <div v-if="isCustomDays" class="mt-4">
-        <label class="block text-xs font-bold text-gray-600 mb-2"> مدت زمان تحویل (به روز) </label>
+        <label class="block text-xs font-bold text-gray-600 mb-2">
+          مدت زمان تحویل (به روز) <span class="text-red-500">*</span>
+        </label>
         <input
           v-model="customDaysInput"
           type="number"
           min="1"
-          class="w-full border border-gray-200 rounded-xl px-4 py-3"
+          class="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#008f55]"
           placeholder="مثال: ۱۰"
         />
+        <p v-if="!customDaysInput" class="text-red-500 text-[11px] mt-1.5">
+          لطفاً تعداد روز را به صورت عددی وارد کنید.
+        </p>
       </div>
     </div>
 
@@ -183,7 +180,7 @@ const formatPrice = (value: number) => {
         <input
           v-model="store.formData.minBudget"
           type="number"
-          class="w-full border border-gray-200 rounded-xl px-4 py-3"
+          class="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#008f55]"
           placeholder="مثال: ۲۰ میلیون"
         />
       </div>
@@ -194,12 +191,10 @@ const formatPrice = (value: number) => {
         <input
           v-model="store.formData.maxBudget"
           type="number"
-          class="w-full border border-gray-200 rounded-xl px-4 py-3"
+          class="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#008f55]"
           placeholder="مثال: ۵۰ میلیون"
         />
       </div>
     </div>
-
-    <!-- تخمین هوشمند -->
   </div>
 </template>

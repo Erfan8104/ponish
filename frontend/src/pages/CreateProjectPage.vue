@@ -106,12 +106,20 @@ const isStepValid = computed(() => {
   }
 
   if (type === 'timing-budget') {
-    return true
+    // بررسی زمان تحویل: اگر مقدار انتخاب شده و اگر حالت custom است، باید اینپوت خالی نباشد
+    const time = store.formData.deliveryTime
+    if (!time) return false
+
+    const staticOptions = ['urgent', '3-days', '1-week', '2-weeks']
+    if (staticOptions.includes(time)) return true
+
+    // اگر مقدار سفارشی است، باید مطمئن شویم متن شامل عدد معتبر است
+    const match = time.match(/\d+/)
+    return match ? Number(match[0]) > 0 : false
   }
 
   return true
 })
-
 const goToDashboard = () => {
   router.push('/dashboard')
 }

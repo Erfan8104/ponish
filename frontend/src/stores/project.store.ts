@@ -79,6 +79,22 @@ export const useProjectStore = defineStore('project', () => {
     completedProjects: projects.value.filter((p) => p.status === 'completed').length,
   }))
 
+  /**
+   * بررسی معتبر بودن زمان تحویل (مدیریت حالت روزهای دلخواه و گزینه‌های ثابت)
+   */
+  const isDeliveryTimeValid = computed(() => {
+    const time = formData.deliveryTime
+    if (!time) return false
+
+    // اگر مقادیر ثابتانتخاب شده باشند، معتبر است
+    const staticOptions = ['urgent', '3-days', '1-week', '2-weeks']
+    if (staticOptions.includes(time)) return true
+
+    // اگر حالت دلخواه باشد، بررسی می‌کنیم که متن شامل عدد معتبر یا روز باشد
+    const match = time.match(/\d+/)
+    return match ? Number(match[0]) > 0 : false
+  })
+
   const openProjects = computed(() => projects.value.filter((p) => p.status === 'open'))
 
   /**
@@ -386,6 +402,7 @@ export const useProjectStore = defineStore('project', () => {
     projectDetails,
     isProjectDetailsModalOpen,
     isProjectDetailsLoading,
+    isDeliveryTimeValid,
     isQuickEntry,
 
     formData,
