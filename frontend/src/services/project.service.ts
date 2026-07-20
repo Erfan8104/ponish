@@ -102,7 +102,6 @@ export const projectService = {
       data.append('corridorLength', String(formDataRaw.corridorLength))
     }
 
-    if (formDataRaw.coordinateSystem) data.append('coordinateSystem', formDataRaw.coordinateSystem)
     if (formDataRaw.utmZone && formDataRaw.utmZone !== 'auto')
       data.append('utmZone', formDataRaw.utmZone)
     // در متد createProject داخل services/project.service.ts

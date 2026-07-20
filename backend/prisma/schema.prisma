@@ -223,7 +223,7 @@
     corridorLength   Float? 
     mappingType      String?
     calculatedArea   Float?
-    coordinateSystem String?
+    
     utmZone          String?
 
     requiredAccuracy String?

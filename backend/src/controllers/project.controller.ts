@@ -143,7 +143,6 @@ export const createProject = async (req: AuthRequest, res: Response) => {
           // اگر مقدار وارد شده (حتی اگر type اشتباه باشد، داده از بین نرود)
           calculatedArea: data.calculatedArea ?? null,
           corridorLength: data.corridorLength ?? null,
-          coordinateSystem: data.coordinateSystem ?? null,
           utmZone: data.utmZone ?? null,
           terrainTypes: data.terrainTypes ?? [],
           requiredAccuracy: data.requiredAccuracy ?? null,

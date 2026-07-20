@@ -65,7 +65,8 @@ const isStepValid = computed(() => {
     return (
       store.formData.title?.trim().length > 0 &&
       store.formData.province?.trim().length > 0 &&
-      store.formData.city?.trim().length > 0
+      store.formData.city?.trim().length > 0 &&
+      store.formData.category
     )
   }
 
@@ -73,13 +74,17 @@ const isStepValid = computed(() => {
     // ۱. بررسی انتخاب نوع پروژه (طولی یا مساحتی)
     if (!store.formData.mappingType) return false
 
-    // ۲. بررسی شرط‌های ترسیم نقشه یا آپلود
-    const isMapValid =
-      store.formData.areaSelectionMethod === 'map'
-        ? store.formData.mappingType === 'area'
-          ? store.formData.polygonCoordinates?.length >= 3 // برای مساحتی حداقل ۳ نقطه
-          : store.formData.polygonCoordinates?.length >= 2 // برای کریدور حداقل ۲ نقطه (یک خط)
-        : store.uploadedFiles?.length > 0
+    // ۲. بررسی شرط‌های ترسیم نقشه یا آپلود فایل
+    // اگر کاربر روی نقشه رسم کرده باشد OR فایلی در سیستم آپلود شده باشد
+    const hasValidMap =
+      store.formData.mappingType === 'area'
+        ? store.formData.polygonCoordinates?.length >= 3 // برای مساحتی حداقل ۳ نقطه
+        : store.formData.polygonCoordinates?.length >= 2 // برای کریدور حداقل ۲ نقطه
+
+    const hasUploadedFile = store.uploadedFiles?.length > 0
+
+    // اگر روش روی نقشه باشد، نیازمند ترسیم روی نقشه یا داشتن فایل آپلودشده است
+    const isMapOrUploadValid = hasValidMap || hasUploadedFile
 
     // ۳. بررسی فیلد طولی (اگر کریدور انتخاب شده، باید طول وارد شده باشد)
     const isCorridorValid =
@@ -88,7 +93,7 @@ const isStepValid = computed(() => {
     // ۴. بررسی نوع منطقه (اجباری)
     const isTerrainValid = store.formData.terrainTypes?.length > 0
 
-    return isMapValid && isCorridorValid && isTerrainValid
+    return isMapOrUploadValid && isCorridorValid && isTerrainValid
   }
 
   if (type === 'technical-specs') {

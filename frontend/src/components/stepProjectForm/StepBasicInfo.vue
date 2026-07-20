@@ -1,34 +1,31 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onMounted } from 'vue'
 import { useProjectStore } from '../../stores/project.store'
 
 const store = useProjectStore()
 
-// مدیریت نمایش/مخفی کردن بخش دسته‌بندی تخصصی
-const showAdvancedOptions = ref(false)
-
-// لیست جدید مطابق با اسلاگ‌های دیتابیس اصلاح شده
+// لیست دسته‌بندی‌ها مطابق با اسلاگ‌های دیتابیس
 const surveyCategories = [
   {
-    id: 'mapping', // مطابق با slug دیتابیس
+    id: 'mapping',
     name: 'نقشه‌برداری زمینی',
     icon: '📐',
     desc: 'برداشت با توتال استیشن و GPS',
   },
   {
-    id: 'drone', // مطابق با slug دیتابیس
+    id: 'drone',
     name: 'عکس‌برداری هوایی',
     icon: '✈️',
     desc: 'تصویربرداری هوایی و تهیه ارتوفتو',
   },
   {
-    id: 'gis', // مطابق با slug دیتابیس
+    id: 'gis',
     name: 'خدمات GIS',
     icon: '🗺️',
     desc: 'تحلیل داده، ژئورفرنس و پایگاه داده',
   },
   {
-    id: 'drafting', // مطابق با slug دیتابیس
+    id: 'drafting',
     name: 'ترسیم و کارتوگرافی',
     icon: '📋',
     desc: 'امور ثبتی، نقشه‌کشی و کارتوگرافی',
@@ -36,14 +33,8 @@ const surveyCategories = [
 ]
 
 onMounted(() => {
-  // اگر مقدار پیش‌فرض خالی بود، یکی را انتخاب کن یا بگذار خالی بماند
   if (!store.formData.category) {
     store.formData.category = ''
-  }
-
-  // اگر از قبل دسته‌بندی انتخاب شده بود، بخش تخصصی باز بماند
-  if (store.formData.category && store.formData.category !== '') {
-    showAdvancedOptions.value = true
   }
 })
 </script>
@@ -113,21 +104,10 @@ onMounted(() => {
 
     <hr class="border-gray-100 my-4" />
 
-    <div class="flex justify-start">
-      <button
-        type="button"
-        @click="showAdvancedOptions = !showAdvancedOptions"
-        class="text-xs font-bold text-[#008f55] hover:text-[#007646] flex items-center gap-1.5 bg-emerald-50/50 hover:bg-emerald-50 px-4 py-2.5 rounded-xl transition-all border border-emerald-100"
-      >
-        <span>{{
-          showAdvancedOptions ? '➖ عدم نمایش حوزه تخصصی' : '🎯 تعیین نوع حوزه نقشه‌برداری'
-        }}</span>
-      </button>
-    </div>
-
-    <div v-if="showAdvancedOptions" class="pt-2 transition-all duration-300">
+    <!-- بخش انتخاب حوزه تخصصی به صورت کاملاً مستقیم و بدون دکمه بازشو -->
+    <div>
       <label class="block text-xs font-bold text-gray-600 mb-3 mr-1"
-        >نوع حوزه نقشه‌برداری پروژه را مشخص کنید</label
+        >نوع حوزه نقشه‌برداری پروژه را مشخص کنید <span class="text-red-500">*</span></label
       >
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div

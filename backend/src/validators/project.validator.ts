@@ -19,7 +19,6 @@ export const createProjectSchema = z
     polygonCoordinates: z.any().optional(), // استفاده از any برای انعطاف بیشتر در پارس اولیه
     geoJson: z.any().nullable().optional(),
     terrainTypes: z.array(z.string()).optional(),
-    coordinateSystem: z.string().optional(),
     utmZone: z.string().optional(),
     techType: z.any().optional(),
     outputFormats: z.any().optional(),

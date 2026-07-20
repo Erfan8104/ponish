@@ -52,7 +52,7 @@ export const useProjectStore = defineStore('project', () => {
     areaSelectionMethod: 'map',
     polygonCoordinates: [] as Coordinate[],
     geoJson: null as any,
-    coordinateSystem: '',
+
     utmZone: '',
 
     techType: [] as string[],

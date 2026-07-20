@@ -1,8 +1,16 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useProjectStore } from '../../stores/project.store'
 
 const store = useProjectStore()
+
+// بررسی اینکه آیا مقدار اولیه تحویل جزو گزینه‌های ثابت است یا کاربر روز دستی وارد کرده است
+const isCustomDays = ref(
+  !['urgent', '3-days', '1-week', '2-weeks'].includes(store.formData.deliveryTime || '') &&
+    Boolean(store.formData.deliveryTime),
+)
+
+const customDaysInput = ref(isCustomDays.value ? store.formData.deliveryTime : '')
 
 const deliveryOptions = [
   {
@@ -29,9 +37,14 @@ const deliveryOptions = [
     desc: 'کمترین هزینه',
     multiplier: 0.9,
   },
+  {
+    id: 'custom',
+    title: 'تعداد روز دلخواه',
+    desc: 'وارد کردن دقیق مدت زمان به روز',
+    multiplier: 1,
+  },
 ]
 
-// جایگزین کردن گزینه‌های قبلی در کامپوننت StepTimingBudget.vue
 const budgetModes = [
   {
     id: 'fixed',
@@ -39,9 +52,37 @@ const budgetModes = [
   },
   {
     id: 'negotiable',
-    title: 'استعلام قیمت (توافقی)',
+    title: 'قیمت توافقی',
   },
 ]
+
+// مدیریت انتخاب زمان تحویل
+const selectDelivery = (id: string) => {
+  if (id === 'custom') {
+    isCustomDays.value = true
+    store.formData.deliveryTime = customDaysInput.value ? `${customDaysInput.value} روز` : ''
+  } else {
+    isCustomDays.value = false
+    customDaysInput.value = ''
+    store.formData.deliveryTime = id
+  }
+}
+
+// آپدیت مقدار در صورت تغییر اینپوت دستی روز
+watch(customDaysInput, (newVal) => {
+  if (isCustomDays.value) {
+    store.formData.deliveryTime = newVal ? `${newVal} روز` : ''
+  }
+})
+
+// مدیریت تغییر نحوه بودجه‌بندی (اگر توافقی انتخاب شد، بودجه‌ها صفر شوند)
+const selectBudgetMode = (modeId: string) => {
+  store.formData.budgetType = modeId as 'fixed' | 'negotiable'
+  if (modeId === 'negotiable') {
+    store.formData.minBudget = 0
+    store.formData.maxBudget = 0
+  }
+}
 
 const estimatedPrice = computed(() => {
   let area = Number(store.formData.calculatedArea || 0)
@@ -51,18 +92,16 @@ const estimatedPrice = computed(() => {
   let basePrice = area * 2500000
 
   if (store.formData.category === 'uav') basePrice *= 1.2
-
   if (store.formData.category === 'gis') basePrice *= 0.8
-
   if (store.formData.category === 'cadastral') basePrice *= 1.5
-
   if (store.formData.requiredAccuracy === '1-2cm') basePrice *= 1.4
-
   if (store.formData.requiredAccuracy === '2-5cm') basePrice *= 1.2
 
   const delivery = deliveryOptions.find((d) => d.id === store.formData.deliveryTime)
 
-  if (delivery) basePrice *= delivery.multiplier
+  if (delivery) {
+    basePrice *= delivery.multiplier
+  }
 
   return Math.round(basePrice)
 })
@@ -75,7 +114,6 @@ const formatPrice = (value: number) => {
 <template>
   <div class="space-y-8 text-right" style="direction: rtl">
     <!-- زمان تحویل -->
-
     <div>
       <label class="block text-xs font-bold text-gray-600 mb-3"> زمان تحویل مورد انتظار </label>
 
@@ -84,10 +122,10 @@ const formatPrice = (value: number) => {
           v-for="item in deliveryOptions"
           :key="item.id"
           type="button"
-          @click="store.formData.deliveryTime = item.id"
+          @click="selectDelivery(item.id)"
           class="border rounded-xl p-4 text-right transition-all"
           :class="
-            store.formData.deliveryTime === item.id
+            (item.id === 'custom' && isCustomDays) || store.formData.deliveryTime === item.id
               ? 'border-[#008f55] bg-emerald-50'
               : 'border-gray-200'
           "
@@ -101,10 +139,21 @@ const formatPrice = (value: number) => {
           </div>
         </button>
       </div>
+
+      <!-- اینپوت تعداد روز دستی (در صورت انتخاب گزینه روز دلخواه) -->
+      <div v-if="isCustomDays" class="mt-4">
+        <label class="block text-xs font-bold text-gray-600 mb-2"> مدت زمان تحویل (به روز) </label>
+        <input
+          v-model="customDaysInput"
+          type="number"
+          min="1"
+          class="w-full border border-gray-200 rounded-xl px-4 py-3"
+          placeholder="مثال: ۱۰"
+        />
+      </div>
     </div>
 
     <!-- بودجه -->
-
     <div>
       <label class="block text-xs font-bold text-gray-600 mb-3"> نحوه بودجه‌بندی </label>
 
@@ -113,7 +162,7 @@ const formatPrice = (value: number) => {
           v-for="mode in budgetModes"
           :key="mode.id"
           type="button"
-          @click="store.formData.budgetType = mode.id"
+          @click="selectBudgetMode(mode.id)"
           class="px-5 py-3 rounded-xl border text-sm font-bold transition-all"
           :class="
             store.formData.budgetType === mode.id
@@ -126,8 +175,7 @@ const formatPrice = (value: number) => {
       </div>
     </div>
 
-    <!-- بودجه دلخواه -->
-
+    <!-- بودجه دلخواه (فقط در حالت fixed نمایش داده می‌شود) -->
     <div v-if="store.formData.budgetType === 'fixed'" class="grid md:grid-cols-2 gap-4">
       <div>
         <label class="block text-xs font-bold text-gray-600 mb-2"> حداقل بودجه </label>
@@ -153,25 +201,5 @@ const formatPrice = (value: number) => {
     </div>
 
     <!-- تخمین هوشمند -->
-
-    <div v-if="estimatedPrice" class="bg-emerald-50 border border-emerald-100 rounded-2xl p-5">
-      <div class="flex items-center justify-between">
-        <div>
-          <div class="text-xs text-gray-500">برآورد اولیه سامانه</div>
-
-          <div class="text-lg font-black text-[#008f55] mt-1">
-            {{ formatPrice(estimatedPrice) }}
-            تومان
-          </div>
-        </div>
-
-        <div class="text-3xl">💰</div>
-      </div>
-
-      <p class="text-xs text-gray-500 mt-3 leading-6">
-        این مبلغ صرفاً یک تخمین اولیه بر اساس مساحت، نوع پروژه، دقت مورد نیاز و زمان تحویل است و
-        قیمت نهایی توسط مجری تعیین خواهد شد.
-      </p>
-    </div>
   </div>
 </template>
