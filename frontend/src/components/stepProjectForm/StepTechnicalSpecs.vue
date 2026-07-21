@@ -6,6 +6,8 @@ const store = useProjectStore()
 
 // وضعیت باز یا بسته بودن منوی پیشرفته (جزئیات و خروجی‌های دقیق)
 const showAdvancedSettings = ref(false)
+// وضعیت باز یا بسته بودن منوی انتخاب روش‌ها و تجهیزات تخصصی نقشه برداری
+const showSurveyMethodSettings = ref(false)
 
 const mapScales = [
   { scale: '1/100', accuracy: '۲ سانتی‌متر' },
@@ -22,11 +24,50 @@ const outputFormatOptions = [
   { id: 'report', label: 'گزارش محاسباتی و متنی' },
 ]
 
-const techOptions = [
-  { id: 'gps', label: 'تجهیزات GPS چندفرکانسه' },
-  { id: 'drone', label: 'هواپیمای بدون سرنشین (پهپاد)' },
-  { id: 'total_station', label: 'دوربین توتال استیشن' },
+const groundSurveyOptions = [
+  'نقشه‌برداری ثبتی و کاداستر',
+  'نقشه‌برداری توپوگرافی',
+  'نقشه‌برداری مسیر',
+  'نقشه‌برداری کنترل و ترازیابی',
+  'نقشه‌برداری پروفیل',
+  'ایستگاه ماندگار',
 ]
+
+const groundEquipmentOptions = [
+  'دوربین توتال استیشن',
+  'دستگاه GPS',
+  'سیستم Base و Rover',
+  'متر لیزری',
+  'لیزر اسکنر',
+]
+
+const aerialSurveyOptions = [
+  'نقشه فتوگرامتری',
+  'نقشه توپوگرافی',
+  'نقشه سه بعدی',
+  'نقشه کاداستر و شهری',
+  'نقشه مسیر',
+  'نظارت هوشمند پروژه',
+]
+
+const aerialEquipmentOptions = [
+  'پهپاد با ماژول RTK',
+  'پهپاد ماتریس',
+  'پهپاد مویک ۳',
+  'پهپاد مویک ۲ پرو',
+  'پهپاد فانتوم ۴ پرو',
+]
+
+// 🌟 تابع اختصاصی برای مدیریت تغییر روش اجرا (زمینی / هوایی)
+const handleSurveyMethodToggle = (method: 'ground' | 'aerial') => {
+  if (store.formData.surveyMethod === method) {
+    store.formData.surveyMethod = ''
+  } else {
+    store.formData.surveyMethod = method
+  }
+  store.formData.specificSurveys = []
+  store.formData.requiredEquipment = []
+}
 </script>
 
 <template>
@@ -53,7 +94,183 @@ const techOptions = [
       </p>
     </div>
 
-    <!-- 🌟 ۱. بخش مقیاس نقشه و خطای مجاز (خارج از منوی کشویی و در دسترس) -->
+    <!-- بخش انتخاب روش (زمینی/هوایی) و جزئیات تخصصی در قالب منوی کشویی -->
+    <div class="border border-gray-200 rounded-2xl overflow-hidden bg-gray-50/50">
+      <button
+        type="button"
+        @click="showSurveyMethodSettings = !showSurveyMethodSettings"
+        class="w-full p-4 flex items-center justify-between text-right font-bold text-xs text-gray-700 hover:bg-gray-100/80 transition-colors"
+      >
+        <div class="flex items-center gap-2">
+          <span class="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[10px]"
+            >تخصصی (اختیاری)</span
+          >
+          <span>تعیین روش نقشه‌برداری، زیرشاخه‌ها و تجهیزات مورد نیاز</span>
+        </div>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class="w-4 h-4 text-gray-500 transition-transform duration-300"
+          :class="{ 'rotate-180': showSurveyMethodSettings }"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
+      </button>
+
+      <!-- محتوای داخل منوی کشویی روش‌ها و تجهیزات -->
+      <div
+        v-if="showSurveyMethodSettings"
+        class="p-4 pt-0 space-y-5 border-t border-gray-200 bg-white"
+      >
+        <!-- انتخاب روش اصلی -->
+        <div class="pt-4">
+          <label class="block text-xs font-bold text-gray-800 mb-2">روش اجرای پروژه</label>
+          <div class="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              @click="handleSurveyMethodToggle('ground')"
+              :class="[
+                'py-3 px-3 text-xs font-bold rounded-xl border transition-all text-center',
+                store.formData.surveyMethod === 'ground'
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                  : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-400',
+              ]"
+            >
+              نقشه‌برداری زمینی
+            </button>
+            <button
+              type="button"
+              @click="handleSurveyMethodToggle('aerial')"
+              :class="[
+                'py-3 px-3 text-xs font-bold rounded-xl border transition-all text-center',
+                store.formData.surveyMethod === 'aerial'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                  : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-400',
+              ]"
+            >
+              نقشه‌برداری هوایی
+            </button>
+          </div>
+        </div>
+
+        <!-- اگر روش زمینی انتخاب شد -->
+        <div
+          v-if="store.formData.surveyMethod === 'ground'"
+          class="space-y-4 pt-3 border-t border-gray-100"
+        >
+          <div>
+            <label class="block text-xs font-bold text-gray-800 mb-2"
+              >نوع نقشه‌برداری زمینی (چند انتخابی)</label
+            >
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <label
+                v-for="item in groundSurveyOptions"
+                :key="item"
+                class="flex items-center gap-2.5 p-2.5 rounded-xl border border-gray-200 cursor-pointer hover:border-emerald-400 transition-all bg-white"
+                :class="{
+                  'bg-emerald-50/40 border-emerald-600':
+                    store.formData.specificSurveys.includes(item),
+                }"
+              >
+                <input
+                  type="checkbox"
+                  :value="item"
+                  v-model="store.formData.specificSurveys"
+                  class="accent-emerald-600 w-4 h-4"
+                />
+                <span class="text-xs font-medium text-gray-800">{{ item }}</span>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-800 mb-2"
+              >تجهیزات مورد نیاز زمینی</label
+            >
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <label
+                v-for="eq in groundEquipmentOptions"
+                :key="eq"
+                class="flex items-center gap-2.5 p-2.5 rounded-xl border border-gray-200 cursor-pointer hover:border-emerald-400 transition-all bg-white"
+                :class="{
+                  'bg-emerald-50/40 border-emerald-600':
+                    store.formData.requiredEquipment.includes(eq),
+                }"
+              >
+                <input
+                  type="checkbox"
+                  :value="eq"
+                  v-model="store.formData.requiredEquipment"
+                  class="accent-emerald-600 w-4 h-4"
+                />
+                <span class="text-xs font-medium text-gray-800">{{ eq }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- اگر روش هوایی انتخاب شد -->
+        <div
+          v-if="store.formData.surveyMethod === 'aerial'"
+          class="space-y-4 pt-3 border-t border-gray-100"
+        >
+          <div>
+            <label class="block text-xs font-bold text-gray-800 mb-2"
+              >نوع نقشه‌برداری هوایی (چند انتخابی)</label
+            >
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <label
+                v-for="item in aerialSurveyOptions"
+                :key="item"
+                class="flex items-center gap-2.5 p-2.5 rounded-xl border border-gray-200 cursor-pointer hover:border-indigo-400 transition-all bg-white"
+                :class="{
+                  'bg-indigo-50/40 border-indigo-600':
+                    store.formData.specificSurveys.includes(item),
+                }"
+              >
+                <input
+                  type="checkbox"
+                  :value="item"
+                  v-model="store.formData.specificSurveys"
+                  class="accent-indigo-600 w-4 h-4"
+                />
+                <span class="text-xs font-medium text-gray-800">{{ item }}</span>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-800 mb-2"
+              >تجهیزات مورد نیاز هوایی</label
+            >
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <label
+                v-for="eq in aerialEquipmentOptions"
+                :key="eq"
+                class="flex items-center gap-2.5 p-2.5 rounded-xl border border-gray-200 cursor-pointer hover:border-indigo-400 transition-all bg-white"
+                :class="{
+                  'bg-indigo-50/40 border-indigo-600':
+                    store.formData.requiredEquipment.includes(eq),
+                }"
+              >
+                <input
+                  type="checkbox"
+                  :value="eq"
+                  v-model="store.formData.requiredEquipment"
+                  class="accent-indigo-600 w-4 h-4"
+                />
+                <span class="text-xs font-medium text-gray-800">{{ eq }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- بخش مقیاس نقشه و خطای مجاز -->
     <div
       v-if="store.formData.category === 'mapping' || store.formData.category === 'drone'"
       class="p-5 bg-emerald-50/50 rounded-2xl border border-emerald-100"
@@ -94,7 +311,7 @@ const techOptions = [
 
     <hr class="border-gray-100 my-4" />
 
-    <!-- 🌟 ۲. بخش تنظیمات تخصصی و خروجی‌ها (داخل منوی کشویی) -->
+    <!-- بخش تنظیمات تخصصی و خروجی‌ها -->
     <div class="border border-gray-200 rounded-2xl overflow-hidden bg-gray-50/50">
       <button
         type="button"
@@ -103,7 +320,7 @@ const techOptions = [
       >
         <div class="flex items-center gap-2">
           <span class="text-[#008f55] bg-emerald-100 px-2 py-0.5 rounded text-[10px]">اختیاری</span>
-          <span>جزئیات و خروجی‌های خاص مورد انتظار (فرمت‌های خروجی و تجهیزات)</span>
+          <span>جزئیات و خروجی‌های خاص مورد انتظار (فرمت‌های خروجی)</span>
         </div>
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -118,7 +335,7 @@ const techOptions = [
         </svg>
       </button>
 
-      <!-- محتوای داخل منوی کشویی -->
+      <!-- محتوای داخل منوی کشویی خروجی‌ها -->
       <div v-if="showAdvancedSettings" class="p-4 pt-0 space-y-5 border-t border-gray-200 bg-white">
         <!-- فرمت‌های خروجی -->
         <div class="pt-4">
@@ -143,29 +360,6 @@ const techOptions = [
                 class="accent-[#008f55] w-4 h-4"
               />
               <span class="text-xs font-medium text-gray-800">{{ format.label }}</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- تجهیزات ترجیحی -->
-        <div>
-          <label class="block text-xs font-bold text-gray-800 mb-2">تجهیزات ترجیحی برای اجرا</label>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <label
-              v-for="tech in techOptions"
-              :key="tech.id"
-              class="flex items-center gap-2.5 p-2.5 rounded-xl border border-gray-200 cursor-pointer hover:border-[#008f55] transition-all"
-              :class="{
-                'bg-emerald-50/40 border-[#008f55]': store.formData.techType.includes(tech.id),
-              }"
-            >
-              <input
-                type="checkbox"
-                :value="tech.id"
-                v-model="store.formData.techType"
-                class="accent-[#008f55] w-4 h-4"
-              />
-              <span class="text-xs font-medium text-gray-800">{{ tech.label }}</span>
             </label>
           </div>
         </div>

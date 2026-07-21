@@ -233,7 +233,11 @@
     budgetType       BudgetType    @default(fixed)
     minBudget        Decimal?      @db.Decimal(14, 2)
     maxBudget        Decimal?      @db.Decimal(14, 2)
-
+    
+    // 🌟 فیلدهای جدید روش‌ها و تجهیزات نقشه‌برداری
+    surveyMethod      String?        // روش اصلی: 'ground' یا 'aerial'
+    specificSurveys   Json?          @default("[]") // لیست انواع نقشه‌برداری انتخابی (به صورت JSON آرایه)
+    requiredEquipment Json?          @default("[]") // لیست تجهیزات مورد نیاز (به صورت JSON آرایه)
     polygonCoordinates Json?
     geoJson           Json?
 

@@ -12,6 +12,7 @@ export interface ProposalPayload {
   deliveryDays: number
   coverLetter: string
 }
+// src/types/project.ts (یا محل تعریف ProjectFormPayload)
 
 export interface ProjectFormPayload {
   // اطلاعات پایه
@@ -25,13 +26,18 @@ export interface ProjectFormPayload {
   address?: string
 
   // اطلاعات نقشه‌برداری و کریدور
-  mappingType?: string // نوع نقشه‌برداری
-  corridorLength?: number // طول کریدور (جدید)
+  mappingType?: 'area' | 'corridor' | null // نوع نقشه‌برداری
+  corridorLength?: number // طول کریدور
   areaSelectionMethod?: string
-  calculatedArea?: number
+  calculatedArea?: number // مساحت
   coordinateSystem?: string
   utmZone?: string
   terrainTypes?: string[]
+
+  // 🌟 فیلدهای جدید روش‌ها و تجهیزات
+  surveyMethod?: 'ground' | 'aerial' | '' // روش اصلی (زمینی یا هوایی)
+  specificSurveys?: string[] // انواع نقشه برداری انتخابی
+  requiredEquipment?: string[] // تجهیزات مورد نیاز پیشنهادی
 
   // داده‌های جغرافیایی
   polygonCoordinates?: any[]
@@ -45,11 +51,10 @@ export interface ProjectFormPayload {
 
   // زمان‌بندی و مالی
   deliveryTime?: string
-  budgetType?: 'fixed' | 'hourly' | 'negotiable'
-  minBudget?: number
-  maxBudget?: number
+  budgetType?: 'fixed' | 'hourly' | 'negotiable' | string
+  minBudget?: number | string
+  maxBudget?: number | string
 }
-
 /**
  * =========================
  * Project Service
@@ -81,6 +86,15 @@ export const projectService = {
   async createProject(formDataRaw: ProjectFormPayload, uploadedFiles: File[]): Promise<Project> {
     const data = new FormData()
 
+    if (formDataRaw.surveyMethod) {
+      data.append('surveyMethod', formDataRaw.surveyMethod)
+    }
+    if (formDataRaw.specificSurveys && formDataRaw.specificSurveys.length > 0) {
+      data.append('specificSurveys', JSON.stringify(formDataRaw.specificSurveys))
+    }
+    if (formDataRaw.requiredEquipment && formDataRaw.requiredEquipment.length > 0) {
+      data.append('requiredEquipment', JSON.stringify(formDataRaw.requiredEquipment))
+    }
     data.append('title', formDataRaw.title || '')
     if (formDataRaw.description) data.append('description', formDataRaw.description)
 

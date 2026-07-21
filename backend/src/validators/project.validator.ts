@@ -31,6 +31,9 @@ export const createProjectSchema = z
       .default("fixed"),
     minBudget: z.union([z.string(), z.number()]).optional(),
     maxBudget: z.union([z.string(), z.number()]).optional(),
+    surveyMethod: z.string().nullable().optional(),
+    specificSurveys: z.array(z.string()).optional(),
+    requiredEquipment: z.array(z.string()).optional(),
   })
   .partial();
 

@@ -76,6 +76,32 @@ const preprocessMultipartData = (body: any) => {
     } catch {}
   }
 
+  // 🌟 اضافه کردن پردازش فیلدهای جدید روش‌ها و تجهیزات
+  if (typeof processed.surveyMethod === "string") {
+    if (
+      processed.surveyMethod === "" ||
+      processed.surveyMethod === "null" ||
+      processed.surveyMethod === "undefined"
+    ) {
+      processed.surveyMethod = null;
+    }
+  }
+
+  if (typeof processed.specificSurveys === "string") {
+    try {
+      processed.specificSurveys = JSON.parse(processed.specificSurveys);
+    } catch {
+      processed.specificSurveys = [];
+    }
+  }
+
+  if (typeof processed.requiredEquipment === "string") {
+    try {
+      processed.requiredEquipment = JSON.parse(processed.requiredEquipment);
+    } catch {
+      processed.requiredEquipment = [];
+    }
+  }
   // اصلاح بخش تبدیل بودجه‌ها
   if (
     processed.minBudget !== undefined &&
@@ -162,6 +188,9 @@ export const createProject = async (req: AuthRequest, res: Response) => {
           address: data.address ?? null,
           areaSelectionMethod: data.areaSelectionMethod ?? "map",
           mappingType: data.mappingType ?? null, // اطمینان از ذخیره نوع
+          surveyMethod: data.surveyMethod ?? null,
+          specificSurveys: data.specificSurveys ?? [],
+          requiredEquipment: data.requiredEquipment ?? [],
 
           // اصلاح منطق ذخیره سازی:
           // اگر مقدار وارد شده (حتی اگر type اشتباه باشد، داده از بین نرود)

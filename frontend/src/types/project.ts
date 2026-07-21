@@ -40,7 +40,12 @@ export interface Project {
   corridorLength: number // طول
   coordinateSystem?: string
   utmZone?: string
-  terrainTypes?: string[] // این خط را اضافه کنید
+  terrainTypes?: string[]
+
+  // 🌟 اضافه کردن فیلدهای جدید به صورت اختیاری (بدون خرابی در کدهای قبلی)
+  surveyMethod?: 'ground' | 'aerial' | null
+  specificSurveys?: string[]
+  requiredEquipment?: string[]
 
   requiredAccuracy?: string
   deliveryTime?: string
@@ -63,6 +68,7 @@ export interface Project {
   updatedAt: string
 }
 
+// (بقیه اینترفیس‌ها بدون تغییر سر جای خود باقی می‌مانند...)
 /**
  * =========================
  * Attachment

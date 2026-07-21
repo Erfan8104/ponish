@@ -35,6 +35,7 @@ export const useProjectStore = defineStore('project', () => {
    * Form (Create Project)
    * =========================
    */
+
   const formData = reactive({
     title: '',
     category: '',
@@ -44,17 +45,19 @@ export const useProjectStore = defineStore('project', () => {
     address: '',
     terrainTypes: [] as string[],
 
-    // فیلدهای جدید
     mappingType: null as 'area' | 'corridor' | null,
     calculatedArea: 0,
     corridorLength: 0,
 
+    // 🌟 فیلدهای جدید برای دسته‌بندی و تجهیزات
+    surveyMethod: '' as 'ground' | 'aerial' | '', // روش اصلی (زمینی یا هوایی)
+    specificSurveys: [] as string[], // انواع نقشه برداری انتخابی
+    requiredEquipment: [] as string[], // تجهیزات مورد نیاز پیشنهادی
+
     areaSelectionMethod: 'map',
     polygonCoordinates: [] as Coordinate[],
     geoJson: null as any,
-
     utmZone: '',
-
     techType: [] as string[],
     outputFormats: [] as string[],
     requiredAccuracy: '',
@@ -400,6 +403,10 @@ export const useProjectStore = defineStore('project', () => {
     formData.corridorLength = 0
     formData.requiredAccuracy = ''
     formData.mapScale = ''
+
+    formData.surveyMethod = ''
+    formData.specificSurveys = []
+    formData.requiredEquipment = []
 
     formData.polygonCoordinates = []
     formData.geoJson = null
