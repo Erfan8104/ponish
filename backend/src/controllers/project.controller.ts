@@ -25,15 +25,25 @@ const preprocessMultipartData = (body: any) => {
 
   if (
     processed.calculatedArea !== undefined &&
-    processed.calculatedArea !== ""
+    processed.calculatedArea !== "" &&
+    processed.calculatedArea !== "null" &&
+    !isNaN(Number(processed.calculatedArea))
   ) {
     processed.calculatedArea = Number(processed.calculatedArea);
+  } else {
+    processed.calculatedArea = undefined;
   }
+
+  // اصلاح CorridorLength
   if (
     processed.corridorLength !== undefined &&
-    processed.corridorLength !== ""
+    processed.corridorLength !== "" &&
+    processed.corridorLength !== "null" &&
+    !isNaN(Number(processed.corridorLength))
   ) {
     processed.corridorLength = Number(processed.corridorLength);
+  } else {
+    processed.corridorLength = undefined;
   }
   if (typeof processed.techType === "string") {
     try {

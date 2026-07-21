@@ -64,7 +64,7 @@ onMounted(() => {
                 : 'border-gray-200 hover:border-gray-300'
             "
           >
-            🛣️ پروژه‌های طولی (کریدور)
+            🛣️ پروژه‌های مسیر (کریدور)
           </button>
         </div>
       </div>

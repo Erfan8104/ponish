@@ -41,6 +41,7 @@ export interface ProjectFormPayload {
   techType?: any[]
   outputFormats?: any[]
   requiredAccuracy?: string
+  mapScale: string
 
   // زمان‌بندی و مالی
   deliveryTime?: string
@@ -97,6 +98,10 @@ export const projectService = {
     // اضافه کردن این بخش برای ارسال طول و نوع نقشه برداری
     if (formDataRaw.mappingType) {
       data.append('mappingType', formDataRaw.mappingType)
+    }
+    // اضافه کردن این بخش برای ارسال مساحت محاسبه شده
+    if (formDataRaw.calculatedArea !== undefined && formDataRaw.calculatedArea !== null) {
+      data.append('calculatedArea', String(formDataRaw.calculatedArea))
     }
     if (formDataRaw.corridorLength !== undefined && formDataRaw.corridorLength !== null) {
       data.append('corridorLength', String(formDataRaw.corridorLength))
