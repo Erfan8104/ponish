@@ -175,9 +175,11 @@ const handleDelete = async (id: number) => {
             <div>
               <div class="text-xs text-gray-400">بودجه</div>
               <div class="font-black text-blue-600">
-                {{ project.minBudget || 0 }}
-                -
-                {{ project.maxBudget || 0 }}
+                {{
+                  project.minBudget === 0 && project.maxBudget === 0
+                    ? 'توافقی'
+                    : `${project.minBudget || 0} - ${project.maxBudget || 0}`
+                }}
               </div>
             </div>
 

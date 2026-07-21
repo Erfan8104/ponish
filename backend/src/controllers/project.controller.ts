@@ -66,11 +66,25 @@ const preprocessMultipartData = (body: any) => {
     } catch {}
   }
 
+  // اصلاح بخش تبدیل بودجه‌ها
   if (
-    processed.calculatedArea !== undefined &&
-    processed.calculatedArea !== ""
+    processed.minBudget !== undefined &&
+    processed.minBudget !== "" &&
+    processed.minBudget !== "null"
   ) {
-    processed.calculatedArea = Number(processed.calculatedArea);
+    processed.minBudget = Number(processed.minBudget);
+  } else {
+    processed.minBudget = undefined;
+  }
+
+  if (
+    processed.maxBudget !== undefined &&
+    processed.maxBudget !== "" &&
+    processed.maxBudget !== "null"
+  ) {
+    processed.maxBudget = Number(processed.maxBudget);
+  } else {
+    processed.maxBudget = undefined;
   }
 
   if (processed.projectId !== undefined) {
