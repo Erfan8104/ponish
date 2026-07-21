@@ -24,6 +24,25 @@ const formatDate = (date?: string) => {
   return new Date(date).toLocaleDateString('fa-IR')
 }
 
+const formatBudget = (min: any, max: any) => {
+  const minNum = Number(min) || 0
+  const maxNum = Number(max) || 0
+
+  // اگر هر دو صفر باشند یا هیچ‌کدام مقدار معتبری نداشته باشند
+  if (minNum === 0 && maxNum === 0) {
+    return 'توافقی'
+  }
+
+  if (minNum > 0 && maxNum > 0) {
+    return `${minNum.toLocaleString()} - ${maxNum.toLocaleString()} تومان`
+  } else if (minNum > 0) {
+    return `از ${minNum.toLocaleString()} تومان`
+  } else if (maxNum > 0) {
+    return `تا ${maxNum.toLocaleString()} تومان`
+  }
+
+  return 'توافقی'
+}
 // اضافه کردن وضعیت جدید الحاقیه/قرارداد نهایی به لیست متون
 const statusText = (status: string) => {
   switch (status) {
@@ -175,11 +194,7 @@ const handleDelete = async (id: number) => {
             <div>
               <div class="text-xs text-gray-400">بودجه</div>
               <div class="font-black text-blue-600">
-                {{
-                  project.minBudget === 0 && project.maxBudget === 0
-                    ? 'توافقی'
-                    : `${project.minBudget || 0} - ${project.maxBudget || 0}`
-                }}
+                {{ formatBudget(project.minBudget, project.maxBudget) }}
               </div>
             </div>
 
