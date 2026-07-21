@@ -2,20 +2,22 @@
 import { computed } from 'vue'
 import { X, XCircle } from 'lucide-vue-next'
 import { useProjectStore } from '@/stores/project.store'
-import { useRoleStore } from '@/stores/role.store' // 👈 ایمپورت استور نقش
+import { useRoleStore } from '@/stores/role.store'
 import { useToast } from 'vue-toastification'
 
 const store = useProjectStore()
-const roleStore = useRoleStore() // 👈 فراخوانی استور نقش
+const roleStore = useRoleStore()
 const toast = useToast()
 
-const project = store.projectDetails
+// 🌟 تغییر از متغیر ثابت به computed برای واکنش‌گرایی نسبت به تغییر پروژه
+const project = computed(() => store.projectDetails)
 
-// 👈 بررسی اینکه آیا کاربر فعلی، کارفرمای همین پروژه است؟
+// بررسی اینکه آیا کاربر فعلی، کارفرمای همین پروژه است؟
 const isEmployer = computed(() => roleStore.role === 'employer')
 
 const handleRejectAgreement = async () => {
-  if (!project?.id || !project?.contract?.id) return
+  const currentProject = project.value
+  if (!currentProject?.id || !currentProject?.contract?.id) return
 
   const confirmReject = confirm(
     'آیا مطمئن هستید؟ این کار قرارداد را لغو و پروژه را به لیست عمومی برمی‌گرداند.',
@@ -23,7 +25,7 @@ const handleRejectAgreement = async () => {
 
   if (confirmReject) {
     try {
-      await store.rejectProposal(project.contract.id, project.id)
+      await store.rejectProposal(currentProject.contract.id, currentProject.id)
       toast.success('قرارداد با موفقیت لغو و پروژه باز شد')
     } catch (err) {
       toast.error('خطا در انجام عملیات')
@@ -31,7 +33,6 @@ const handleRejectAgreement = async () => {
   }
 }
 </script>
-
 <template>
   <header class="flex items-start justify-between border-b border-gray-200 p-6">
     <div class="flex-1">
