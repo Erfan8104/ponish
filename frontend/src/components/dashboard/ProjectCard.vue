@@ -14,6 +14,44 @@ const openProposal = (projectId: number) => {
 
   proposalStore.openModal(project)
 }
+
+/**
+ * تابع کمکی برای نمایش مقیاس مناسب (هکتار برای مساحت یا کیلومتر برای کریدور)
+ */
+const renderMeasurement = (project: any) => {
+  if (project.mappingType === 'corridor') {
+    return {
+      label: 'طول مسیر',
+      value: `${project.corridorLength || 0} کیلومتر`,
+    }
+  }
+  return {
+    label: 'مساحت',
+    value: `${project.calculatedArea || 0} هکتار`,
+  }
+}
+
+/**
+ * 🌟 تابع فرمت کردن بودجه و بررسی حالت توافقی
+ */
+const formatBudget = (min: any, max: any) => {
+  const minNum = Number(min) || 0
+  const maxNum = Number(max) || 0
+
+  if (minNum === 0 && maxNum === 0) {
+    return 'قیمت توافقی'
+  }
+
+  if (minNum > 0 && maxNum > 0) {
+    return `${minNum.toLocaleString()} - ${maxNum.toLocaleString()} تومان`
+  } else if (minNum > 0) {
+    return `از ${minNum.toLocaleString()} تومان`
+  } else if (maxNum > 0) {
+    return `تا ${maxNum.toLocaleString()} تومان`
+  }
+
+  return 'توافقی'
+}
 </script>
 
 <template>
@@ -76,13 +114,15 @@ const openProposal = (projectId: number) => {
                 <Wallet class="text-green-600" :size="18" />
 
                 <span class="font-semibold">
-                  {{ project.minBudget?.toLocaleString() }}
+                  {{ formatBudget(project.minBudget, project.maxBudget) }}
+                </span>
+              </div>
 
-                  -
-
-                  {{ project.maxBudget?.toLocaleString() }}
-
-                  تومان
+              <!-- نمایش پویا متناسب با نوع نقشه‌برداری -->
+              <div class="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-3">
+                <MapPin class="text-emerald-600" :size="18" />
+                <span class="font-semibold text-slate-700">
+                  {{ renderMeasurement(project).label }}: {{ renderMeasurement(project).value }}
                 </span>
               </div>
 
@@ -97,26 +137,18 @@ const openProposal = (projectId: number) => {
 
                 فریلنسری
               </div>
-
-              <div class="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-3">
-                <MapPin class="text-red-500" :size="18" />
-
-                ایران
-              </div>
             </div>
           </div>
 
-          <!-- دکمه -->
+          <!-- دکمه و باکس بودجه سمت چپ -->
           <div
             class="border-t lg:border-t-0 lg:border-r border-slate-200 flex flex-col justify-center items-center gap-5 p-8 bg-slate-50 lg:w-72"
           >
             <div class="text-center">
               <div class="text-sm text-slate-500">بودجه</div>
 
-              <div class="mt-2 text-2xl font-black text-slate-900">
-                {{ project.maxBudget?.toLocaleString() }}
-
-                <span class="text-base font-medium"> تومان </span>
+              <div class="mt-2 text-xl font-black text-slate-900">
+                {{ formatBudget(project.minBudget, project.maxBudget) }}
               </div>
             </div>
 
