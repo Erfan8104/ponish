@@ -102,7 +102,7 @@ const isStepValid = computed(() => {
   }
 
   if (type === 'technical-specs') {
-    return store.formData.techType?.length > 0 && store.formData.outputFormats?.length > 0
+    return true
   }
 
   if (type === 'timing-budget') {

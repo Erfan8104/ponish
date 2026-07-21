@@ -122,6 +122,9 @@ export const projectService = {
     data.append('techType', JSON.stringify(formDataRaw.techType || []))
     data.append('outputFormats', JSON.stringify(formDataRaw.outputFormats || []))
     if (formDataRaw.requiredAccuracy) data.append('requiredAccuracy', formDataRaw.requiredAccuracy)
+    if (formDataRaw.mapScale) {
+      data.append('mapScale', formDataRaw.mapScale)
+    }
     if (formDataRaw.deliveryTime) data.append('deliveryTime', formDataRaw.deliveryTime)
 
     // اصلاح فیلد نوع بودجه

@@ -160,6 +160,7 @@ export const createProject = async (req: AuthRequest, res: Response) => {
           utmZone: data.utmZone ?? null,
           terrainTypes: data.terrainTypes ?? [],
           requiredAccuracy: data.requiredAccuracy ?? null,
+          mapScale: data.mapScale ?? null,
           deliveryTime: data.deliveryTime ?? null,
           budgetType: data.budgetType ?? "fixed",
           minBudget: data.minBudget ? new Prisma.Decimal(data.minBudget) : null,

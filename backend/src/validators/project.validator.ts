@@ -23,6 +23,7 @@ export const createProjectSchema = z
     techType: z.any().optional(),
     outputFormats: z.any().optional(),
     requiredAccuracy: z.string().optional(),
+    mapScale: z.string().optional(),
     deliveryTime: z.string().optional(),
     budgetType: z
       .enum(["fixed", "hourly", "negotiable"])

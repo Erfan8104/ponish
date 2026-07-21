@@ -227,6 +227,7 @@
     utmZone          String?
 
     requiredAccuracy String?
+    mapScale         String?
     deliveryTime     String?
 
     budgetType       BudgetType    @default(fixed)

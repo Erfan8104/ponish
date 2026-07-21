@@ -58,7 +58,7 @@ export const useProjectStore = defineStore('project', () => {
     techType: [] as string[],
     outputFormats: [] as string[],
     requiredAccuracy: '',
-
+    mapScale: '',
     deliveryTime: '',
     budgetType: '',
     minBudget: '',
@@ -357,6 +357,34 @@ export const useProjectStore = defineStore('project', () => {
     uploadedFiles.value.splice(index, 1)
   }
 
+  const setMapScale = (scale: string) => {
+    formData.mapScale = scale
+
+    // تعیین خودکار خطای مجاز بر اساس مقیاس
+    switch (scale) {
+      case '1/100':
+        formData.requiredAccuracy = '۲ سانتی‌متر'
+        break
+      case '1/200':
+        formData.requiredAccuracy = '۵ سانتی‌متر'
+        break
+      case '1/500':
+        formData.requiredAccuracy = '۱۰ سانتی‌متر'
+        break
+      case '1/1000':
+        formData.requiredAccuracy = '۲۰ سانتی‌متر'
+        break
+      case '1/2000':
+        formData.requiredAccuracy = '۴۰ سانتی‌متر'
+        break
+      case '1/5000':
+        formData.requiredAccuracy = '۱ متر'
+        break
+      default:
+        formData.requiredAccuracy = ''
+    }
+  }
+
   const resetForm = () => {
     formData.title = ''
     formData.category = ''
@@ -370,6 +398,8 @@ export const useProjectStore = defineStore('project', () => {
     formData.mappingType = null
     formData.calculatedArea = 0
     formData.corridorLength = 0
+    formData.requiredAccuracy = ''
+    formData.mapScale = ''
 
     formData.polygonCoordinates = []
     formData.geoJson = null
@@ -435,5 +465,6 @@ export const useProjectStore = defineStore('project', () => {
     removeFile,
     resetForm,
     clearPolygon,
+    setMapScale,
   }
 })
