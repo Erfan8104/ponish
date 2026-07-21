@@ -43,6 +43,20 @@ const formatBudget = (min: any, max: any) => {
 
   return 'توافقی'
 }
+
+const renderMeasurement = (project: any) => {
+  if (project.mappingType === 'corridor') {
+    return {
+      label: 'طول مسیر',
+      value: `${project.corridorLength || 0} کیلومتر`,
+    }
+  }
+  // پیش‌فرض برای حالت مساحتی یا نامشخص
+  return {
+    label: 'مساحت',
+    value: `${project.calculatedArea || 0} هکتار`,
+  }
+}
 // اضافه کردن وضعیت جدید الحاقیه/قرارداد نهایی به لیست متون
 const statusText = (status: string) => {
   switch (status) {
@@ -183,14 +197,14 @@ const handleDelete = async (id: number) => {
 
           <!-- Statistics -->
           <div class="flex flex-wrap justify-center gap-8 text-center">
+            <!-- Statistics -->
+
             <div>
-              <div class="text-xs text-gray-400">مساحت</div>
+              <div class="text-xs text-gray-400">{{ renderMeasurement(project).label }}</div>
               <div class="font-black text-emerald-600">
-                {{ project.calculatedArea || 0 }}
-                هکتار
+                {{ renderMeasurement(project).value }}
               </div>
             </div>
-
             <div>
               <div class="text-xs text-gray-400">بودجه</div>
               <div class="font-black text-blue-600">
