@@ -40,10 +40,6 @@ const handleRejectAgreement = async () => {
         {{ project?.title }}
       </h2>
 
-      <p class="mt-2 text-sm text-gray-500">
-        {{ project?.description }}
-      </p>
-
       <div class="mt-4 flex flex-wrap items-center gap-2">
         <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs text-emerald-700">
           {{ project?.status }}
