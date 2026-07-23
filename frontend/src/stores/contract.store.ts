@@ -47,10 +47,16 @@ export const useContractStore = defineStore('contract', () => {
     }
   }
 
-  // ⚡ اکشن ثبت الحاقیه توسط کارفرما
+  // ⚡ اکشن ثبت الحاقیه توسط کارفرما (شامل مساحت/طول، مبلغ، زمان تحویل و توضیحات)
   async function createContractAmendment(
     contractId: number | string,
-    data: { area: number; amount: number; description: string },
+    data: {
+      area?: number | null
+      length?: number | null // 🌟 اضافه شدن طول
+      amount: number
+      deliveryTime: number
+      description: string
+    },
   ) {
     isProcessing.value = true
     try {
@@ -101,8 +107,8 @@ export const useContractStore = defineStore('contract', () => {
     currentProject,
     isProcessing,
     errorMessage,
-    isOpenAmendmentModal, // برای مودال کارفرما
-    isDetailModalOpen, // برای مودال فریلنسر (ویژگی جدید)
+    isOpenAmendmentModal,
+    isDetailModalOpen,
     fetchAmendments,
     createContractAmendment,
     handleAmendmentResponse,

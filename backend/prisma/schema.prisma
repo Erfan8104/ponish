@@ -487,6 +487,10 @@ model ContractAmendment {
   proposed_area   Float?          // مساحت پیشنهادی جدید (اگر نوع پروژه مساحتی است)
   proposed_length Float?
   proposed_amount Decimal         @db.Decimal(14, 2)
+  
+  // 🌟 اضافه شدن فیلد مهلت زمان تحویل پیشنهادی (به روز)
+  proposed_delivery_time Int?     
+  
   notes           String?
   
   status          AmendmentStatus @default(pending)

@@ -16,25 +16,60 @@ const handleResponse = async (status: 'accepted' | 'rejected') => {
 
 <template>
   <Teleport to="body">
-    <!-- استفاده از isDetailModalOpen که در استور تعریف کردیم -->
     <div
       v-if="store.isDetailModalOpen"
-      class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4 dir-rtl"
+      @click.self="store.isDetailModalOpen = false"
+      class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4 dir-rtl cursor-pointer"
     >
-      <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl">
+      <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl cursor-default">
         <div class="flex justify-between items-center mb-6">
           <h3 class="font-bold text-lg">بررسی جزئیات الحاقیه</h3>
-          <!-- اصلاح متد بستن مودال -->
           <button @click="store.isDetailModalOpen = false"><X class="h-5 w-5" /></button>
         </div>
 
         <div class="space-y-4 text-sm bg-slate-50 p-4 rounded-2xl mb-6">
-          <p>
-            مساحت جدید: <strong>{{ amendment?.proposed_area }} متر مربع</strong>
+          <!-- 🌟 نمایش طول کریدور در صورت وجود مقدار معتبر -->
+          <p
+            v-if="
+              amendment?.proposed_length !== null &&
+              amendment?.proposed_length !== undefined &&
+              amendment?.proposed_length !== '' &&
+              Number(amendment.proposed_length) > 0
+            "
+          >
+            طول محور (کریدور) جدید:
+            <strong>{{ Number(amendment.proposed_length).toLocaleString('fa-IR') }} واحد</strong>
           </p>
-          <p>
+
+          <!-- 🌟 نمایش مساحت در صورت وجود مقدار معتبر -->
+          <p
+            v-else-if="
+              amendment?.proposed_area !== null &&
+              amendment?.proposed_area !== undefined &&
+              amendment?.proposed_area !== '' &&
+              Number(amendment.proposed_area) > 0
+            "
+          >
+            مساحت جدید:
+            <strong>{{ Number(amendment.proposed_area).toLocaleString('fa-IR') }} متر مربع</strong>
+          </p>
+
+          <!-- 🌟 حالت پشتیبان (Fallback) اگر به هر دلیلی مقدار مساحت یا طول در دیتابیس ثبت نشده باشد ولی تغییر کرده باشد -->
+          <p v-else class="text-amber-600 text-xs font-medium">
+            ⚠️ مقادیر مساحت یا طول در این الحاقیه ارسال نشده است.
+          </p>
+
+          <p v-if="amendment?.proposed_amount !== null && amendment?.proposed_amount !== undefined">
             مبلغ جدید: <strong>{{ formatPrice(amendment?.proposed_amount) }} تومان</strong>
           </p>
+
+          <p v-if="amendment?.proposed_delivery_time">
+            مهلت زمان تحویل جدید:
+            <strong
+              >{{ Number(amendment.proposed_delivery_time).toLocaleString('fa-IR') }} روز</strong
+            >
+          </p>
+
           <p v-if="amendment?.notes" class="italic text-slate-600">
             یادداشت: {{ amendment.notes }}
           </p>

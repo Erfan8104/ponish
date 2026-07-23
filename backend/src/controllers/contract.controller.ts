@@ -3,11 +3,17 @@ import { prisma } from "../lib/prisma"; // ⚡ مسیر فایل کانفیگ پ
 import { AuthRequest } from "../middleware/auth.middleware";
 
 export const contractController = {
-  // ۱. ثبت پیشنهاد الحاقیه توسط کارفرما
+  // ۱. ثبت پیشنهاد الحاقیه توسط کارفرما (پشتیبانی از مساحت یا طول کریدور)
   async createAmendment(req: AuthRequest, res: Response): Promise<Response> {
     try {
       const { contractId } = req.params;
-      const { proposed_area, proposed_amount, notes } = req.body;
+      const {
+        proposed_area,
+        proposed_length, // 🌟 دریافت طول پیشنهادی برای پروژه‌های کریدوری
+        proposed_amount,
+        proposed_delivery_time,
+        notes,
+      } = req.body;
       const loggedInUserId = req.user?.userId;
 
       if (!loggedInUserId) {
@@ -51,12 +57,16 @@ export const contractController = {
         });
       }
 
-      // ایجاد الحاقیه جدید در دیتابیس
+      // ایجاد الحاقیه جدید در دیتابیس (پشتیبانی از مساحت و طول)
       const amendment = await prisma.contractAmendment.create({
         data: {
           contractId: Number(contractId),
-          proposed_area: Number(proposed_area),
-          proposed_amount: Number(proposed_amount), // Decimal پریسما عدد را مستقیماً قبول می‌کند
+          proposed_area: proposed_area ? Number(proposed_area) : null,
+          proposed_length: proposed_length ? Number(proposed_length) : null, // 🌟 ذخیره طول اگر ارسال شده باشد
+          proposed_amount: Number(proposed_amount),
+          proposed_delivery_time: proposed_delivery_time
+            ? Number(proposed_delivery_time)
+            : null,
           notes: notes || null,
           status: "pending",
         },
@@ -75,7 +85,6 @@ export const contractController = {
     }
   },
 
-  // ۲. پاسخ فریلنسر (تایید یا رد الحاقیه)
   // ۲. پاسخ فریلنسر (تایید یا رد الحاقیه)
   async respondToAmendment(req: AuthRequest, res: Response): Promise<Response> {
     try {
@@ -127,7 +136,7 @@ export const contractController = {
           data: { status: status as "accepted" | "rejected" },
         });
 
-        // ۲. اگر فریلنسر تایید کرد، مبالغ جدید روی پروژه و قرارداد اصلی می‌نشینند
+        // ۲. اگر فریلنسر تایید کرد، مقادیر جدید روی پروژه و قرارداد اصلی می‌نشینند
         if (status === "accepted") {
           // آپدیت totalAmount قرارداد
           await tx.contract.update({
@@ -137,17 +146,28 @@ export const contractController = {
             data: {
               totalAmount: amendment.proposed_amount,
               status: "completed",
-              completedAt: new Date(), // اگر این فیلد را داری
+              completedAt: new Date(),
             },
           });
 
-          // آپدیت calculatedArea و تغییر وضعیت پروژه به completed
+          // آپدیت مقادیر پروژه بر اساس اینکه مساحتی است یا کریدوری (طولی)
+          // آپدیت مقادیر پروژه بر اساس اینکه مساحتی است یا کریدوری (طولی)
           await tx.project.update({
             where: { id: amendment.contract.projectId },
             data: {
-              calculatedArea: amendment.proposed_area,
-              // ⚡ اضافه شده برای تغییر وضعیت پروژه به completed
               status: "completed",
+              // اگر مساحت در الحاقیه ثبت شده بود، روی پروژه بنشیند
+              ...((amendment as any).proposed_area !== null && {
+                calculatedArea: (amendment as any).proposed_area,
+              }),
+              // اگر طول مسیر کریدور در الحاقیه ثبت شده بود، روی پروژه بنشیند
+              ...((amendment as any).proposed_length !== null && {
+                corridorLength: (amendment as any).proposed_length,
+              }),
+              // 🌟 رفع خطا با استفاده از کست کردن به any برای فیلد جدید
+              ...((amendment as any).proposed_delivery_time !== null && {
+                deliveryTime: String((amendment as any).proposed_delivery_time),
+              }),
             },
           });
         }
@@ -171,8 +191,6 @@ export const contractController = {
       });
     }
   },
-
-  // این متد را داخل شیء contractController اضافه کنید:
 
   // ۳. دریافت لیست اصلاحیه‌های یک قرارداد خاص
   async getAmendments(req: AuthRequest, res: Response): Promise<Response> {
