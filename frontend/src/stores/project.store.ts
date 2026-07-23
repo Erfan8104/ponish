@@ -24,7 +24,6 @@ export const useProjectStore = defineStore('project', () => {
   const projectDetails = ref<ProjectDetail | null>(null)
   const isProjectDetailsModalOpen = ref(false)
   const isProjectDetailsLoading = ref(false)
-  // در استیت استور اضافه کنید
   const isQuickEntry = ref(false)
 
   const isLoading = ref(false)
@@ -49,9 +48,20 @@ export const useProjectStore = defineStore('project', () => {
     calculatedArea: 0,
     corridorLength: 0,
 
-    // 🌟 فیلدهای جدید برای دسته‌بندی و تجهیزات
-    surveyMethod: '' as 'ground' | 'aerial' | '', // روش اصلی (زمینی یا هوایی)
-    specificSurveys: [] as string[], // انواع نقشه برداری انتخابی
+    // 🌟 روش اصلی اجرا (زمینی، هوایی/فتوگرامتری، کارتوگرافی و GIS)
+    surveyMethod: '' as 'ground' | 'aerial' | 'gis' | '',
+
+    // 🌟 مشخصات فنی مجزا و اختصاصی برای هر روش بر اساس تصاویر
+    groundTechnicalSpecs: [] as string[], // مشخصات فنی نقشه‌برداری زمینی
+    aerialTechnicalSpecs: [] as string[], // مشخصات فنی نقشه فتوگرامتری
+    aerialScaleOption: '', // مقادیر 0.5، 1، 1.5، 2 مربوط به فتوگرامتری
+    gisTechnicalSpecs: [] as string[], // مشخصات فنی کارتوگرافی و GIS
+
+    // 🌟 فیلدهای توضیحات متنی مجزا برای هر بخش
+    groundDescription: '',
+    aerialDescription: '',
+    gisDescription: '',
+
     requiredEquipment: [] as string[], // تجهیزات مورد نیاز پیشنهادی
 
     areaSelectionMethod: 'map',
@@ -89,11 +99,9 @@ export const useProjectStore = defineStore('project', () => {
     const time = formData.deliveryTime
     if (!time) return false
 
-    // اگر مقادیر ثابتانتخاب شده باشند، معتبر است
     const staticOptions = ['urgent', '3-days', '1-week', '2-weeks']
     if (staticOptions.includes(time)) return true
 
-    // اگر حالت دلخواه باشد، بررسی می‌کنیم که متن شامل عدد معتبر یا روز باشد
     const match = time.match(/\d+/)
     return match ? Number(match[0]) > 0 : false
   })
@@ -164,12 +172,12 @@ export const useProjectStore = defineStore('project', () => {
       console.error(err)
     }
   }
+
   const submitProject = async () => {
     isLoading.value = true
     error.value = null
 
     try {
-      // ارسال داده‌ها همراه با فلگ (بک‌اند می‌تواند بر اساس این فلگ اعتبارسنجی را مدیریت کند)
       const payload = {
         ...formData,
         isQuick: isQuickEntry.value,
@@ -189,7 +197,6 @@ export const useProjectStore = defineStore('project', () => {
       throw err
     } finally {
       isLoading.value = false
-      // ریست کردن فلگ بعد از هر بار تلاش (موفق یا ناموفق)
       isQuickEntry.value = false
     }
   }
@@ -246,20 +253,13 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
-  /**
-   * 🌟 اکشن پذیرش پروپوزال و شروع قرارداد (هماهنگ با تغییر قیمت چت در بک‌اند)
-   */
   const acceptProposal = async (proposalId: number, projectId: number, finalAmount?: number) => {
     isLoading.value = true
     error.value = null
 
     try {
-      // صدا زدن سرویس با پارامتر قیمت اختیاری
       const res = await projectService.acceptProposal(proposalId, finalAmount)
-
-      // آپدیت محلی وضعیت پروژه در استیت‌های مختلف کامپوننت بدون ریلود صفحه
       updateProjectStatusLocally(projectId, 'in_progress')
-
       return res
     } catch (err: any) {
       error.value = err.response?.data?.message || 'خطا در تایید پیشنهاد پروژه'
@@ -269,36 +269,25 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
-  /**
-   * آپدیت محلی وضعیت پروژه پس از قبول پیشنهاد
-   */
   const updateProjectStatusLocally = (projectId: number, newStatus: string) => {
-    // این خط خطا را برطرف می‌کند:
     const status = newStatus as ProjectStatus
 
-    // ۱. آپدیت جزئیات مودال
     if (projectDetails.value && projectDetails.value.id === projectId) {
       projectDetails.value.status = status
     }
 
-    // ۱. آپدیت لیست پروژه‌های ایجاد شده توسط کاربر
     const myProjIndex = myProjects.value.findIndex((p) => p.id === projectId)
     if (myProjIndex !== -1) {
-      // استفاده از ! به جای ?.
       myProjects.value[myProjIndex]!.status = status
     }
 
-    // ۲. آپدیت لیست اصلی
     const projIndex = projects.value.findIndex((p) => p.id === projectId)
     if (projIndex !== -1) {
-      // استفاده از ! به جای ?.
       projects.value[projIndex]!.status = status
     }
 
-    // ۳. آپدیت لیست پروژه‌های پذیرفته‌شده
     const acceptedIndex = acceptedProjects.value.findIndex((p) => p.id === projectId)
     if (acceptedIndex !== -1) {
-      // استفاده از ! به جای ?.
       acceptedProjects.value[acceptedIndex]!.status = status
     }
   }
@@ -309,11 +298,8 @@ export const useProjectStore = defineStore('project', () => {
 
     try {
       await projectService.rejectProposal(contractId, projectId)
-
-      // بازگرداندن وضعیت پروژه به open در کلاینت
       updateProjectStatusLocally(projectId, 'open')
 
-      // پاک کردن قرارداد از جزئیات در صورت باز بودن مودال
       if (projectDetails.value?.id === projectId) {
         projectDetails.value.contract = null
       }
@@ -327,7 +313,6 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
-  // این را می‌توانید به ریترن استور اضافه کنید
   const setMappingType = (type: 'area' | 'corridor') => {
     formData.mappingType = type
     if (type === 'area') {
@@ -337,16 +322,15 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
-  // در استور اضافه کنید
   const syncProjects = async () => {
     try {
-      // دریافت مجدد لیست‌ها برای اطمینان از تطابق با دیتابیس
       await fetchMyProjects()
       await fetchAcceptedProjects()
     } catch (err) {
       console.error('خطا در همگام‌سازی پروژه‌ها:', err)
     }
   }
+
   /**
    * =========================
    * Helpers
@@ -363,7 +347,6 @@ export const useProjectStore = defineStore('project', () => {
   const setMapScale = (scale: string) => {
     formData.mapScale = scale
 
-    // تعیین خودکار خطای مجاز بر اساس مقیاس
     switch (scale) {
       case '1/100':
         formData.requiredAccuracy = '۲ سانتی‌متر'
@@ -397,7 +380,6 @@ export const useProjectStore = defineStore('project', () => {
     formData.address = ''
     formData.terrainTypes = []
 
-    // ریست فیلدهای جدید
     formData.mappingType = null
     formData.calculatedArea = 0
     formData.corridorLength = 0
@@ -405,7 +387,13 @@ export const useProjectStore = defineStore('project', () => {
     formData.mapScale = ''
 
     formData.surveyMethod = ''
-    formData.specificSurveys = []
+    formData.groundTechnicalSpecs = []
+    formData.aerialTechnicalSpecs = []
+    formData.aerialScaleOption = ''
+    formData.gisTechnicalSpecs = []
+    formData.groundDescription = ''
+    formData.aerialDescription = ''
+    formData.gisDescription = ''
     formData.requiredEquipment = []
 
     formData.polygonCoordinates = []
@@ -431,7 +419,6 @@ export const useProjectStore = defineStore('project', () => {
    * =========================
    */
   return {
-    // state
     projects,
     myProjects,
     activityLogs,
@@ -447,11 +434,9 @@ export const useProjectStore = defineStore('project', () => {
     isLoading,
     error,
 
-    // getters
     dashboardStats,
     openProjects,
 
-    // actions
     setMappingType,
     fetchProjects,
     rejectProposal,
@@ -461,13 +446,12 @@ export const useProjectStore = defineStore('project', () => {
     submitProject,
     updateProject,
     deleteProject,
-    acceptProposal, // 👈 اضافه شدن اکشن اصلی به ریترن
+    acceptProposal,
     updateProjectStatusLocally,
     fetchAcceptedProjects,
     openProjectDetails,
     closeProjectDetails,
 
-    // helpers
     addFiles,
     removeFile,
     resetForm,

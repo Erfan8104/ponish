@@ -1,262 +1,274 @@
-  generator client {
-    provider = "prisma-client-js"
-  }
+    generator client {
+      provider = "prisma-client-js"
+    }
 
 
-  datasource db {
-    provider = "postgresql"
-  }
+    datasource db {
+      provider = "postgresql"
+    }
 
-  enum UserRole {
-    employer
-    freelancer
-    both
-    admin
-  }
+    enum UserRole {
+      employer
+      freelancer
+      both
+      admin
+    }
 
-  enum ProjectStatus {
-    draft
-    open
-    in_progress
-    completed
-    cancelled
-    disputed
-  }
+    enum ProjectStatus {
+      draft
+      open
+      in_progress
+      completed
+      cancelled
+      disputed
+    }
 
-  enum BudgetType {
-    fixed
-    hourly
-    negotiable
-  }
+    enum BudgetType {
+      fixed
+      hourly
+      negotiable
+    }
 
-  enum ProposalStatus {
-    pending
-    accepted
-    rejected
-    withdrawn
-  }
+    enum ProposalStatus {
+      pending
+      accepted
+      rejected
+      withdrawn
+    }
 
-  enum ContractStatus {
-    active
-    completed
-    cancelled
-    disputed
-  }
+    enum ContractStatus {
+      active
+      completed
+      cancelled
+      disputed
+    }
 
-  enum MilestoneStatus {
-    pending
-    in_progress
-    submitted
-    approved
-    rejected
-    paid
-  }
+    enum MilestoneStatus {
+      pending
+      in_progress
+      submitted
+      approved
+      rejected
+      paid
+    }
 
-  enum PaymentStatus {
-    pending
-    paid
-    failed
-    refunded
-  }
+    enum PaymentStatus {
+      pending
+      paid
+      failed
+      refunded
+    }
 
-  enum MessageType {
-    text
-    file
-    system
-  }
+    enum MessageType {
+      text
+      file
+      system
+    }
 
-  enum ReviewTarget {
-    employer
-    freelancer
-  }
+    enum ReviewTarget {
+      employer
+      freelancer
+    }
 
-  model User {
-    id               Int       @id @default(autoincrement())
+    model User {
+      id               Int       @id @default(autoincrement())
 
-    phone            String    @unique
-    email            String?   @unique
-    password         String?
+      phone            String    @unique
+      email            String?   @unique
+      password         String?
 
-    isVerified       Boolean   @default(false)
-    profileCompleted Boolean   @default(false)
+      isVerified       Boolean   @default(false)
+      profileCompleted Boolean   @default(false)
 
-    role             UserRole  @default(employer)
+      role             UserRole  @default(employer)
 
-    name             String?
-    avatar           String?
-    bio              String?
+      name             String?
+      avatar           String?
+      bio              String?
 
-    province         String?
-    city             String?
+      province         String?
+      city             String?
 
-    createdAt        DateTime  @default(now())
-    updatedAt        DateTime  @updatedAt
-    deletedAt        DateTime?
+      createdAt        DateTime  @default(now())
+      updatedAt        DateTime  @updatedAt
+      deletedAt        DateTime?
 
-    employerProfile  EmployerProfile?
-    freelancerProfile FreelancerProfile?
+      employerProfile  EmployerProfile?
+      freelancerProfile FreelancerProfile?
 
-    projects         Project[] @relation("EmployerProjects")
-    proposals        Proposal[]
-    contractsAsEmployer   Contract[] @relation("EmployerContracts")
-    contractsAsFreelancer Contract[] @relation("FreelancerContracts")
+      projects         Project[] @relation("EmployerProjects")
+      proposals        Proposal[]
+      contractsAsEmployer   Contract[] @relation("EmployerContracts")
+      contractsAsFreelancer Contract[] @relation("FreelancerContracts")
 
-    sentMessages     Message[] @relation("SentMessages")
-    receivedMessages Message[] @relation("ReceivedMessages")
+      sentMessages     Message[] @relation("SentMessages")
+      receivedMessages Message[] @relation("ReceivedMessages")
 
-    reviewsGiven     Review[] @relation("ReviewsGiven")
-    reviewsReceived  Review[] @relation("ReviewsReceived")
+      reviewsGiven     Review[] @relation("ReviewsGiven")
+      reviewsReceived  Review[] @relation("ReviewsReceived")
 
-    otps             OTP[]
+      otps             OTP[]
 
-    @@index([phone])
-    @@index([email])
-    @@index([role])
-    @@index([province, city])
-  }
+      @@index([phone])
+      @@index([email])
+      @@index([role])
+      @@index([province, city])
+    }
 
-  model EmployerProfile {
-    id          Int      @id @default(autoincrement())
+    model EmployerProfile {
+      id          Int      @id @default(autoincrement())
 
-    userId      Int      @unique
-    user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+      userId      Int      @unique
+      user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    companyName String?
-    companyType String?
-    website     String?
-    address     String?
+      companyName String?
+      companyType String?
+      website     String?
+      address     String?
 
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
-  }
+      createdAt   DateTime @default(now())
+      updatedAt   DateTime @updatedAt
+    }
 
-  model FreelancerProfile {
-    id             Int      @id @default(autoincrement())
+    model FreelancerProfile {
+      id             Int      @id @default(autoincrement())
 
-    userId         Int      @unique
-    user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+      userId         Int      @unique
+      user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    birthDate      String?
-    birthPlace     String?
-    education      String?
-    experience     String?
-    portfolioUrl   String?
+      birthDate      String?
+      birthPlace     String?
+      education      String?
+      experience     String?
+      portfolioUrl   String?
 
-    hourlyRate     Decimal? @db.Decimal(12, 2)
-    rating         Float    @default(0)
-    completedJobs  Int      @default(0)
+      hourlyRate     Decimal? @db.Decimal(12, 2)
+      rating         Float    @default(0)
+      completedJobs  Int      @default(0)
 
-    skills         FreelancerSkill[]
+      skills         FreelancerSkill[]
 
-    createdAt      DateTime @default(now())
-    updatedAt      DateTime @updatedAt
-  }
+      createdAt      DateTime @default(now())
+      updatedAt      DateTime @updatedAt
+    }
 
-  model Category {
-    id          Int       @id @default(autoincrement())
+    model Category {
+      id          Int       @id @default(autoincrement())
 
-    name        String
-    slug        String    @unique
-    description String?
+      name        String
+      slug        String    @unique
+      description String?
 
-    parentId    Int?
-    parent      Category? @relation("CategoryChildren", fields: [parentId], references: [id])
-    children    Category[] @relation("CategoryChildren")
+      parentId    Int?
+      parent      Category? @relation("CategoryChildren", fields: [parentId], references: [id])
+      children    Category[] @relation("CategoryChildren")
 
-    projects    Project[]
+      projects    Project[]
 
-    createdAt   DateTime  @default(now())
-    updatedAt   DateTime  @updatedAt
+      createdAt   DateTime  @default(now())
+      updatedAt   DateTime  @updatedAt
 
-    @@index([slug])
-    @@index([parentId])
-  }
+      @@index([slug])
+      @@index([parentId])
+    }
 
-  model Skill {
-    id          Int      @id @default(autoincrement())
+    model Skill {
+      id          Int      @id @default(autoincrement())
 
-    name        String
-    slug        String   @unique
+      name        String
+      slug        String   @unique
 
-    freelancers FreelancerSkill[]
-    projects    ProjectSkill[]
+      freelancers FreelancerSkill[]
+      projects    ProjectSkill[]
 
-    createdAt   DateTime @default(now())
+      createdAt   DateTime @default(now())
 
-    @@index([slug])
-  }
+      @@index([slug])
+    }
 
-  model FreelancerSkill {
-    id                  Int               @id @default(autoincrement())
+    model FreelancerSkill {
+      id                  Int               @id @default(autoincrement())
 
-    freelancerProfileId Int
-    freelancerProfile   FreelancerProfile @relation(fields: [freelancerProfileId], references: [id], onDelete: Cascade)
+      freelancerProfileId Int
+      freelancerProfile   FreelancerProfile @relation(fields: [freelancerProfileId], references: [id], onDelete: Cascade)
 
-    skillId             Int
-    skill               Skill             @relation(fields: [skillId], references: [id], onDelete: Cascade)
+      skillId             Int
+      skill               Skill             @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
-    level               String?
+      level               String?
 
-    @@unique([freelancerProfileId, skillId])
-    @@index([skillId])
-  }
+      @@unique([freelancerProfileId, skillId])
+      @@index([skillId])
+    }
 
-  model Project {
-    id               Int           @id @default(autoincrement())
+   model Project {
+    id                  Int           @id @default(autoincrement())
 
-    employerId       Int
-    employer         User          @relation("EmployerProjects", fields: [employerId], references: [id], onDelete: Cascade)
+    employerId          Int
+    employer            User          @relation("EmployerProjects", fields: [employerId], references: [id], onDelete: Cascade)
 
-    categoryId       Int?
-    category         Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+    categoryId          Int?
+    category            Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
-    title            String?
-    slug             String?       @unique
-    description      String?
+    title               String?
+    slug                String?       @unique
+    description         String?
     
-    terrainTypes Json?  @default("[]")
-    status           ProjectStatus @default(draft)
+    terrainTypes        Json?         @default("[]")
+    status              ProjectStatus @default(draft)
 
-    province         String?
-    city             String?
-    address          String?
-    corridorLength   Float? 
-    mappingType      String?
-    calculatedArea   Float?
+    province            String?
+    city                String?
+    address             String?
+    corridorLength      Float?  
+    mappingType         String?
+    calculatedArea      Float?
     
-    utmZone          String?
+    utmZone             String?
 
-    requiredAccuracy String?
-    mapScale         String?
-    deliveryTime     String?
+    requiredAccuracy    String?
+    mapScale            String?
+    deliveryTime        String?
 
-    budgetType       BudgetType    @default(fixed)
-    minBudget        Decimal?      @db.Decimal(14, 2)
-    maxBudget        Decimal?      @db.Decimal(14, 2)
+    budgetType          BudgetType    @default(fixed)
+    minBudget           Decimal?      @db.Decimal(14, 2)
+    maxBudget           Decimal?      @db.Decimal(14, 2)
     
-    // 🌟 فیلدهای جدید روش‌ها و تجهیزات نقشه‌برداری
-    surveyMethod      String?        // روش اصلی: 'ground' یا 'aerial'
-    specificSurveys   Json?          @default("[]") // لیست انواع نقشه‌برداری انتخابی (به صورت JSON آرایه)
-    requiredEquipment Json?          @default("[]") // لیست تجهیزات مورد نیاز (به صورت JSON آرایه)
-    polygonCoordinates Json?
-    geoJson           Json?
+    // 🌟 روش‌ها و تجهیزات نقشه‌برداری
+    surveyMethod        String?       // 'ground' | 'aerial' | 'gis'
+    specificSurveys     Json?         @default("[]") 
+    requiredEquipment   Json?         @default("[]")
 
-    isFeatured       Boolean       @default(false)
-    viewCount        Int           @default(0)
+    // 🌟 اضافه شدن فیلدهای جدید مشخصات فنی و توضیحات مجزا برای هر روش
+    groundTechnicalSpecs Json?        @default("[]")
+    aerialTechnicalSpecs Json?        @default("[]")
+    aerialScaleOption    String?
+    gisTechnicalSpecs    Json?        @default("[]")
+    
+    groundDescription    String?
+    aerialDescription    String?
+    gisDescription       String?
 
-    skills           ProjectSkill[]
-    attachments      ProjectAttachment[]
-    proposals        Proposal[]
-    contract         Contract?
+    polygonCoordinates   Json?
+    geoJson              Json?
 
-    createdAt        DateTime      @default(now())
-    updatedAt        DateTime      @updatedAt
-    publishedAt      DateTime?
-    closedAt         DateTime?
-    deletedAt        DateTime?
-    techType         Json?
-    outputFormats    Json?
+    isFeatured          Boolean       @default(false)
+    viewCount           Int           @default(0)
+
+    skills              ProjectSkill[]
+    attachments         ProjectAttachment[]
+    proposals           Proposal[]
+    contract            Contract?
+
+    createdAt           DateTime      @default(now())
+    updatedAt           DateTime      @updatedAt
+    publishedAt         DateTime?
+    closedAt            DateTime?
+    deletedAt           DateTime?
+    techType            Json?
+    outputFormats       Json?
     areaSelectionMethod String?
+
     @@index([employerId])
     @@index([categoryId])
     @@index([status])
@@ -264,240 +276,240 @@
     @@index([createdAt])
   }
 
-  model ProjectSkill {
-    id        Int     @id @default(autoincrement())
+    model ProjectSkill {
+      id        Int     @id @default(autoincrement())
 
-    projectId Int
-    project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+      projectId Int
+      project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-    skillId   Int
-    skill     Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+      skillId   Int
+      skill     Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
-    @@unique([projectId, skillId])
-    @@index([skillId])
+      @@unique([projectId, skillId])
+      @@index([skillId])
+    }
+
+    model ProjectAttachment {
+      id          Int      @id @default(autoincrement())
+
+      projectId   Int
+      project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+      fileName    String
+      fileUrl     String
+      fileType    String?
+      fileSize    Int?
+
+      createdAt   DateTime @default(now())
+
+      @@index([projectId])
+    }
+
+    model Proposal {
+      id            Int            @id @default(autoincrement())
+
+      projectId     Int
+      project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+      freelancerId  Int
+      freelancer    User           @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+
+      amount        Decimal        @db.Decimal(14, 2)
+      deliveryDays  Int
+      coverLetter   String
+
+      status        ProposalStatus @default(pending)
+
+      contract      Contract?
+
+      createdAt     DateTime       @default(now())
+      updatedAt     DateTime       @updatedAt
+
+      @@unique([projectId, freelancerId])
+      @@index([projectId])
+      @@index([freelancerId])
+      @@index([status])
+    }
+
+    model Contract {
+      id            Int            @id @default(autoincrement())
+
+      amendments    ContractAmendment[]
+      projectId     Int            @unique
+      project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+      proposalId    Int            @unique
+      proposal      Proposal       @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+      employerId    Int
+      employer      User           @relation("EmployerContracts", fields: [employerId], references: [id], onDelete: Cascade)
+
+      freelancerId  Int
+      freelancer    User           @relation("FreelancerContracts", fields: [freelancerId], references: [id], onDelete: Cascade)
+
+      totalAmount   Decimal        @db.Decimal(14, 2)
+      status        ContractStatus @default(active)
+
+      milestones    Milestone[]
+      payments      Payment[]
+      messages      Message[]
+      reviews       Review[]
+
+      startedAt     DateTime       @default(now())
+      completedAt   DateTime?
+      cancelledAt   DateTime?
+
+      createdAt     DateTime       @default(now())
+      updatedAt     DateTime       @updatedAt
+
+      @@index([employerId])
+      @@index([freelancerId])
+      @@index([status])
+    }
+
+    model Milestone {
+      id          Int             @id @default(autoincrement())
+
+      contractId  Int
+      contract    Contract        @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+      title       String
+      description String?
+
+      amount      Decimal         @db.Decimal(14, 2)
+      dueDate     DateTime?
+
+      status      MilestoneStatus @default(pending)
+
+      payments    Payment[]
+
+      createdAt   DateTime        @default(now())
+      updatedAt   DateTime        @updatedAt
+
+      @@index([contractId])
+      @@index([status])
+    }
+
+    model Payment {
+      id           Int           @id @default(autoincrement())
+
+      contractId   Int
+      contract     Contract      @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+      milestoneId  Int?
+      milestone    Milestone?    @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+
+      amount       Decimal       @db.Decimal(14, 2)
+      status       PaymentStatus @default(pending)
+
+      gateway      String?
+      trackingCode String?
+      paidAt       DateTime?
+
+      createdAt    DateTime      @default(now())
+      updatedAt    DateTime      @updatedAt
+
+      @@index([contractId])
+      @@index([milestoneId])
+      @@index([status])
+    }
+
+    model Message {
+      id          Int         @id @default(autoincrement())
+
+      contractId  Int?
+      contract    Contract?   @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+      senderId    Int
+      sender      User        @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+      receiverId  Int
+      receiver    User        @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+      type        MessageType @default(text)
+      content     String?
+      fileUrl     String?
+
+      readAt      DateTime?
+
+      createdAt   DateTime    @default(now())
+
+      @@index([contractId])
+      @@index([senderId])
+      @@index([receiverId])
+      @@index([createdAt])
+    }
+
+    model Review {
+      id          Int          @id @default(autoincrement())
+
+      contractId  Int
+      contract    Contract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+      reviewerId  Int
+      reviewer    User         @relation("ReviewsGiven", fields: [reviewerId], references: [id], onDelete: Cascade)
+
+      reviewedId  Int
+      reviewed    User         @relation("ReviewsReceived", fields: [reviewedId], references: [id], onDelete: Cascade)
+
+      target      ReviewTarget
+      rating      Int
+      comment     String?
+
+      createdAt   DateTime     @default(now())
+
+      @@unique([contractId, reviewerId, reviewedId])
+      @@index([reviewerId])
+      @@index([reviewedId])
+      @@index([rating])
+    }
+
+    model OTP {
+      id        Int      @id @default(autoincrement())
+
+      phone     String
+      code      String
+
+      expiresAt DateTime
+      usedAt    DateTime?
+
+      createdAt DateTime @default(now())
+
+      userId    Int?
+      user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+      @@index([phone])
+      @@index([userId])
+      @@index([expiresAt])
+    }
+
+
+  enum AmendmentStatus {
+    pending
+    accepted
+    rejected
   }
 
-  model ProjectAttachment {
-    id          Int      @id @default(autoincrement())
-
-    projectId   Int
-    project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-    fileName    String
-    fileUrl     String
-    fileType    String?
-    fileSize    Int?
-
-    createdAt   DateTime @default(now())
-
-    @@index([projectId])
-  }
-
-  model Proposal {
-    id            Int            @id @default(autoincrement())
-
-    projectId     Int
-    project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-    freelancerId  Int
-    freelancer    User           @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
-
-    amount        Decimal        @db.Decimal(14, 2)
-    deliveryDays  Int
-    coverLetter   String
-
-    status        ProposalStatus @default(pending)
-
-    contract      Contract?
-
-    createdAt     DateTime       @default(now())
-    updatedAt     DateTime       @updatedAt
-
-    @@unique([projectId, freelancerId])
-    @@index([projectId])
-    @@index([freelancerId])
-    @@index([status])
-  }
-
-  model Contract {
-    id            Int            @id @default(autoincrement())
-
-    amendments    ContractAmendment[]
-    projectId     Int            @unique
-    project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-    proposalId    Int            @unique
-    proposal      Proposal       @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-
-    employerId    Int
-    employer      User           @relation("EmployerContracts", fields: [employerId], references: [id], onDelete: Cascade)
-
-    freelancerId  Int
-    freelancer    User           @relation("FreelancerContracts", fields: [freelancerId], references: [id], onDelete: Cascade)
-
-    totalAmount   Decimal        @db.Decimal(14, 2)
-    status        ContractStatus @default(active)
-
-    milestones    Milestone[]
-    payments      Payment[]
-    messages      Message[]
-    reviews       Review[]
-
-    startedAt     DateTime       @default(now())
-    completedAt   DateTime?
-    cancelledAt   DateTime?
-
-    createdAt     DateTime       @default(now())
-    updatedAt     DateTime       @updatedAt
-
-    @@index([employerId])
-    @@index([freelancerId])
-    @@index([status])
-  }
-
-  model Milestone {
-    id          Int             @id @default(autoincrement())
-
-    contractId  Int
-    contract    Contract        @relation(fields: [contractId], references: [id], onDelete: Cascade)
-
-    title       String
-    description String?
-
-    amount      Decimal         @db.Decimal(14, 2)
-    dueDate     DateTime?
-
-    status      MilestoneStatus @default(pending)
-
-    payments    Payment[]
-
-    createdAt   DateTime        @default(now())
-    updatedAt   DateTime        @updatedAt
+  model ContractAmendment {
+    id              Int             @id @default(autoincrement())
+    
+    contractId      Int
+    contract        Contract        @relation(fields: [contractId], references: [id], onDelete: Cascade)
+    
+    proposed_area   Float?          // مساحت پیشنهادی جدید (اگر نوع پروژه مساحتی است)
+    proposed_length Float?
+    proposed_amount Decimal         @db.Decimal(14, 2)
+    
+    // 🌟 اضافه شدن فیلد مهلت زمان تحویل پیشنهادی (به روز)
+    proposed_delivery_time Int?     
+    
+    notes           String?
+    
+    status          AmendmentStatus @default(pending)
+    
+    createdAt       DateTime        @default(now())
+    updatedAt       DateTime        @updatedAt
 
     @@index([contractId])
     @@index([status])
   }
-
-  model Payment {
-    id           Int           @id @default(autoincrement())
-
-    contractId   Int
-    contract     Contract      @relation(fields: [contractId], references: [id], onDelete: Cascade)
-
-    milestoneId  Int?
-    milestone    Milestone?    @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
-
-    amount       Decimal       @db.Decimal(14, 2)
-    status       PaymentStatus @default(pending)
-
-    gateway      String?
-    trackingCode String?
-    paidAt       DateTime?
-
-    createdAt    DateTime      @default(now())
-    updatedAt    DateTime      @updatedAt
-
-    @@index([contractId])
-    @@index([milestoneId])
-    @@index([status])
-  }
-
-  model Message {
-    id          Int         @id @default(autoincrement())
-
-    contractId  Int?
-    contract    Contract?   @relation(fields: [contractId], references: [id], onDelete: Cascade)
-
-    senderId    Int
-    sender      User        @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-
-    receiverId  Int
-    receiver    User        @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
-
-    type        MessageType @default(text)
-    content     String?
-    fileUrl     String?
-
-    readAt      DateTime?
-
-    createdAt   DateTime    @default(now())
-
-    @@index([contractId])
-    @@index([senderId])
-    @@index([receiverId])
-    @@index([createdAt])
-  }
-
-  model Review {
-    id          Int          @id @default(autoincrement())
-
-    contractId  Int
-    contract    Contract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
-
-    reviewerId  Int
-    reviewer    User         @relation("ReviewsGiven", fields: [reviewerId], references: [id], onDelete: Cascade)
-
-    reviewedId  Int
-    reviewed    User         @relation("ReviewsReceived", fields: [reviewedId], references: [id], onDelete: Cascade)
-
-    target      ReviewTarget
-    rating      Int
-    comment     String?
-
-    createdAt   DateTime     @default(now())
-
-    @@unique([contractId, reviewerId, reviewedId])
-    @@index([reviewerId])
-    @@index([reviewedId])
-    @@index([rating])
-  }
-
-  model OTP {
-    id        Int      @id @default(autoincrement())
-
-    phone     String
-    code      String
-
-    expiresAt DateTime
-    usedAt    DateTime?
-
-    createdAt DateTime @default(now())
-
-    userId    Int?
-    user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-    @@index([phone])
-    @@index([userId])
-    @@index([expiresAt])
-  }
-
-
-enum AmendmentStatus {
-  pending
-  accepted
-  rejected
-}
-
-model ContractAmendment {
-  id              Int             @id @default(autoincrement())
-  
-  contractId      Int
-  contract        Contract        @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  
-  proposed_area   Float?          // مساحت پیشنهادی جدید (اگر نوع پروژه مساحتی است)
-  proposed_length Float?
-  proposed_amount Decimal         @db.Decimal(14, 2)
-  
-  // 🌟 اضافه شدن فیلد مهلت زمان تحویل پیشنهادی (به روز)
-  proposed_delivery_time Int?     
-  
-  notes           String?
-  
-  status          AmendmentStatus @default(pending)
-  
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-
-  @@index([contractId])
-  @@index([status])
-}

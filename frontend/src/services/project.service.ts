@@ -12,7 +12,6 @@ export interface ProposalPayload {
   deliveryDays: number
   coverLetter: string
 }
-// src/types/project.ts (یا محل تعریف ProjectFormPayload)
 
 export interface ProjectFormPayload {
   // اطلاعات پایه
@@ -26,18 +25,27 @@ export interface ProjectFormPayload {
   address?: string
 
   // اطلاعات نقشه‌برداری و کریدور
-  mappingType?: 'area' | 'corridor' | null // نوع نقشه‌برداری
-  corridorLength?: number // طول کریدور
+  mappingType?: 'area' | 'corridor' | null
+  corridorLength?: number
   areaSelectionMethod?: string
-  calculatedArea?: number // مساحت
+  calculatedArea?: number
   coordinateSystem?: string
   utmZone?: string
   terrainTypes?: string[]
 
-  // 🌟 فیلدهای جدید روش‌ها و تجهیزات
-  surveyMethod?: 'ground' | 'aerial' | '' // روش اصلی (زمینی یا هوایی)
-  specificSurveys?: string[] // انواع نقشه برداری انتخابی
-  requiredEquipment?: string[] // تجهیزات مورد نیاز پیشنهادی
+  // روش‌ها، تجهیزات و مشخصات فنی جدید
+  surveyMethod?: 'ground' | 'aerial' | 'gis' | ''
+  specificSurveys?: string[]
+  requiredEquipment?: string[]
+
+  // 🌟 مشخصات فنی مجزا و توضیحات هر روش
+  groundTechnicalSpecs?: string[]
+  aerialTechnicalSpecs?: string[]
+  aerialScaleOption?: string
+  gisTechnicalSpecs?: string[]
+  groundDescription?: string
+  aerialDescription?: string
+  gisDescription?: string
 
   // داده‌های جغرافیایی
   polygonCoordinates?: any[]
@@ -55,6 +63,7 @@ export interface ProjectFormPayload {
   minBudget?: number | string
   maxBudget?: number | string
 }
+
 /**
  * =========================
  * Project Service
@@ -74,9 +83,6 @@ export const projectService = {
    */
   async getProjectById(id: number): Promise<ProjectDetail> {
     const response = await api.get(`/projects/detail/${id}`)
-    console.log('DETAIL RESPONSE')
-    console.log(response.data)
-
     return response.data.project
   },
 
@@ -95,10 +101,33 @@ export const projectService = {
     if (formDataRaw.requiredEquipment && formDataRaw.requiredEquipment.length > 0) {
       data.append('requiredEquipment', JSON.stringify(formDataRaw.requiredEquipment))
     }
+
+    // 🌟 ارسال مشخصات فنی و توضیحات اختصاصی هر بخش به فرم‌دیتا
+    if (formDataRaw.groundTechnicalSpecs && formDataRaw.groundTechnicalSpecs.length > 0) {
+      data.append('groundTechnicalSpecs', JSON.stringify(formDataRaw.groundTechnicalSpecs))
+    }
+    if (formDataRaw.aerialTechnicalSpecs && formDataRaw.aerialTechnicalSpecs.length > 0) {
+      data.append('aerialTechnicalSpecs', JSON.stringify(formDataRaw.aerialTechnicalSpecs))
+    }
+    if (formDataRaw.aerialScaleOption) {
+      data.append('aerialScaleOption', formDataRaw.aerialScaleOption)
+    }
+    if (formDataRaw.gisTechnicalSpecs && formDataRaw.gisTechnicalSpecs.length > 0) {
+      data.append('gisTechnicalSpecs', JSON.stringify(formDataRaw.gisTechnicalSpecs))
+    }
+    if (formDataRaw.groundDescription) {
+      data.append('groundDescription', formDataRaw.groundDescription)
+    }
+    if (formDataRaw.aerialDescription) {
+      data.append('aerialDescription', formDataRaw.aerialDescription)
+    }
+    if (formDataRaw.gisDescription) {
+      data.append('gisDescription', formDataRaw.gisDescription)
+    }
+
     data.append('title', formDataRaw.title || '')
     if (formDataRaw.description) data.append('description', formDataRaw.description)
 
-    // اگر حوزه مشخص نبود، به بک‌میدان ارسال نشود تا دسته بندی اصلی خالی بماند یا پیش فرض ادمین شود
     if (formDataRaw.category && formDataRaw.category !== 'unknown') {
       data.append('category', formDataRaw.category)
     }
@@ -109,11 +138,9 @@ export const projectService = {
     if (formDataRaw.areaSelectionMethod)
       data.append('areaSelectionMethod', formDataRaw.areaSelectionMethod)
 
-    // اضافه کردن این بخش برای ارسال طول و نوع نقشه برداری
     if (formDataRaw.mappingType) {
       data.append('mappingType', formDataRaw.mappingType)
     }
-    // اضافه کردن این بخش برای ارسال مساحت محاسبه شده
     if (formDataRaw.calculatedArea !== undefined && formDataRaw.calculatedArea !== null) {
       data.append('calculatedArea', String(formDataRaw.calculatedArea))
     }
@@ -123,14 +150,11 @@ export const projectService = {
 
     if (formDataRaw.utmZone && formDataRaw.utmZone !== 'auto')
       data.append('utmZone', formDataRaw.utmZone)
-    // در متد createProject داخل services/project.service.ts
 
-    // اضافه کردن این چند خط بعد از سایر appendها
     if (formDataRaw.terrainTypes && formDataRaw.terrainTypes.length > 0) {
       data.append('terrainTypes', JSON.stringify(formDataRaw.terrainTypes))
     }
 
-    // ارسال ایمن مختصات نقشه
     if (formDataRaw.polygonCoordinates && formDataRaw.polygonCoordinates.length > 0) {
       data.append('polygonCoordinates', JSON.stringify(formDataRaw.polygonCoordinates))
     }
@@ -146,10 +170,8 @@ export const projectService = {
     }
     if (formDataRaw.deliveryTime) data.append('deliveryTime', formDataRaw.deliveryTime)
 
-    // اصلاح فیلد نوع بودجه
     data.append('budgetType', formDataRaw.budgetType || 'fixed')
 
-    // جلوگیری از ارسال رشته های خالی مالی
     if (formDataRaw.minBudget && String(formDataRaw.minBudget).trim() !== '') {
       data.append('minBudget', String(formDataRaw.minBudget))
     }
@@ -169,6 +191,7 @@ export const projectService = {
 
     return response.data.project
   },
+
   /**
    * 4. آپدیت پروژه (با فایل جدید)
    */
@@ -226,7 +249,7 @@ export const projectService = {
   },
 
   /**
-   * 8. فعالیت‌ها (اگر استفاده داری)
+   * 8. فعالیت‌ها
    */
   async getActivityLogs(): Promise<ActivityLog[]> {
     const response = await api.get('/activity-logs')
@@ -242,7 +265,7 @@ export const projectService = {
   },
 
   /**
-   * قبول یک پیشنهاد توسط کارفرما و ایجاد قرارداد (با امکان تغییر قیمت توافقی)
+   * قبول یک پیشنهاد توسط کارفرما و ایجاد قرارداد
    */
   async acceptProposal(proposalId: number, finalAmount?: number): Promise<any> {
     const payload = finalAmount ? { finalAmount } : {}
@@ -256,14 +279,10 @@ export const projectService = {
         status,
       },
     })
-
     return response.data.projects || []
   },
 
-  // ... سایر متدها
-
   rejectProposal: async (contractId: number, projectId: number) => {
-    // ارسال درخواست PATCH به روت جدیدی که ساختیم
     const response = await api.patch(`/projects/proposals/${contractId}/reject`, {
       projectId,
     })

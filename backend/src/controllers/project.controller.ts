@@ -45,6 +45,7 @@ const preprocessMultipartData = (body: any) => {
   } else {
     processed.corridorLength = undefined;
   }
+
   if (typeof processed.techType === "string") {
     try {
       processed.techType = JSON.parse(processed.techType);
@@ -76,7 +77,7 @@ const preprocessMultipartData = (body: any) => {
     } catch {}
   }
 
-  // 🌟 اضافه کردن پردازش فیلدهای جدید روش‌ها و تجهیزات
+  // 🌟 پردازش روش اصلی اجرا
   if (typeof processed.surveyMethod === "string") {
     if (
       processed.surveyMethod === "" ||
@@ -102,6 +103,36 @@ const preprocessMultipartData = (body: any) => {
       processed.requiredEquipment = [];
     }
   }
+
+  // 🌟 پارس کردن مشخصات فنی مجزا برای هر روش (که به صورت رشته‌ی JSON ارسال می‌شوند)
+  if (typeof processed.groundTechnicalSpecs === "string") {
+    try {
+      processed.groundTechnicalSpecs = JSON.parse(
+        processed.groundTechnicalSpecs,
+      );
+    } catch {
+      processed.groundTechnicalSpecs = [];
+    }
+  }
+
+  if (typeof processed.aerialTechnicalSpecs === "string") {
+    try {
+      processed.aerialTechnicalSpecs = JSON.parse(
+        processed.aerialTechnicalSpecs,
+      );
+    } catch {
+      processed.aerialTechnicalSpecs = [];
+    }
+  }
+
+  if (typeof processed.gisTechnicalSpecs === "string") {
+    try {
+      processed.gisTechnicalSpecs = JSON.parse(processed.gisTechnicalSpecs);
+    } catch {
+      processed.gisTechnicalSpecs = [];
+    }
+  }
+
   // اصلاح بخش تبدیل بودجه‌ها
   if (
     processed.minBudget !== undefined &&
@@ -136,14 +167,15 @@ const preprocessMultipartData = (body: any) => {
  * =========================
  */
 export const createProject = async (req: AuthRequest, res: Response) => {
+  let processedBody: any = null; // تعریف متغیر بیرون از try برای دسترسی در catch در صورت خطا
+
   try {
     const employerId = Number(req.user!.userId);
 
-    const processedBody = preprocessMultipartData(req.body);
+    processedBody = preprocessMultipartData(req.body);
 
     const validation = createProjectSchema.safeParse(processedBody);
 
-    // 🌟 جای صحیح بررسی خطا: اگر اعتبارسنجی Zod رد شد
     if (!validation.success) {
       console.log("❌ Zod Validation Error Details:");
       console.log(
@@ -187,13 +219,22 @@ export const createProject = async (req: AuthRequest, res: Response) => {
           city: data.city ?? null,
           address: data.address ?? null,
           areaSelectionMethod: data.areaSelectionMethod ?? "map",
-          mappingType: data.mappingType ?? null, // اطمینان از ذخیره نوع
-          surveyMethod: data.surveyMethod ?? null,
-          specificSurveys: data.specificSurveys ?? [],
-          requiredEquipment: data.requiredEquipment ?? [],
+          mappingType: data.mappingType ?? null,
 
-          // اصلاح منطق ذخیره سازی:
-          // اگر مقدار وارد شده (حتی اگر type اشتباه باشد، داده از بین نرود)
+          // 🌟 ذخیره مشخصات روش‌ها، مقیاس پرواز و فیلدهای توضیحات مجزا در دیتابیس
+          surveyMethod: (data as any).surveyMethod ?? null,
+          specificSurveys: (data as any).specificSurveys ?? [],
+          requiredEquipment: (data as any).requiredEquipment ?? [],
+
+          groundTechnicalSpecs: (data as any).groundTechnicalSpecs ?? [],
+          aerialTechnicalSpecs: (data as any).aerialTechnicalSpecs ?? [],
+          aerialScaleOption: (data as any).aerialScaleOption ?? null,
+          gisTechnicalSpecs: (data as any).gisTechnicalSpecs ?? [],
+
+          groundDescription: (data as any).groundDescription ?? null,
+          aerialDescription: (data as any).aerialDescription ?? null,
+          gisDescription: (data as any).gisDescription ?? null,
+
           calculatedArea: data.calculatedArea ?? null,
           corridorLength: data.corridorLength ?? null,
           utmZone: data.utmZone ?? null,
@@ -241,18 +282,15 @@ export const createProject = async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error("❌ createProject error:", error);
-    // در فایل controllers/project.controller.ts
-    const validation = createProjectSchema.safeParse(processedBody);
 
-    if (!validation.success) {
-      // این لاگ را اضافه کنید تا بفهمید مشکل از کدام فیلد است
-      console.log("Validation Errors:", validation.error.flatten().fieldErrors);
-
-      return res.status(400).json({
-        success: false,
-        message: "خطای اعتبارسنجی",
-        errors: validation.error.issues,
-      });
+    if (processedBody) {
+      const validation = createProjectSchema.safeParse(processedBody);
+      if (!validation.success) {
+        console.log(
+          "Validation Errors:",
+          validation.error.flatten().fieldErrors,
+        );
+      }
     }
 
     return res.status(500).json({

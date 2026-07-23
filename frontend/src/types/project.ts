@@ -43,7 +43,7 @@ export interface Project {
   terrainTypes?: string[]
 
   // 🌟 اضافه کردن فیلدهای جدید به صورت اختیاری (بدون خرابی در کدهای قبلی)
-  surveyMethod?: 'ground' | 'aerial' | null
+  surveyMethod?: 'ground' | 'aerial' | 'gis' | null
   specificSurveys?: string[]
   requiredEquipment?: string[]
 

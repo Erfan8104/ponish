@@ -16,7 +16,7 @@ export const createProjectSchema = z
     corridorLength: z.number().nonnegative().optional(),
 
     areaSelectionMethod: z.string().optional().default("map"),
-    polygonCoordinates: z.any().optional(), // استفاده از any برای انعطاف بیشتر در پارس اولیه
+    polygonCoordinates: z.any().optional(),
     geoJson: z.any().nullable().optional(),
     terrainTypes: z.array(z.string()).optional(),
     utmZone: z.string().optional(),
@@ -31,9 +31,21 @@ export const createProjectSchema = z
       .default("fixed"),
     minBudget: z.union([z.string(), z.number()]).optional(),
     maxBudget: z.union([z.string(), z.number()]).optional(),
+
+    // روش‌ها و تجهیزات
     surveyMethod: z.string().nullable().optional(),
     specificSurveys: z.array(z.string()).optional(),
     requiredEquipment: z.array(z.string()).optional(),
+
+    // 🌟 اضافه شدن فیلدهای جدید مشخصات فنی مجزا و توضیحات هر روش
+    groundTechnicalSpecs: z.array(z.string()).optional(),
+    aerialTechnicalSpecs: z.array(z.string()).optional(),
+    aerialScaleOption: z.string().nullable().optional(),
+    gisTechnicalSpecs: z.array(z.string()).optional(),
+
+    groundDescription: z.string().nullable().optional(),
+    aerialDescription: z.string().nullable().optional(),
+    gisDescription: z.string().nullable().optional(),
   })
   .partial();
 

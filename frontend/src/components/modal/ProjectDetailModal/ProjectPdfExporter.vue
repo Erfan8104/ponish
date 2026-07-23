@@ -32,14 +32,23 @@ const getCategoryLabel = (category: string | undefined | null) => {
   return labels[category] || category
 }
 
-// 🌟 تابع تبدیل تاریخ میلادی دیتابیس به فرمت خوانا و استاندارد فارسی
+const getSurveyMethodLabel = (method: string | undefined | null) => {
+  if (!method) return 'ثبت نشده'
+  const labels: Record<string, string> = {
+    ground: 'نقشه‌برداری زمینی',
+    aerial: 'نقشه‌برداری هوایی / فتوگرامتری',
+    gis: 'سیستم اطلاعات مکانی (GIS)',
+  }
+  return labels[method] || method
+}
+
+// تابع تبدیل تاریخ میلادی دیتابیس به فرمت خوانا و استاندارد فارسی
 const formatPersianDate = (dateString: string | undefined | null) => {
   if (!dateString) return 'ثبت نشده'
   try {
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return dateString
 
-    // استفاده از تقویم شمسی (persian) در جاوااسکریپت مرورگر
     return new Intl.DateTimeFormat('fa-IR', {
       year: 'numeric',
       month: '2-digit',
@@ -199,7 +208,7 @@ const downloadPdf = async () => {
       </div>
     </div>
 
-    <!-- 🌟 قالب کامل PDF با تاریخ فارسی و خوانا -->
+    <!-- 🌟 قالب کامل PDF با نمایش تمام فیلدهای دیتابیس -->
     <div
       v-if="showPdfTemplate"
       style="
@@ -214,30 +223,30 @@ const downloadPdf = async () => {
       <div
         ref="pdfExportContainer"
         style="
-          padding: 30px;
+          padding: 25px;
           background: #ffffff;
           color: #1e293b;
           direction: rtl;
           font-family: Tahoma, sans-serif;
-          font-size: 12px;
+          font-size: 10px;
         "
       >
         <!-- هدر پی دی اف -->
         <div
           style="
             border-bottom: 2px solid #cbd5e1;
-            padding-bottom: 12px;
-            margin-bottom: 15px;
+            padding-bottom: 10px;
+            margin-bottom: 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
           "
         >
           <div>
-            <h1 style="font-size: 18px; font-weight: bold; color: #0f172a; margin: 0">
+            <h1 style="font-size: 15px; font-weight: bold; color: #0f172a; margin: 0">
               {{ project.title }}
             </h1>
-            <p style="font-size: 10px; color: #64748b; margin: 4px 0 0 0">
+            <p style="font-size: 9px; color: #64748b; margin: 3px 0 0 0">
               شناسه پروژه: {{ project.id }} | وضعیت: {{ project.status }} | تاریخ ثبت:
               {{ formatPersianDate(project.createdAt) }}
             </p>
@@ -246,9 +255,9 @@ const downloadPdf = async () => {
             style="
               background: #059669;
               color: #ffffff;
-              padding: 5px 10px;
+              padding: 4px 8px;
               border-radius: 4px;
-              font-size: 10px;
+              font-size: 9px;
               font-weight: bold;
             "
           >
@@ -257,18 +266,18 @@ const downloadPdf = async () => {
         </div>
 
         <!-- شرح پروژه -->
-        <div style="margin-bottom: 15px">
-          <h2 style="font-size: 12px; font-weight: bold; color: #334155; margin-bottom: 5px">
+        <div style="margin-bottom: 10px">
+          <h2 style="font-size: 10px; font-weight: bold; color: #334155; margin-bottom: 3px">
             شرح پروژه:
           </h2>
           <p
             style="
-              font-size: 11px;
+              font-size: 9px;
               color: #475569;
-              line-height: 1.5;
+              line-height: 1.4;
               background: #f8fafc;
-              padding: 10px;
-              border-radius: 6px;
+              padding: 6px;
+              border-radius: 4px;
               border: 1px solid #e2e8f0;
               margin: 0;
             "
@@ -278,8 +287,8 @@ const downloadPdf = async () => {
         </div>
 
         <!-- جدول ۱: موقعیت و مشخصات جغرافیایی -->
-        <div style="margin-bottom: 15px">
-          <h2 style="font-size: 12px; font-weight: bold; color: #334155; margin-bottom: 5px">
+        <div style="margin-bottom: 10px">
+          <h2 style="font-size: 10px; font-weight: bold; color: #334155; margin-bottom: 3px">
             اطلاعات موقعیت و ابعاد جغرافیایی:
           </h2>
           <table
@@ -287,7 +296,7 @@ const downloadPdf = async () => {
               width: 100%;
               border-collapse: collapse;
               border: 1px solid #cbd5e1;
-              font-size: 11px;
+              font-size: 9.5px;
               color: #334155;
             "
           >
@@ -296,7 +305,7 @@ const downloadPdf = async () => {
                 <td
                   style="
                     border: 1px solid #cbd5e1;
-                    padding: 6px;
+                    padding: 5px;
                     background: #f1f5f9;
                     font-weight: bold;
                     width: 20%;
@@ -304,13 +313,13 @@ const downloadPdf = async () => {
                 >
                   استان / شهر
                 </td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px; width: 30%">
+                <td style="border: 1px solid #cbd5e1; padding: 5px; width: 30%">
                   {{ project.province || '-' }} / {{ project.city || '-' }}
                 </td>
                 <td
                   style="
                     border: 1px solid #cbd5e1;
-                    padding: 6px;
+                    padding: 5px;
                     background: #f1f5f9;
                     font-weight: bold;
                     width: 20%;
@@ -318,7 +327,7 @@ const downloadPdf = async () => {
                 >
                   آدرس دقیق
                 </td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px; width: 30%">
+                <td style="border: 1px solid #cbd5e1; padding: 5px; width: 30%">
                   {{ project.address || 'ثبت نشده' }}
                 </td>
               </tr>
@@ -326,27 +335,27 @@ const downloadPdf = async () => {
                 <td
                   style="
                     border: 1px solid #cbd5e1;
-                    padding: 6px;
+                    padding: 5px;
                     background: #f1f5f9;
                     font-weight: bold;
                   "
                 >
                   سیستم مختصات (UTM Zone)
                 </td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px">
+                <td style="border: 1px solid #cbd5e1; padding: 5px">
                   {{ project.utmZone || 'ثبت نشده' }}
                 </td>
                 <td
                   style="
                     border: 1px solid #cbd5e1;
-                    padding: 6px;
+                    padding: 5px;
                     background: #f1f5f9;
                     font-weight: bold;
                   "
                 >
                   مقیاس نقشه
                 </td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px">
+                <td style="border: 1px solid #cbd5e1; padding: 5px">
                   {{ project.mapScale || 'ثبت نشده' }}
                 </td>
               </tr>
@@ -354,14 +363,14 @@ const downloadPdf = async () => {
                 <td
                   style="
                     border: 1px solid #cbd5e1;
-                    padding: 6px;
+                    padding: 5px;
                     background: #f1f5f9;
                     font-weight: bold;
                   "
                 >
                   نوع سنجش / ابعاد
                 </td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px">
+                <td style="border: 1px solid #cbd5e1; padding: 5px">
                   {{
                     project.mappingType === 'corridor'
                       ? 'طول مسیر: ' + (project.corridorLength || 0) + ' کیلومتر'
@@ -371,32 +380,32 @@ const downloadPdf = async () => {
                 <td
                   style="
                     border: 1px solid #cbd5e1;
-                    padding: 6px;
+                    padding: 5px;
                     background: #f1f5f9;
                     font-weight: bold;
                   "
                 >
-                  روش انتخاب محدوده
+                  تیپ عوارض زمین (Terrain)
                 </td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px">
-                  {{ project.areaSelectionMethod || 'ثبت نشده' }}
+                <td style="border: 1px solid #cbd5e1; padding: 5px">
+                  {{ formatJsonList(project.terrainTypes) }}
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <!-- جدول ۲: مشخصات فنی، روش‌ها و تجهیزات -->
-        <div style="margin-bottom: 15px">
-          <h2 style="font-size: 12px; font-weight: bold; color: #334155; margin-bottom: 5px">
-            جزئیات فنی، روش‌ها و تجهیزات:
+        <!-- جدول ۲: جزئیات روش اجرا، تجهیزات و دقت -->
+        <div style="margin-bottom: 10px">
+          <h2 style="font-size: 10px; font-weight: bold; color: #334155; margin-bottom: 3px">
+            جزئیات روش اجرا و تجهیزات:
           </h2>
           <table
             style="
               width: 100%;
               border-collapse: collapse;
               border: 1px solid #cbd5e1;
-              font-size: 11px;
+              font-size: 9.5px;
               color: #334155;
             "
           >
@@ -405,7 +414,7 @@ const downloadPdf = async () => {
                 <td
                   style="
                     border: 1px solid #cbd5e1;
-                    padding: 6px;
+                    padding: 5px;
                     background: #f1f5f9;
                     font-weight: bold;
                     width: 20%;
@@ -413,93 +422,221 @@ const downloadPdf = async () => {
                 >
                   نوع پروژه
                 </td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px; width: 30%">
+                <td style="border: 1px solid #cbd5e1; padding: 5px; width: 30%">
                   {{ getCategoryLabel(project.category?.name) }}
                 </td>
                 <td
                   style="
                     border: 1px solid #cbd5e1;
-                    padding: 6px;
+                    padding: 5px;
                     background: #f1f5f9;
                     font-weight: bold;
                     width: 20%;
                   "
                 >
-                  روش اجرا (Survey Method)
+                  روش اجرا
                 </td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px; width: 30%">
-                  {{
-                    project.surveyMethod === 'ground'
-                      ? 'نقشه‌برداری زمینی'
-                      : project.surveyMethod === 'aerial'
-                        ? 'نقشه‌برداری هوایی'
-                        : 'ثبت نشده'
-                  }}
+                <td style="border: 1px solid #cbd5e1; padding: 5px; width: 30%">
+                  {{ getSurveyMethodLabel(project.surveyMethod) }}
                 </td>
               </tr>
               <tr>
                 <td
                   style="
                     border: 1px solid #cbd5e1;
-                    padding: 6px;
+                    padding: 5px;
+                    background: #f1f5f9;
+                    font-weight: bold;
+                  "
+                >
+                  تجهیزات درخواستی
+                </td>
+                <td style="border: 1px solid #cbd5e1; padding: 5px">
+                  {{ formatJsonList(project.requiredEquipment) }}
+                </td>
+                <td
+                  style="
+                    border: 1px solid #cbd5e1;
+                    padding: 5px;
                     background: #f1f5f9;
                     font-weight: bold;
                   "
                 >
                   دقت مورد نیاز
                 </td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px">
+                <td style="border: 1px solid #cbd5e1; padding: 5px">
                   {{ project.requiredAccuracy || 'ثبت نشده' }}
-                </td>
-                <td
-                  style="
-                    border: 1px solid #cbd5e1;
-                    padding: 6px;
-                    background: #f1f5f9;
-                    font-weight: bold;
-                  "
-                >
-                  انواع نقشه‌برداری خاص
-                </td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px">
-                  {{ formatJsonList(project.specificSurveys) }}
                 </td>
               </tr>
               <tr>
                 <td
                   style="
                     border: 1px solid #cbd5e1;
-                    padding: 6px;
-                    background: #f1f5f9;
-                    font-weight: bold;
-                  "
-                >
-                  تجهیزات مورد نیاز
-                </td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px">
-                  {{ formatJsonList(project.requiredEquipment) }}
-                </td>
-                <td
-                  style="
-                    border: 1px solid #cbd5e1;
-                    padding: 6px;
+                    padding: 5px;
                     background: #f1f5f9;
                     font-weight: bold;
                   "
                 >
                   فرمت‌های خروجی
                 </td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px">
+                <td style="border: 1px solid #cbd5e1; padding: 5px">
                   {{ formatJsonList(project.outputFormats) }}
+                </td>
+                <td
+                  style="
+                    border: 1px solid #cbd5e1;
+                    padding: 5px;
+                    background: #f1f5f9;
+                    font-weight: bold;
+                  "
+                >
+                  روش انتخاب محدوده
+                </td>
+                <td style="border: 1px solid #cbd5e1; padding: 5px">
+                  {{ project.areaSelectionMethod || 'ثبت نشده' }}
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <!-- جدول ۳: اطلاعات مالی، بودجه و زمان‌بندی -->
-        <div style="margin-bottom: 15px">
-          <h2 style="font-size: 12px; font-weight: bold; color: #334155; margin-bottom: 5px">
+        <!-- جدول ۳: مشخصات فنی اختصاصی روش اجرا (بر اساس انتخاب کاربر) -->
+        <div style="margin-bottom: 10px">
+          <h2 style="font-size: 10px; font-weight: bold; color: #334155; margin-bottom: 3px">
+            جزئیات فنی اختصاصی روش اجرا:
+          </h2>
+          <table
+            style="
+              width: 100%;
+              border-collapse: collapse;
+              border: 1px solid #cbd5e1;
+              font-size: 9.5px;
+              color: #334155;
+            "
+          >
+            <tbody>
+              <!-- اگر روش زمینی باشد -->
+              <tr v-if="project.surveyMethod === 'ground'">
+                <td
+                  style="
+                    border: 1px solid #cbd5e1;
+                    padding: 5px;
+                    background: #f1f5f9;
+                    font-weight: bold;
+                    width: 25%;
+                  "
+                >
+                  مشخصات فنی زمینی
+                </td>
+                <td style="border: 1px solid #cbd5e1; padding: 5px">
+                  {{ formatJsonList((project as any).groundTechnicalSpecs) }}
+                </td>
+              </tr>
+              <tr v-if="project.surveyMethod === 'ground' && (project as any).groundDescription">
+                <td
+                  style="
+                    border: 1px solid #cbd5e1;
+                    padding: 5px;
+                    background: #f1f5f9;
+                    font-weight: bold;
+                  "
+                >
+                  توضیحات بخش زمینی
+                </td>
+                <td style="border: 1px solid #cbd5e1; padding: 5px">
+                  {{ (project as any).groundDescription }}
+                </td>
+              </tr>
+
+              <!-- اگر روش هوایی باشد -->
+              <tr v-if="project.surveyMethod === 'aerial'">
+                <td
+                  style="
+                    border: 1px solid #cbd5e1;
+                    padding: 5px;
+                    background: #f1f5f9;
+                    font-weight: bold;
+                    width: 25%;
+                  "
+                >
+                  مشخصات پرواز / فتوگرامتری
+                </td>
+                <td style="border: 1px solid #cbd5e1; padding: 5px">
+                  مقیاس/پوشش: {{ (project as any).aerialScaleOption || 'ثبت نشده' }} <br />
+                  مشخصات فنی: {{ formatJsonList((project as any).aerialTechnicalSpecs) }}
+                </td>
+              </tr>
+              <tr v-if="project.surveyMethod === 'aerial' && (project as any).aerialDescription">
+                <td
+                  style="
+                    border: 1px solid #cbd5e1;
+                    padding: 5px;
+                    background: #f1f5f9;
+                    font-weight: bold;
+                  "
+                >
+                  توضیحات بخش هوایی
+                </td>
+                <td style="border: 1px solid #cbd5e1; padding: 5px">
+                  {{ (project as any).aerialDescription }}
+                </td>
+              </tr>
+
+              <!-- اگر روش GIS باشد -->
+              <tr v-if="project.surveyMethod === 'gis'">
+                <td
+                  style="
+                    border: 1px solid #cbd5e1;
+                    padding: 5px;
+                    background: #f1f5f9;
+                    font-weight: bold;
+                    width: 25%;
+                  "
+                >
+                  تحلیل‌ها و مشخصات GIS
+                </td>
+                <td style="border: 1px solid #cbd5e1; padding: 5px">
+                  {{ formatJsonList((project as any).gisTechnicalSpecs) }}
+                </td>
+              </tr>
+              <tr v-if="project.surveyMethod === 'gis' && (project as any).gisDescription">
+                <td
+                  style="
+                    border: 1px solid #cbd5e1;
+                    padding: 5px;
+                    background: #f1f5f9;
+                    font-weight: bold;
+                  "
+                >
+                  توضیحات بخش GIS
+                </td>
+                <td style="border: 1px solid #cbd5e1; padding: 5px">
+                  {{ (project as any).gisDescription }}
+                </td>
+              </tr>
+
+              <!-- حالت پیش‌فرض در صورتی که متد خاصی انتخاب نشده باشد -->
+              <tr v-if="!project.surveyMethod">
+                <td
+                  style="
+                    border: 1px solid #cbd5e1;
+                    padding: 5px;
+                    background: #f1f5f9;
+                    font-weight: bold;
+                    width: 25%;
+                  "
+                >
+                  جزئیات تخصصی
+                </td>
+                <td style="border: 1px solid #cbd5e1; padding: 5px">موردی ثبت نشده است.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- جدول ۴: اطلاعات مالی، بودجه و زمان‌بندی -->
+        <div style="margin-bottom: 10px">
+          <h2 style="font-size: 10px; font-weight: bold; color: #334155; margin-bottom: 3px">
             اطلاعات مالی و زمان‌بندی:
           </h2>
           <table
@@ -507,7 +644,7 @@ const downloadPdf = async () => {
               width: 100%;
               border-collapse: collapse;
               border: 1px solid #cbd5e1;
-              font-size: 11px;
+              font-size: 9.5px;
               color: #334155;
             "
           >
@@ -516,7 +653,7 @@ const downloadPdf = async () => {
                 <td
                   style="
                     border: 1px solid #cbd5e1;
-                    padding: 6px;
+                    padding: 5px;
                     background: #f1f5f9;
                     font-weight: bold;
                     width: 20%;
@@ -524,13 +661,13 @@ const downloadPdf = async () => {
                 >
                   نوع بودجه
                 </td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px; width: 30%">
+                <td style="border: 1px solid #cbd5e1; padding: 5px; width: 30%">
                   {{ project.budgetType || 'ثبت نشده' }}
                 </td>
                 <td
                   style="
                     border: 1px solid #cbd5e1;
-                    padding: 6px;
+                    padding: 5px;
                     background: #f1f5f9;
                     font-weight: bold;
                     width: 20%;
@@ -538,7 +675,7 @@ const downloadPdf = async () => {
                 >
                   زمان تحویل
                 </td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px; width: 30%">
+                <td style="border: 1px solid #cbd5e1; padding: 5px; width: 30%">
                   {{ project.deliveryTime || 'ثبت نشده' }}
                 </td>
               </tr>
@@ -546,27 +683,27 @@ const downloadPdf = async () => {
                 <td
                   style="
                     border: 1px solid #cbd5e1;
-                    padding: 6px;
+                    padding: 5px;
                     background: #f1f5f9;
                     font-weight: bold;
                   "
                 >
                   حداقل بودجه
                 </td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px">
+                <td style="border: 1px solid #cbd5e1; padding: 5px">
                   {{ project.minBudget ? project.minBudget + ' تومان' : 'ثبت نشده' }}
                 </td>
                 <td
                   style="
                     border: 1px solid #cbd5e1;
-                    padding: 6px;
+                    padding: 5px;
                     background: #f1f5f9;
                     font-weight: bold;
                   "
                 >
                   حداکثر بودجه
                 </td>
-                <td style="border: 1px solid #cbd5e1; padding: 6px">
+                <td style="border: 1px solid #cbd5e1; padding: 5px">
                   {{ project.maxBudget ? project.maxBudget + ' تومان' : 'ثبت نشده' }}
                 </td>
               </tr>
@@ -577,11 +714,11 @@ const downloadPdf = async () => {
         <!-- فوتر صفحه PDF -->
         <div
           style="
-            margin-top: 20px;
+            margin-top: 12px;
             border-top: 1px solid #e2e8f0;
-            padding-top: 10px;
+            padding-top: 6px;
             text-align: center;
-            font-size: 9px;
+            font-size: 8.5px;
             color: #94a3b8;
           "
         >
