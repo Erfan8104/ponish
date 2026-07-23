@@ -264,38 +264,44 @@ const handleResetForm = () => {
           <StepTimingBudget v-if="currentStepData.type === 'timing-budget'" />
           <StepInvoice v-if="currentStepData.type === 'preview'" />
 
-          <div class="flex gap-3 mt-10" style="direction: rtl">
-            <button
-              v-if="currentStep > 0"
-              @click="previousStep"
-              type="button"
-              class="px-6 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all"
-            >
-              مرحله قبل
-            </button>
-
+          <!-- بخش دکمه‌ها - بهینه‌سازی شده برای موبایل و دسکتاپ -->
+          <div class="flex flex-col-reverse md:flex-row gap-3 mt-10" style="direction: rtl">
+            <!-- دکمه انصراف و بازگشت (در موبایل پایین‌تر قرار می‌گیرد) -->
             <button
               @click="goToDashboard"
               type="button"
-              class="px-6 py-3 rounded-xl border border-red-200 text-red-500 font-bold hover:bg-red-50 transition-all mr-auto"
+              class="w-full md:w-auto px-6 py-3 rounded-xl border border-red-200 text-red-500 font-bold hover:bg-red-50 transition-all md:mr-auto text-center"
             >
               انصراف و بازگشت
             </button>
 
-            <button
-              v-if="currentStep !== steps.length - 1"
-              @click="nextStep"
-              :disabled="!isStepValid"
-              type="button"
-              class="flex-1 py-3 rounded-xl font-bold transition-all"
-              :class="
-                isStepValid
-                  ? 'bg-[#008f55] text-white hover:bg-[#007646]'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              "
-            >
-              {{ currentStep === steps.length - 1 ? 'ثبت نهایی پروژه' : 'ادامه' }}
-            </button>
+            <div class="flex flex-row gap-3 w-full md:w-auto">
+              <!-- دکمه مرحله قبل -->
+              <button
+                v-if="currentStep > 0"
+                @click="previousStep"
+                type="button"
+                class="flex-1 md:flex-none px-6 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all text-center"
+              >
+                مرحله قبل
+              </button>
+
+              <!-- دکمه ادامه / ثبت نهایی -->
+              <button
+                v-if="currentStep !== steps.length - 1"
+                @click="nextStep"
+                :disabled="!isStepValid"
+                type="button"
+                class="flex-1 md:flex-none md:min-w-[160px] py-3 px-6 rounded-xl font-bold transition-all text-center"
+                :class="
+                  isStepValid
+                    ? 'bg-[#008f55] text-white hover:bg-[#007646]'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                "
+              >
+                {{ currentStep === steps.length - 1 ? 'ثبت نهایی پروژه' : 'ادامه' }}
+              </button>
+            </div>
           </div>
         </div>
 
