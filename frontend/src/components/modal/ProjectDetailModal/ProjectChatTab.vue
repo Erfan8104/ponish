@@ -11,8 +11,7 @@ const chatStore = useChatStore()
 const authStore = useAuthStore()
 const { messages, isLoading } = storeToRefs(chatStore)
 
-const socket = io('http://localhost:3000')
-
+const socket = io('http://localhost:5000') // ✅ درست: متصل به پورت 5000 سرور
 const newMessage = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 
