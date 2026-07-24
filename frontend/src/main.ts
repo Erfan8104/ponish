@@ -14,11 +14,26 @@ import App from './App.vue'
 
 import router from './router'
 
+// 🌟 ۱. ایمپورت کردن تابع ثبت PWA
+import { registerSW } from 'virtual:pwa-register'
+
+// 🌟 ۲. راه‌اندازی و بررسی آپدیت‌ها
+const updateSW = registerSW({
+  onNeedRefresh() {
+    if (confirm('نسخه جدیدی از اپلیکیشن موجود است. آیا مایل به بروزرسانی هستید؟')) {
+      updateSW(true)
+    }
+  },
+  onOfflineReady() {
+    console.log('اپلیکیشن آماده کار به صورت آفلاین است.')
+  },
+})
+
 const app = createApp(App)
 app.use(Toast, {
-  position: 'top-right', // یا top-left برای پروژه‌های فارسی
+  position: 'top-right',
   timeout: 3000,
-  rtl: true, // پشتیبانی از راست‌چین
+  rtl: true,
 })
 
 app.use(createPinia())

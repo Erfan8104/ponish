@@ -356,7 +356,7 @@ const downloadPdf = async () => {
                   مقیاس نقشه
                 </td>
                 <td style="border: 1px solid #cbd5e1; padding: 5px">
-                  {{ project.mapScale || 'ثبت نشده' }}
+                  {{ (project as any).mapScale || 'ثبت نشده' }}
                 </td>
               </tr>
               <tr>

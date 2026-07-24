@@ -74,6 +74,7 @@ const statusText = (status: string) => {
 }
 
 // تابع مدیریت رنگ‌های کارت به صورت داینامیک
+// تابع مدیریت رنگ‌های کارت به صورت داینامیک
 const projectStyle = (status: string) => {
   const styles = {
     open: {
@@ -89,14 +90,12 @@ const projectStyle = (status: string) => {
       titleHover: 'group-hover:text-blue-600',
     },
     accepted: {
-      // استایل اختصاصی برای زمانی که قرارداد نهایی و قفل شد
       card: 'border-emerald-300 bg-emerald-50/30 hover:shadow-emerald-100/50 shadow-sm',
       badge: 'bg-emerald-600 text-white shadow-sm',
       iconBg: 'bg-emerald-600 text-white animate-pulse',
       titleHover: 'text-emerald-700 group-hover:text-emerald-800',
     },
     completed: {
-      // ⚡ تغییر رنگ نوار کارت و پس‌زمینه برای حالت تکمیل شده
       card: 'border-emerald-200 bg-emerald-50/10 hover:border-emerald-300 shadow-sm transition-all',
       badge: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
       iconBg: 'bg-emerald-100 text-emerald-600',
@@ -104,7 +103,7 @@ const projectStyle = (status: string) => {
     },
   }
 
-  return styles[status] || styles.open
+  return styles[status as keyof typeof styles] || styles.open
 }
 
 const handleDelete = async (id: number) => {

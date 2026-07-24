@@ -1,21 +1,29 @@
 services:
   postgres:
     image: postgres:16
-
     container_name: ponisha_db
-
     restart: always
-
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin123
       POSTGRES_DB: ponisha
-
     ports:
       - "5435:5432"
-
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: . # 👈 تغییر به پوشه اصلی ریشه پروژه
+      dockerfile: backend/Dockerfile # 👈 آدرس دقیق داکرفایل
+    container_name: ponisha_backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://admin:admin123@postgres:5432/ponisha?schema=public
+    depends_on:
+      - postgres
 
 volumes:
   postgres_data:

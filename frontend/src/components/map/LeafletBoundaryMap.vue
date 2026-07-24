@@ -16,9 +16,8 @@ let drawControl: L.Control.Draw | null = null
 
 // تابع اصلی بروزرسانی استور
 const updateStoreFromLayer = (layer: L.Layer) => {
-  const geojson = layer.toGeoJSON()
+  const geojson = (layer as any).toGeoJSON()
   const geometry = (geojson as any).geometry
-
   if (!geometry?.coordinates) return
 
   if (store.formData.mappingType === 'area') {

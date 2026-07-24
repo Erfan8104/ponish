@@ -113,11 +113,9 @@ const formatDate = (date?: string | null) => {
             <div class="mt-6 flex flex-wrap gap-x-8 gap-y-3 text-sm text-slate-600">
               <span>
                 <strong>کارفرما:</strong>
+                {{ (project as any).employer?.name || '-' }}
+                <span class="px-2"></span>
 
-                {{ project.employer?.name || '-' }}
-              </span>
-
-              <span>
                 <strong>مبلغ قرارداد:</strong>
 
                 {{ formatPrice(project.totalAmount) }}

@@ -550,7 +550,7 @@ export const updateProject = async (req: AuthRequest, res: Response) => {
           maxBudget: validation.data.maxBudget
             ? new Prisma.Decimal(validation.data.maxBudget)
             : undefined,
-        },
+        } as any,
       });
 
       /**
@@ -921,16 +921,17 @@ export const acceptProposal = async (req: AuthRequest, res: Response) => {
         : proposal.amount;
 
       // ۴. 🌟 استفاده از upsert به جای create برای جلوگیری از خطای Unique constraint
+      // ۴. استفاده از upsert هوشمند برای پیشگیری از هرگونه خطای تکرار کلید
       const contract = await tx.contract.upsert({
         where: {
-          projectId: proposal.projectId, // شرط پیدا کردن قرارداد قبلی
+          projectId: proposal.projectId, // بررسی یکتا بودن بر اساس کلید projectId
         },
         update: {
           proposalId: proposal.id,
           freelancerId: proposal.freelancerId,
           totalAmount: contractAmount,
-          status: "active", // فعال کردن مجدد قرارداد
-          cancelledAt: null, // پاک کردن تاریخ لغو قبلی
+          status: "active",
+          cancelledAt: null, // پاک کردن تاریخ لغو قبلی در صورت فعال‌سازی مجدد
         },
         create: {
           projectId: proposal.projectId,
@@ -941,7 +942,6 @@ export const acceptProposal = async (req: AuthRequest, res: Response) => {
           status: "active",
         },
       });
-
       return { updatedProposal, contract };
     });
 

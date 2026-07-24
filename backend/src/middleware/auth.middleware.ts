@@ -6,10 +6,7 @@ export interface AuthRequest extends Request {
     userId: number;
     phone: string;
   };
-  file?: {
-    filename: string;
-    path?: string;
-  };
+  file?: Express.Multer.File; // 👈 اصلاح نوع داده برای سازگاری کامل با Multer
 }
 
 export const authMiddleware = (

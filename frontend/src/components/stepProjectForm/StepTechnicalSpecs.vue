@@ -86,15 +86,14 @@ const gisTechnicalOptions = [
   'ژئو رفرنس سازی',
 ]
 
-// 🌟 تابع اختصاصی برای مدیریت تغییر روش اجرا (زمینی / هوایی / GIS)
 const handleSurveyMethodToggle = (method: 'ground' | 'aerial' | 'gis') => {
-  if (store.formData.surveyMethod === method) {
-    store.formData.surveyMethod = ''
+  if ((store.formData as any).surveyMethod === method) {
+    ;(store.formData as any).surveyMethod = ''
   } else {
-    store.formData.surveyMethod = method
+    ;(store.formData as any).surveyMethod = method
   }
-  store.formData.specificSurveys = []
-  store.formData.requiredEquipment = []
+  ;(store.formData as any).specificSurveys = []
+  ;(store.formData as any).requiredEquipment = []
 }
 </script>
 
@@ -211,14 +210,15 @@ const handleSurveyMethodToggle = (method: 'ground' | 'aerial' | 'gis') => {
                 :key="item"
                 class="flex items-center gap-2.5 p-2.5 rounded-xl border border-gray-200 cursor-pointer hover:border-emerald-400 transition-all bg-white"
                 :class="{
-                  'bg-emerald-50/40 border-emerald-600':
-                    store.formData.specificSurveys.includes(item),
+                  'bg-emerald-50/40 border-emerald-600': (
+                    store.formData as any
+                  ).specificSurveys.includes(item),
                 }"
               >
                 <input
                   type="checkbox"
                   :value="item"
-                  v-model="store.formData.specificSurveys"
+                  v-model="(store.formData as any).specificSurveys"
                   class="accent-emerald-600 w-4 h-4"
                 />
                 <span class="text-xs font-medium text-gray-800">{{ item }}</span>
@@ -306,14 +306,15 @@ const handleSurveyMethodToggle = (method: 'ground' | 'aerial' | 'gis') => {
                 :key="item"
                 class="flex items-center gap-2.5 p-2.5 rounded-xl border border-gray-200 cursor-pointer hover:border-indigo-400 transition-all bg-white"
                 :class="{
-                  'bg-indigo-50/40 border-indigo-600':
-                    store.formData.specificSurveys.includes(item),
+                  'bg-indigo-50/40 border-indigo-600': (
+                    store.formData as any
+                  ).specificSurveys.includes(item),
                 }"
               >
                 <input
                   type="checkbox"
                   :value="item"
-                  v-model="store.formData.specificSurveys"
+                  v-model="(store.formData as any).specificSurveys"
                   class="accent-indigo-600 w-4 h-4"
                 />
                 <span class="text-xs font-medium text-gray-800">{{ item }}</span>

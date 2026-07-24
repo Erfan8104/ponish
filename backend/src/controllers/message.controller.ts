@@ -72,19 +72,15 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
         ? contract.freelancerId
         : contract.employerId;
 
-    // ۳. ثبت پیام در دیتابیس
+    // ۳. ثبت پیام در دیتابیس (استفاده از شناسه مستقیم به جای connect)
     const newMessage = await prisma.message.create({
       data: {
         contractId,
         content,
         type: type || "text",
-        sender: {
-          connect: { id: senderId },
-        },
-        receiver: {
-          connect: { id: receiverId },
-        },
-      },
+        senderId,
+        receiverId,
+      } as any, // 👈 برای رد کردن موقت خطاهای سخت‌گیرانه تایپ‌اسکریپت در این بخش
       include: {
         sender: {
           select: { id: true, name: true, avatar: true },

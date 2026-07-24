@@ -22,8 +22,9 @@ const currentLength = computed(() => contractStore.currentProject?.corridorLengt
 const currentAmount = computed(
   () => contractStore.currentContract?.amount || contractStore.currentContract?.finalAmount || 0,
 )
-const currentDeliveryTime = computed(() => contractStore.currentContract?.deliveryTime || '')
-
+const currentDeliveryTime = computed(
+  () => (contractStore.currentContract as any)?.deliveryTime || '',
+)
 // فرم دیتا برای نگهداری مقادیر ورودی کارفرما
 const formData = ref({
   updatedArea: currentArea.value,

@@ -2,19 +2,22 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
-import { createServer } from "http"; // 👈 اضافه شد
-import { initSocket } from "./services/socket.service"; // 👈 اضافه شد
+import { createServer } from "http";
+import { initSocket } from "./services/socket.service";
 
 import authRoutes from "./routes/auth.routes";
 import profileRoutes from "./routes/profile.routes";
 import projectRouter from "./routes/project.routes";
-import messageRoutes from "./routes/message.routes"; // 👈 اضافه شد
-import contractRoutes from "./routes/contract.routes"; // 👈 این خط را اضافه کن
+import messageRoutes from "./routes/message.routes";
+import contractRoutes from "./routes/contract.routes";
 
 dotenv.config();
 
 const app = express();
-const httpServer = createServer(app); // 👈 ساخت سرور HTTP از روی اکسپرس برای سوکت
+const httpServer = createServer(app);
+
+// مسیر پوشه فرانت‌اند که در داکر در کنار پوشه dist بک‌اند قرار می‌گیرد
+const frontendDistPath = path.join(__dirname, "../dist");
 
 // ==============================
 // Middlewares
@@ -32,10 +35,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ==============================
-// Static Files
+// Static Files (Uploads)
 // ==============================
 
-// دسترسی به فایل‌های آپلود شده
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // ==============================
@@ -45,13 +47,14 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/projects", projectRouter);
-app.use("/api/messages", messageRoutes); // 👈 ثبت روت دریافت تاریخچه پیام‌های چت
-app.use("/api/contracts", contractRoutes); // 👈 این خط را اضافه کن
+app.use("/api/messages", messageRoutes);
+app.use("/api/contracts", contractRoutes);
+
 // ==============================
 // Health Check
 // ==============================
 
-app.get("/", (_, res) => {
+app.get("/health", (_, res) => {
   res.status(200).json({
     success: true,
     message: "Ponisha API Running",
@@ -59,6 +62,16 @@ app.get("/", (_, res) => {
   });
 });
 
+// ==============================
+// Static Files & Frontend Integration
+// ==============================
+
+app.use(express.static(frontendDistPath));
+
+// 🌟 اصلاح شده طبق استاندارد جدید path-to-regexp
+app.get(/^(?!\/api|\/uploads).*/, (req, res) => {
+  res.sendFile(path.join(frontendDistPath, "index.html"));
+});
 // ==============================
 // 404 Handler
 // ==============================
@@ -94,12 +107,9 @@ app.use(
 // Start Server & Initialize Socket
 // ==============================
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 5000;
+initSocket(httpServer);
 
-// راه اندازی وب‌سوکت روی سرور مشترک با اکسپرس
-initSocket(httpServer); // 👈 فعال‌سازی لایه چت آنلاین و لحظه‌ای
-
-// 👈 حالا سرور httpServer را گوش می‌دهیم نه app را
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

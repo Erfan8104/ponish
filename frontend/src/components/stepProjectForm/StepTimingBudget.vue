@@ -88,8 +88,8 @@ watch(customDaysInput, (newVal) => {
 const selectBudgetMode = (modeId: string) => {
   store.formData.budgetType = modeId as 'fixed' | 'negotiable'
   if (modeId === 'negotiable') {
-    store.formData.minBudget = 0
-    store.formData.maxBudget = 0
+    store.formData.minBudget = '0'
+    store.formData.maxBudget = '0'
   }
 }
 
