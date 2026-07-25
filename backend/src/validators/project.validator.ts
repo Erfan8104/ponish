@@ -37,7 +37,7 @@ export const createProjectSchema = z
     specificSurveys: z.array(z.string()).optional(),
     requiredEquipment: z.array(z.string()).optional(),
 
-    // 🌟 اضافه شدن فیلدهای جدید مشخصات فنی مجزا و توضیحات هر روش
+    // فیلدهای مشخصات فنی مجزا و توضیحات هر روش
     groundTechnicalSpecs: z.array(z.string()).optional(),
     aerialTechnicalSpecs: z.array(z.string()).optional(),
     aerialScaleOption: z.string().nullable().optional(),
@@ -46,6 +46,9 @@ export const createProjectSchema = z
     groundDescription: z.string().nullable().optional(),
     aerialDescription: z.string().nullable().optional(),
     gisDescription: z.string().nullable().optional(),
+
+    // 🌟 اضافه شدن فیلد فاصله منحنی میزان به اسکیما
+    contourInterval: z.string().nullable().optional(),
   })
   .partial();
 

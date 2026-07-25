@@ -34,6 +34,17 @@ const preprocessMultipartData = (body: any) => {
     processed.calculatedArea = undefined;
   }
 
+  // 🌟 پردازش فاصله منحنی میزان
+  if (typeof processed.contourInterval === "string") {
+    if (
+      processed.contourInterval === "" ||
+      processed.contourInterval === "null" ||
+      processed.contourInterval === "undefined"
+    ) {
+      processed.contourInterval = null;
+    }
+  }
+
   // اصلاح CorridorLength
   if (
     processed.corridorLength !== undefined &&
@@ -234,7 +245,7 @@ export const createProject = async (req: AuthRequest, res: Response) => {
           groundDescription: (data as any).groundDescription ?? null,
           aerialDescription: (data as any).aerialDescription ?? null,
           gisDescription: (data as any).gisDescription ?? null,
-
+          contourInterval: (data as any).contourInterval ?? null,
           calculatedArea: data.calculatedArea ?? null,
           corridorLength: data.corridorLength ?? null,
           utmZone: data.utmZone ?? null,

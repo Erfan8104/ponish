@@ -244,6 +244,7 @@
     aerialTechnicalSpecs Json?        @default("[]")
     aerialScaleOption    String?
     gisTechnicalSpecs    Json?        @default("[]")
+    contourInterval       String?
     
     groundDescription    String?
     aerialDescription    String?
