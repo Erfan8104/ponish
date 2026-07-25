@@ -42,13 +42,20 @@ const groundEquipmentOptions = [
   'لیزر اسکنر',
 ]
 
-// 🌟 مشخصات فنی تخصصی زمینی
+// مشخصات فنی اختصاصی زمینی
 const groundTechnicalOptions = [
-  'قرائت جزئیات دقیق با توتال',
-  'پیاده‌سازی نقاط بیس و روور (RTK)',
-  'کنترل نشست و جابجایی سازه',
-  'ترازیابی درجه یک / دقیق',
+  'ایستگاه ماندگار بتن سازمان نقشه‌برداری',
+  'ایستگاه ماندگار سنگ ریشه دار',
+  'ایستگاه ماندگار میخ و واشر',
+  'برداشت سامانه شمیم',
+  'منحنی میزان استاندارد سازمان نقشه‌برداری',
+  'برداشت عوارض خاص',
+  'نیاز به علامت برای نقاط برداشتی مسیر',
+  'منحنی میزان',
+  'توصیف عوارض (چاه، دکل، لبه جدول)',
 ]
+
+const contourIntervalOptions = ['0.5', '1', '1.5', '2']
 
 // گزینه‌های روش هوایی
 const aerialSurveyOptions = [
@@ -68,22 +75,30 @@ const aerialEquipmentOptions = [
   'پهپاد فانتوم ۴ پرو',
 ]
 
-// 🌟 مشخصات فنی و گزینه‌های هوایی
+// مشخصات فنی هوایی
 const aerialTechnicalOptions = [
-  'تولید ارتوپتو (Orthomosaic)',
-  'تولید ابر نقاط (Point Cloud)',
-  'محاسبه احجام عملیات خاکی',
-  'مدل رقومی ارتفاعی (DEM / DTM)',
+  'برداشت ایستگاه ماندگار بتن سازمان نقشه‌برداری',
+  'برداشت نقاط کنترل',
+  'برداشت عوارض خاص (پل، ساختمان، ...)',
+  'شناسنامه نقاط',
+  'پرواز مایل',
+  'پرواز با تراکم بالا برای مدل سازی',
+  'پرواز با تراکم بالا در نقاط روستایی و شهری',
+  'پرواز ترکیبی عمودی و مایل',
 ]
 
-// 🌟 گزینه‌های بخش GIS
+// 🌟 مشخصات فنی و گزینه‌های بخش GIS (به‌روزرسانی شده بر اساس تصویر جدید)
 const gisTechnicalOptions = [
-  'ورود داده‌ها به سامانه GIS',
-  'تحلیل‌های مکانی و پهنه‌بندی',
-  'توپولوژی و پاک‌سازی داده‌های برداری',
-  'طراحی پایگاه داده مکانی (GDB)',
-  'رقومی سازی نقشه های اتوکد',
-  'ژئو رفرنس سازی',
+  'ترسیم شبکه معابر',
+  'ترسیم فضای سبز',
+  'ترسیم عرصه و عیان',
+  'جانمایی پلاک ثبتی',
+  'تهیه نقشه برای شهرداری',
+  'تهیه نقشه برای سند',
+  'تعیین مساحت دقیق',
+  'تفکیک اراضی',
+  'تهیه نقشه برای دادگاه یا کارشناس رسمی',
+  'GIS Ready',
 ]
 
 const handleSurveyMethodToggle = (method: 'ground' | 'aerial' | 'gis') => {
@@ -275,6 +290,31 @@ const handleSurveyMethodToggle = (method: 'ground' | 'aerial' | 'gis') => {
                 <span class="text-xs font-medium text-emerald-950">{{ spec }}</span>
               </label>
             </div>
+
+            <div
+              v-if="store.formData.groundTechnicalSpecs.includes('منحنی میزان')"
+              class="mt-3 p-3 bg-emerald-50/80 rounded-xl border border-emerald-200"
+            >
+              <label class="block text-xs font-bold text-emerald-900 mb-2"
+                >انتخاب فاصله منحنی میزان (متر)</label
+              >
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  v-for="val in contourIntervalOptions"
+                  :key="val"
+                  @click="store.formData.contourInterval = val"
+                  :class="[
+                    'py-1.5 px-4 text-xs font-bold rounded-lg border transition-all',
+                    store.formData.contourInterval === val
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow'
+                      : 'bg-white text-emerald-800 border-emerald-200 hover:border-emerald-400',
+                  ]"
+                >
+                  {{ val }}
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- توضیحات تکمیلی زمینی -->
@@ -363,7 +403,7 @@ const handleSurveyMethodToggle = (method: 'ground' | 'aerial' | 'gis') => {
           <!-- مشخصات فنی هوایی -->
           <div>
             <label class="block text-xs font-bold text-indigo-900 mb-2"
-              >مشخصات فنی خروجی‌های هوایی</label
+              >مشخصات فنی خروجی‌ها و پرواز هوایی</label
             >
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
               <label
@@ -405,7 +445,7 @@ const handleSurveyMethodToggle = (method: 'ground' | 'aerial' | 'gis') => {
           v-if="store.formData.surveyMethod === 'gis'"
           class="space-y-4 pt-3 border-t border-gray-100"
         >
-          <!-- مشخصات فنی GIS -->
+          <!-- مشخصات فنی GIS (بر اساس تصویر جدید) -->
           <div>
             <label class="block text-xs font-bold text-amber-900 mb-2"
               >نوع خدمات و تحلیل‌های GIS</label
