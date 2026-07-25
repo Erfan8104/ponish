@@ -61,6 +61,7 @@ export const useProjectStore = defineStore('project', () => {
     groundDescription: '',
     aerialDescription: '',
     gisDescription: '',
+    contourInterval: '',
 
     requiredEquipment: [] as string[], // تجهیزات مورد نیاز پیشنهادی
 
@@ -395,6 +396,7 @@ export const useProjectStore = defineStore('project', () => {
     formData.aerialDescription = ''
     formData.gisDescription = ''
     formData.requiredEquipment = []
+    formData.contourInterval = ''
 
     formData.polygonCoordinates = []
     formData.geoJson = null

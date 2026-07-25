@@ -120,7 +120,16 @@ const isStepValid = computed(() => {
 
   return true
 })
+
+// تابعی برای ریست کردن کل فرم (مخصوص دکمه ثبت پروژه جدید)
+const handleResetForm = () => {
+  store.resetForm() // اگر پینیا متد ریست دارد، در غیر این صورت فیلدها را دستی خالی کن
+  currentStep.value = 0
+  isSubmitted.value = false
+}
+// تابعی برای ریست کردن کل فرم و رفتن به داشبورد
 const goToDashboard = () => {
+  handleResetForm()
   router.push('/dashboard')
 }
 
@@ -170,13 +179,6 @@ const submitProject = async () => {
   isSubmitted.value = true
   toast.success('پروژه شما با موفقیت ثبت شد!')
   window.scrollTo({ top: 0, behavior: 'smooth' })
-}
-
-// تابعی برای ریست کردن کل فرم (مخصوص دکمه ثبت پروژه جدید)
-const handleResetForm = () => {
-  store.$reset() // اگر پینیا متد ریست دارد، در غیر این صورت فیلدها را دستی خالی کن
-  currentStep.value = 0
-  isSubmitted.value = false
 }
 </script>
 

@@ -46,6 +46,7 @@ export interface Project {
   surveyMethod?: 'ground' | 'aerial' | 'gis' | null
   specificSurveys?: string[]
   requiredEquipment?: string[]
+  contourInterval?: string | null
 
   requiredAccuracy?: string
   deliveryTime?: string

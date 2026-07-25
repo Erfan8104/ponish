@@ -46,7 +46,7 @@ export interface ProjectFormPayload {
   groundDescription?: string
   aerialDescription?: string
   gisDescription?: string
-
+  contourInterval?: string | null
   // داده‌های جغرافیایی
   polygonCoordinates?: any[]
   geoJson?: any
@@ -146,6 +146,10 @@ export const projectService = {
     }
     if (formDataRaw.corridorLength !== undefined && formDataRaw.corridorLength !== null) {
       data.append('corridorLength', String(formDataRaw.corridorLength))
+    }
+
+    if (formDataRaw.contourInterval) {
+      data.append('contourInterval', formDataRaw.contourInterval)
     }
 
     if (formDataRaw.utmZone && formDataRaw.utmZone !== 'auto')

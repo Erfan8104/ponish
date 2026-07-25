@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useProjectStore } from '@/stores/project.store'
 
 const store = useProjectStore()
@@ -9,6 +9,32 @@ const showAdvancedSettings = ref(false)
 // وضعیت باز یا بسته بودن منوی انتخاب روش‌ها و تجهیزات تخصصی نقشه برداری
 const showSurveyMethodSettings = ref(false)
 
+// فیلتر کردن گزینه‌های روش اجرا بر اساس کتگوری انتخاب‌شده در مرحله قبل
+const availableSurveyMethods = computed(() => {
+  const category = store.formData.category
+
+  // اگر کتگوری GIS یا ترسیم و کارتوگرافی انتخاب شده باشد، فقط گزینه GIS نمایش داده شود
+  if (category === 'gis' || category === 'drafting') {
+    return [{ id: 'gis', label: 'سیستم اطلاعات مکانی (GIS)', color: 'amber' }]
+  }
+
+  // اگر کتگوری عکس‌برداری هوایی باشد، روش هوایی نمایش داده شود
+  if (category === 'drone') {
+    return [{ id: 'aerial', label: 'نقشه‌برداری هوایی', color: 'indigo' }]
+  }
+
+  // اگر کتگوری نقشه‌برداری زمینی باشد، روش زمینی نمایش داده شود
+  if (category === 'mapping') {
+    return [{ id: 'ground', label: 'نقشه‌برداری زمینی', color: 'emerald' }]
+  }
+
+  // به عنوان حالت پیش‌فرض (اگر کتگوری مشخص نبود)، هر سه گزینه نمایش داده شوند
+  return [
+    { id: 'ground', label: 'نقشه‌برداری زمینی', color: 'emerald' },
+    { id: 'aerial', label: 'نقشه‌برداری هوایی', color: 'indigo' },
+    { id: 'gis', label: 'سیستم اطلاعات مکانی (GIS)', color: 'amber' },
+  ]
+})
 const mapScales = [
   { scale: '1/100', accuracy: '۲ سانتی‌متر' },
   { scale: '1/200', accuracy: '۵ سانتی‌متر' },
@@ -168,48 +194,35 @@ const handleSurveyMethodToggle = (method: 'ground' | 'aerial' | 'gis') => {
         class="p-4 pt-0 space-y-5 border-t border-gray-200 bg-white"
       >
         <!-- انتخاب روش اصلی -->
+        <!-- انتخاب روش اصلی (به صورت داینامیک بر اساس کتگوری) -->
         <div class="pt-4">
           <label class="block text-xs font-bold text-gray-800 mb-2">روش اجرای پروژه</label>
-          <div class="grid grid-cols-3 gap-2">
+          <div
+            :class="[
+              'grid gap-2',
+              availableSurveyMethods.length === 1 ? 'grid-cols-1' : 'grid-cols-3',
+            ]"
+          >
             <button
               type="button"
-              @click="handleSurveyMethodToggle('ground')"
+              v-for="method in availableSurveyMethods"
+              :key="method.id"
+              @click="handleSurveyMethodToggle(method.id as 'ground' | 'aerial' | 'gis')"
               :class="[
                 'py-3 px-2 text-xs font-bold rounded-xl border transition-all text-center',
-                store.formData.surveyMethod === 'ground'
-                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                  : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-400',
+                store.formData.surveyMethod === method.id
+                  ? method.color === 'emerald'
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                    : method.color === 'indigo'
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                      : 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                  : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400',
               ]"
             >
-              نقشه‌برداری زمینی
-            </button>
-            <button
-              type="button"
-              @click="handleSurveyMethodToggle('aerial')"
-              :class="[
-                'py-3 px-2 text-xs font-bold rounded-xl border transition-all text-center',
-                store.formData.surveyMethod === 'aerial'
-                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                  : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-400',
-              ]"
-            >
-              نقشه‌برداری هوایی
-            </button>
-            <button
-              type="button"
-              @click="handleSurveyMethodToggle('gis')"
-              :class="[
-                'py-3 px-2 text-xs font-bold rounded-xl border transition-all text-center',
-                store.formData.surveyMethod === 'gis'
-                  ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
-                  : 'bg-white text-gray-700 border-gray-200 hover:border-amber-400',
-              ]"
-            >
-              سیستم اطلاعات مکانی (GIS)
+              {{ method.label }}
             </button>
           </div>
         </div>
-
         <!-- 🌟 ۱. اگر روش زمینی انتخاب شد -->
         <div
           v-if="store.formData.surveyMethod === 'ground'"
