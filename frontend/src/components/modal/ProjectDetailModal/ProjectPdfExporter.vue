@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, reactive } from 'vue'
 import { useProjectStore } from '@/stores/project.store'
 import html2pdf from 'html2pdf.js'
 
@@ -208,7 +208,7 @@ const downloadPdf = async () => {
       </div>
     </div>
 
-    <!-- 🌟 قالب کامل PDF با نمایش تمام فیلدهای دیتابیس -->
+    <!-- 🌟 قالب کامل PDF با نمایش تمام فیلدهای فرم و فیلد جدید contourInterval -->
     <div
       v-if="showPdfTemplate"
       style="
@@ -500,7 +500,7 @@ const downloadPdf = async () => {
           </table>
         </div>
 
-        <!-- جدول ۳: مشخصات فنی اختصاصی روش اجرا (بر اساس انتخاب کاربر) -->
+        <!-- جدول ۳: مشخصات فنی اختصاصی روش اجرا (شامل فاصله خطوط تراز / contourInterval) -->
         <div style="margin-bottom: 10px">
           <h2 style="font-size: 10px; font-weight: bold; color: #334155; margin-bottom: 3px">
             جزئیات فنی اختصاصی روش اجرا:
@@ -515,7 +515,25 @@ const downloadPdf = async () => {
             "
           >
             <tbody>
-              <!-- اگر روش زمینی باشد -->
+              <!-- فیلد عمومی فاصله خطوط تراز (در صورتی که انتخاب شده باشد) -->
+              <tr v-if="(project as any).contourInterval">
+                <td
+                  style="
+                    border: 1px solid #cbd5e1;
+                    padding: 5px;
+                    background: #f1f5f9;
+                    font-weight: bold;
+                    width: 25%;
+                  "
+                >
+                  فاصله خطوط تراز (Contour Interval)
+                </td>
+                <td style="border: 1px solid #cbd5e1; padding: 5px" colspan="3">
+                  {{ (project as any).contourInterval }}
+                </td>
+              </tr>
+
+              <!-- روش زمینی -->
               <tr v-if="project.surveyMethod === 'ground'">
                 <td
                   style="
@@ -548,7 +566,7 @@ const downloadPdf = async () => {
                 </td>
               </tr>
 
-              <!-- اگر روش هوایی باشد -->
+              <!-- روش هوایی / فتوگرامتری -->
               <tr v-if="project.surveyMethod === 'aerial'">
                 <td
                   style="
@@ -582,7 +600,7 @@ const downloadPdf = async () => {
                 </td>
               </tr>
 
-              <!-- اگر روش GIS باشد -->
+              <!-- روش GIS -->
               <tr v-if="project.surveyMethod === 'gis'">
                 <td
                   style="
@@ -615,8 +633,7 @@ const downloadPdf = async () => {
                 </td>
               </tr>
 
-              <!-- حالت پیش‌فرض در صورتی که متد خاصی انتخاب نشده باشد -->
-              <tr v-if="!project.surveyMethod">
+              <tr v-if="!project.surveyMethod && !(project as any).contourInterval">
                 <td
                   style="
                     border: 1px solid #cbd5e1;
