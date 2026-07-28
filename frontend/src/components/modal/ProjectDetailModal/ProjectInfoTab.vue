@@ -14,6 +14,7 @@ import {
   Clock3,
   FileText,
   BadgeCheck,
+  Download,
 } from 'lucide-vue-next'
 
 const getCategoryLabel = (category: string | undefined | null) => {
@@ -27,9 +28,14 @@ const getCategoryLabel = (category: string | undefined | null) => {
   }
   return labels[category] || category
 }
-const store = useProjectStore()
 
+const store = useProjectStore()
 const project = computed(() => store.projectDetails)
+
+// فراخوانی متد دانلود از استور (کامپوننت کاملاً بدون منطق پیچیده)
+const handleDownload = (fileId: number, fileName: string) => {
+  store.downloadProjectFile(fileId, fileName)
+}
 </script>
 
 <template>
@@ -144,5 +150,53 @@ const project = computed(() => store.projectDetails)
         </div>
       </div>
     </div>
+
+    <!-- ۳. بخش فایل‌های پیوست پروژه -->
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="mb-6 flex items-center gap-3">
+        <div class="rounded-xl bg-amber-100 p-3">
+          <FileText class="h-5 w-5 text-amber-600" />
+        </div>
+        <h3 class="font-bold text-slate-800">فایل‌های پیوست پروژه</h3>
+      </div>
+
+      <div
+        v-if="project.attachments && project.attachments.length > 0"
+        class="grid gap-3 sm:grid-cols-2"
+      >
+        <div
+          v-for="file in project.attachments"
+          :key="file.id"
+          class="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 p-4 transition-all hover:bg-slate-100/60"
+        >
+          <div class="flex items-center gap-3 overflow-hidden">
+            <div class="rounded-xl bg-white p-2.5 shadow-sm">
+              <FileText class="h-5 w-5 text-slate-500" />
+            </div>
+            <div class="overflow-hidden">
+              <p class="truncate text-xs font-bold text-slate-700" :title="file.fileName">
+                {{ file.fileName }}
+              </p>
+              <p class="mt-1 text-[10px] text-slate-400">
+                {{ file.fileSize ? Math.round(file.fileSize / 1024) + ' کیلوبایت' : 'سند پیوست' }}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            @click="handleDownload(file.id, file.fileName)"
+            class="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-medium text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-95"
+          >
+            <Download class="h-3.5 w-3.5" />
+            <span>دانلود</span>
+          </button>
+        </div>
+      </div>
+
+      <div v-else class="rounded-2xl border border-dashed border-slate-200 py-8 text-center">
+        <p class="text-xs text-slate-400">هیچ فایل پیوستی برای این پروژه آپلود نشده است.</p>
+      </div>
+    </section>
   </div>
 </template>

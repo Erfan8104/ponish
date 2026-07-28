@@ -11,7 +11,16 @@ const chatStore = useChatStore()
 const authStore = useAuthStore()
 const { messages, isLoading } = storeToRefs(chatStore)
 
-const socket = io('http://localhost:5000') // ✅ درست: متصل به پورت 5000 سرور
+// تعیین پویا آدرس سرور برای Socket.io
+const getSocketUrl = () => {
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:5000'
+  }
+  return `http://${window.location.hostname}:5000`
+}
+
+const socket = io(getSocketUrl())
+
 const newMessage = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 

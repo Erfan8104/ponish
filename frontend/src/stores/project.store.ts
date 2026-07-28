@@ -25,6 +25,7 @@ export const useProjectStore = defineStore('project', () => {
   const isProjectDetailsModalOpen = ref(false)
   const isProjectDetailsLoading = ref(false)
   const isQuickEntry = ref(false)
+  const isDownloading = ref(false)
 
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -153,6 +154,35 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
+  const downloadProjectFile = async (fileId: number, fileName: string) => {
+    isDownloading.value = true
+    try {
+      // 🌟 نکته مهم: اینجا به جای store.projectDetails، مستقیماً از projectDetails.value استفاده کنید
+      const file = projectDetails.value?.attachments?.find((f: any) => f.id === fileId)
+
+      if (!file) {
+        throw new Error('فایل مورد نظر یافت نشد')
+      }
+
+      // فراخوانی لایه سرویس که فایل را به صورت Blob می‌گیرد
+      const blob = await projectService.downloadAttachment(file.fileUrl)
+
+      // ساخت لینک موقت و دانلود در مرورگر
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', fileName)
+      document.body.appendChild(link)
+      link.click()
+
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('خطا در دانلود فایل:', err)
+    } finally {
+      isDownloading.value = false
+    }
+  }
   const fetchMyProjects = async () => {
     isLoading.value = true
     error.value = null
@@ -430,7 +460,7 @@ export const useProjectStore = defineStore('project', () => {
     isProjectDetailsLoading,
     isDeliveryTimeValid,
     isQuickEntry,
-
+    isDownloading,
     formData,
     uploadedFiles,
     isLoading,
@@ -446,6 +476,7 @@ export const useProjectStore = defineStore('project', () => {
     fetchMyProjects,
     fetchActivityLogs,
     submitProject,
+    downloadProjectFile,
     updateProject,
     deleteProject,
     acceptProposal,

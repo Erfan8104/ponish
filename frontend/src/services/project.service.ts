@@ -1,4 +1,5 @@
 import { api } from './api'
+import axios from 'axios'
 import type { Project, ActivityLog, ProjectDetail } from '@/types/project'
 
 /**
@@ -196,6 +197,19 @@ export const projectService = {
     return response.data.project
   },
 
+  /**
+   * 3.5. دانلود فایل پیوست پروژه
+   */
+  async downloadAttachment(fileUrl: string): Promise<Blob> {
+    // گرفتن آدرس پایه سرور (مثلاً http://localhost:5000) بدون پیشوند /api
+    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+
+    // درخواست مستقیم به آدرس کامل سرور برای فایل‌های استاتیک
+    const response = await axios.get(`${baseURL}${fileUrl}`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
   /**
    * 4. آپدیت پروژه (با فایل جدید)
    */
