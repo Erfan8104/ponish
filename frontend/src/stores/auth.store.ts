@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { useRoleStore } from '@/stores/role.store' // 🌟 اضافه کردن ایمپورت
 
 // تعریف یک اینترفیس برای ورودی متد آپدیت مشخصات جهت خوانایی بیشتر کدهای تایپ‌اسکریپت
 interface ProfileUpdateInput {
@@ -170,7 +171,12 @@ export const useAuthStore = defineStore('auth', {
         localStorage.removeItem('company')
       }
     },
+
     logout() {
+      // 🌟 پاکسازی کامل استور نقش‌ها و لوکال‌استوری مربوط به آن
+      const roleStore = useRoleStore()
+      roleStore.clearUser()
+
       this.avatar = ''
       this.token = ''
       this.phone = ''
@@ -181,7 +187,6 @@ export const useAuthStore = defineStore('auth', {
       this.city = ''
       this.company = ''
 
-      // پاک‌سازی فیلدهای جدید در استور
       this.birthDate = ''
       this.birthPlace = ''
       this.freelancerProvince = ''
@@ -190,8 +195,8 @@ export const useAuthStore = defineStore('auth', {
       this.skills = ''
       this.experience = ''
       this.id = ''
-      localStorage.removeItem('userId')
 
+      localStorage.removeItem('userId')
       localStorage.removeItem('avatar')
       localStorage.removeItem('token')
       localStorage.removeItem('phone')
@@ -202,7 +207,6 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('city')
       localStorage.removeItem('company')
 
-      // پاک‌سازی فیلدهای جدید در مرورگر
       localStorage.removeItem('birthDate')
       localStorage.removeItem('birthPlace')
       localStorage.removeItem('freelancerProvince')

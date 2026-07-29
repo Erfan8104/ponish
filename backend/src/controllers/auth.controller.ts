@@ -11,16 +11,15 @@ export const sendOtp = async (req: Request, res: Response) => {
   try {
     const { phone } = req.body;
 
-    if (!phone) {
-      return res.status(400).json({
-        success: false,
-        message: "شماره تلفن الزامی است",
-      });
-    }
+    // 🌟 1. پاکسازی کدهای قبلی این شماره برای جلوگیری از انباشتگی در دیتابیس
+    await prisma.oTP.deleteMany({
+      where: { phone },
+    });
 
     // تولید کد ۶ رقمی فرضی (در آینده با پنل پیامکی جایگزین شود)
     const otp = "123456";
 
+    // 🌟 2. ایجاد کد جدید
     await prisma.oTP.create({
       data: {
         phone,
@@ -127,26 +126,24 @@ export const verifyOtp = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * تکمیل مشخصات اولیه (نام کاربری و نقش) پس از ثبت‌نام
- */
 export const completeRegistration = async (req: AuthRequest, res: Response) => {
   try {
     const { username, role } = req.body;
     const userId = req.user!.userId; // دریافت آیدی از روی توکن لاگین شده
 
-    if (!role || !["employer", "freelancer"].includes(role)) {
+    if (!role || !["employer", "freelancer", "both"].includes(role)) {
       return res
         .status(400)
         .json({ success: false, message: "نقش ارسالی نامعتبر است" });
     }
 
-    // آپدیت نقش کاربر در دیتابیس (نام کاربری را هم اگر فیلدش را در اسکیما داری اینجا اضافه کن، در غیر این صورت فقط نقش)
+    // آپدیت نقش، نام و تغییر وضعیت تکمیل پروفایل به true
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         role: role,
-        name: username, // یا هر فیلدی که برای نام کاربری در نظر گرفتی
+        name: username,
+        profileCompleted: true, // 🌟 این خط کلیدی اضافه شد
       },
     });
 
@@ -162,6 +159,7 @@ export const completeRegistration = async (req: AuthRequest, res: Response) => {
       .json({ success: false, message: "خطای سرور در تکمیل ثبت‌نام" });
   }
 };
+
 /**
  * دریافت اطلاعات کاربر لاگین شده
  */
@@ -187,9 +185,12 @@ export const getMe = async (req: AuthRequest, res: Response) => {
         .json({ success: false, message: "کاربر یافت نشد" });
     }
 
+    // 🌟 جدا کردن پسورد و ارسال بقیه اطلاعات کاربر به امن‌ترین شکل ممکن
+    const { password, ...userWithoutPassword } = user;
+
     return res.json({
       success: true,
-      user,
+      user: userWithoutPassword,
     });
   } catch (error) {
     console.error("Get Me Error:", error);

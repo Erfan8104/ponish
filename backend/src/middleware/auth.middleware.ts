@@ -6,7 +6,7 @@ export interface AuthRequest extends Request {
     userId: number;
     phone: string;
   };
-  file?: Express.Multer.File; // 👈 اصلاح نوع داده برای سازگاری کامل با Multer
+  file?: Express.Multer.File;
 }
 
 export const authMiddleware = (
@@ -17,16 +17,20 @@ export const authMiddleware = (
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader) {
+    // بررسی وجود هدر و ساختار درست آن (Bearer Token)
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: "Unauthorized",
+        message: "توکن احراز هویت ارسال نشده یا ساختار آن نامعتبر است",
       });
     }
 
     const token = authHeader.split(" ")[1];
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+    // 🌟 استفاده از کلید مخفی امن با مقدار پیش‌فرض مطمئن
+    const secret = process.env.JWT_SECRET || "supersecretkey";
+
+    const decoded = jwt.verify(token, secret) as {
       userId: number;
       phone: string;
     };
@@ -37,7 +41,7 @@ export const authMiddleware = (
   } catch {
     return res.status(401).json({
       success: false,
-      message: "Invalid token",
+      message: "توکن نامعتبر یا منقضی شده است",
     });
   }
 };

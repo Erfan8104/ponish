@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-
 import { useRoleStore } from '@/stores/role.store'
 import { useProjectStore } from '@/stores/project.store'
+import { useAuthStore } from '@/stores/auth.store' // 👈 ۱. ایمپورت استور احراز هویت
+import { getMe } from '@/services/auth.service'
 
 import ProfileCard from '@/components/dashboard/ProfileCard.vue'
 import ProjectList from '@/components/dashboard/ProjectList.vue'
@@ -14,12 +15,22 @@ import ProjectDetailModal from '@/components/modal/ProjectDetailModal.vue'
 
 const roleStore = useRoleStore()
 const projectStore = useProjectStore()
+const authStore = useAuthStore() // 👈 ۲. تعریف استور
 
 const isEmployer = computed(() => roleStore.role === 'employer')
-
 const isFreelancer = computed(() => roleStore.role === 'freelancer')
 
 onMounted(async () => {
+  try {
+    const res = await getMe(authStore.token)
+    if (res && res.user) {
+      // 🌟 فقط همین خط برای تنظیم نام کاربری و نقش کافی است
+      roleStore.setUserRegistration(res.user.username, res.user.role)
+    }
+  } catch (err) {
+    console.error('خطا در دریافت اطلاعات کاربر:', err)
+  }
+
   const requests = []
 
   if (isEmployer.value) {

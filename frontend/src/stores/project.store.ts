@@ -8,6 +8,7 @@ import type {
   ProjectStatus,
   AcceptedProject,
 } from '@/types/project'
+import { useRoleStore } from '@/stores/role.store' // 🌟 اضافه کردن ایمپورت
 
 export type Coordinate = [number, number]
 
@@ -140,7 +141,13 @@ export const useProjectStore = defineStore('project', () => {
    * =========================
    * API Actions
    * =========================
+   *
+   *
+   *
+   *
+   *
    */
+
   const fetchProjects = async () => {
     isLoading.value = true
     error.value = null
@@ -450,6 +457,7 @@ export const useProjectStore = defineStore('project', () => {
    * Return
    * =========================
    */
+
   return {
     projects,
     myProjects,

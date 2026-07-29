@@ -8,37 +8,27 @@ import {
   checkLoginMethod,
   completeRegistration,
 } from "../controllers/auth.controller";
+import {
+  validateSendOtp,
+  validateVerifyOtp,
+  validateCompleteRegistration,
+} from "../validators/auth.validator";
 
 const router = Router();
 
-/**
- * ارسال کد تایید یکبار مصرف
- */
-router.post("/send-otp", sendOtp);
+// استفاده از ولیدیتور برای ارسال OTP
+router.post("/send-otp", validateSendOtp, sendOtp);
 
-/**
- * تایید کد یکبار مصرف و ورود
- */
-router.post("/verify-otp", verifyOtp);
+// استفاده از ولیدیتور برای تایید OTP
+router.post("/verify-otp", validateVerifyOtp, verifyOtp);
 
-/**
- * دریافت اطلاعات هویت جاری
- */
 router.get("/me", authMiddleware, getMe as any);
-
-/**
- * ورود با ایمیل/شماره همراه و رمز عبور
- */
 router.post("/login-password", loginWithPassword);
-
-/**
- * بررسی متد لاگین
- */
 router.post("/check-login-method", checkLoginMethod);
-
 router.put(
   "/complete-registration",
   authMiddleware,
+  validateCompleteRegistration,
   completeRegistration as any,
 );
 
