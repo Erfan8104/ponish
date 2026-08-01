@@ -121,13 +121,6 @@ const switchRole = async (targetRole: 'employer' | 'freelancer' | 'both') => {
             >راهنما</RouterLink
           >
         </div>
-        <button
-          @click="uiStore.openSearchModal()"
-          class="inline-flex h-12 w-12 items-center justify-center rounded-full border border-slate-800 text-slate-200 shadow-sm transition duration-200 hover:border-slate-700 hover:bg-slate-800"
-          aria-label="Search"
-        >
-          <Search :size="20" class="text-slate-200" />
-        </button>
       </div>
 
       <div class="hidden md:flex items-center justify-between mr-0 gap-4">
@@ -214,14 +207,6 @@ const switchRole = async (targetRole: 'employer' | 'freelancer' | 'both') => {
         </div>
 
         <div class="mt-4 flex flex-col gap-3">
-          <button
-            type="button"
-            @click="uiStore.openSearchModal()"
-            class="inline-flex items-center justify-center rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-200 shadow-sm transition hover:border-slate-700 hover:bg-slate-800"
-          >
-            جستجو
-          </button>
-
           <div v-if="!isLoggedIn" class="flex flex-col gap-3">
             <RouterLink
               to="/login"
