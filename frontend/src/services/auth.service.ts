@@ -19,6 +19,11 @@ export const verifyOtp = async (phone: string, code: string) => {
   return response.data
 }
 
+export const updateRoleApi = async (role: 'employer' | 'freelancer' | 'both') => {
+  const response = await api.patch('/auth/update-role', { role })
+  return response.data
+}
+
 export const getMe = async (token: string) => {
   const response = await api.get('/auth/me', {
     headers: {

@@ -161,6 +161,68 @@ export const completeRegistration = async (req: AuthRequest, res: Response) => {
 };
 
 /**
+ * تغییر یا ارتقای نقش کاربر (کارفرما / فریلنسر / هر دو)
+ */
+export const updateUserRole = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = Number(req.user!.userId);
+    const { role } = req.body;
+
+    if (!role || !["employer", "freelancer", "both"].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: "نقش ارسالی نامعتبر است",
+      });
+    }
+
+    // ۱. آپدیت نقش در دیتابیس
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { role },
+    });
+
+    // مدیریت پروفایل‌ها (مثل کدهای قبلی...)
+    if (role === "freelancer" || role === "both") {
+      const existing = await prisma.freelancerProfile.findUnique({
+        where: { userId },
+      });
+      if (!existing)
+        await prisma.freelancerProfile.create({ data: { userId } });
+    }
+    if (role === "employer" || role === "both") {
+      const existing = await prisma.employerProfile.findUnique({
+        where: { userId },
+      });
+      if (!existing) await prisma.employerProfile.create({ data: { userId } });
+    }
+
+    // 🌟 ۲. تولید توکن جدید با اطلاعات به‌روز شده
+    const secret = process.env.JWT_SECRET || "supersecretkey";
+    const newToken = jwt.sign(
+      {
+        userId: updatedUser.id,
+        phone: updatedUser.phone,
+        role: updatedUser.role, // اگر نقش را هم در توکن نگه می‌دارید
+      },
+      secret,
+      { expiresIn: "7d" }, // یا مدت زمان دلخواه شما
+    );
+
+    return res.json({
+      success: true,
+      message: "نقش با موفقیت به‌روزرسانی شد",
+      token: newToken, // 👈 ارسال توکن جدید به فرانت‌اند
+      role: updatedUser.role,
+    });
+  } catch (error) {
+    console.error("Update Role Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "خطای سرور در تغییر نقش",
+    });
+  }
+};
+/**
  * دریافت اطلاعات کاربر لاگین شده
  */
 export const getMe = async (req: AuthRequest, res: Response) => {

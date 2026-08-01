@@ -2,25 +2,60 @@
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import ProjectTriggerButton from '../common/ProjectTriggerButton.vue'
-
+import { updateRoleApi } from '@/services/auth.service'
 import { useAuthStore } from '../../stores/auth.store.ts'
 import { useUiStore } from '../../stores/ui.store.ts'
-import { Search, Laptop, MessageCircle, Briefcase, Menu, X } from 'lucide-vue-next'
+import { Search, Laptop, MessageCircle, Briefcase, Menu, X, Plus } from 'lucide-vue-next'
 import ProfileModal from '../modal/ProfileModal.vue'
 import { useRoleStore } from '../../stores/role.store.ts'
 import SearchModal from '../modal/SearchModal.vue'
+import { useRouter } from 'vue-router'
 
 const uiStore = useUiStore()
-
+const router = useRouter()
 const authStore = useAuthStore()
 const roleStore = useRoleStore()
 const isMobileMenuOpen = ref(false)
+
 const isEmployee = computed<boolean>(() => {
   return roleStore.role === 'employer'
 })
+
 const isLoggedIn = computed(() => !!authStore.token)
 
-// تابع هدایت به صفحه ویرایش مشخصات
+const switchRole = async (targetRole: 'employer' | 'freelancer' | 'both') => {
+  // اگر کاربر لاگین نکرده بود، هدایت به صفحه ورود
+  if (!authStore.token) {
+    router.push(targetRole === 'freelancer' ? '/login/otp' : '/login')
+    return
+  }
+
+  try {
+    // چون سرویس شما مستقیماً response.data را برمی‌گرداند،
+    // مستقیماً نتیجه را در یک متغیر مثل result می‌گیریم
+    const result = await updateRoleApi(targetRole)
+
+    if (result && result.success) {
+      // ذخیره توکن جدید در مرورگر
+      localStorage.setItem('token', result.token)
+
+      // 🌟 به‌روزرسانی نقش فقط در roleStore (چون مدیریت نقش‌ها آنجاست)
+      roleStore.role = result.role
+
+      // اگر می‌خواهید استور auth را هم رفرش کنید تا توکن جدید یا اطلاعات ست شود،
+      // معمولاً یک متد مثل fetchUser یا ست کردن توکن دارید:
+      authStore.token = result.token
+    }
+  } catch (error: any) {
+    console.error('خطا در تغییر نقش:', error.response?.data || error.message)
+
+    // اگر توکن منقضی شده بود یا خطای 401 داد
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token')
+      router.push('/login')
+    }
+  }
+}
 </script>
 
 <template>
@@ -56,17 +91,26 @@ const isLoggedIn = computed(() => !!authStore.token)
         </RouterLink>
 
         <div class="hidden md:flex items-center gap-5">
-          <RouterLink to="/" class="hover:text-white text-sm text-slate-300 transition">
-            <div class="flex items-center gap-2">
-              <Briefcase :size="18" /> <span>کارفرما هستم +</span>
-            </div>
-          </RouterLink>
-          <RouterLink
-            to="/login/otp"
-            class="flex items-center gap-2 hover:text-white text-sm text-slate-300 transition"
+          <button
+            @click="switchRole('employer')"
+            class="hover:text-white text-sm transition flex items-center gap-2"
+            :class="
+              roleStore.role === 'employer' ? 'text-cyan-400 font-semibold' : 'text-slate-300'
+            "
           >
-            <Laptop :size="18" /><span>فریلنسر هستم +</span>
-          </RouterLink>
+            <Briefcase :size="18" /> <span>کارفرما هستم</span>
+          </button>
+
+          <button
+            @click="switchRole('freelancer')"
+            class="hover:text-white text-sm transition flex items-center gap-2"
+            :class="
+              roleStore.role === 'freelancer' ? 'text-cyan-400 font-semibold' : 'text-slate-300'
+            "
+          >
+            <Laptop :size="18" /><span>فریلنسر هستم</span>
+          </button>
+
           <RouterLink
             v-if="isLoggedIn"
             to="/dashboard"
@@ -110,7 +154,6 @@ const isLoggedIn = computed(() => !!authStore.token)
               class="inline-flex items-center justify-center rounded-full border border-slate-800 bg-slate-900/90 px-4 py-3 text-sm text-slate-200 shadow-sm transition hover:border-slate-700 hover:bg-slate-800"
             >
               <MessageCircle :size="20" class="text-slate-200" />
-
               <span class="mr-2">درخواست مشاوره</span>
             </button>
           </div>
@@ -132,20 +175,26 @@ const isLoggedIn = computed(() => !!authStore.token)
         <div class="flex flex-col gap-3">
           <ProfileModal v-if="isLoggedIn" class="mb-2" />
 
-          <RouterLink
-            to="/"
-            class="inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm text-slate-200 transition hover:bg-slate-800"
-            @click="isMobileMenuOpen = false"
+          <button
+            @click="switchRole('employer')"
+            class="hover:text-white text-sm transition flex items-center gap-2"
+            :class="
+              roleStore.role === 'employer' ? 'text-cyan-400 font-semibold' : 'text-slate-300'
+            "
           >
-            <Briefcase :size="18" /> <span>کارفرما هستم +</span>
-          </RouterLink>
-          <RouterLink
-            to="/login/otp"
-            class="inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm text-slate-200 transition hover:bg-slate-800"
-            @click="isMobileMenuOpen = false"
+            <Briefcase :size="18" /> <span>کارفرما هستم</span>
+          </button>
+
+          <button
+            @click="switchRole('freelancer')"
+            class="hover:text-white text-sm transition flex items-center gap-2"
+            :class="
+              roleStore.role === 'freelancer' ? 'text-cyan-400 font-semibold' : 'text-slate-300'
+            "
           >
-            <Laptop :size="18" /> <span>فریلنسر هستم +</span>
-          </RouterLink>
+            <Laptop :size="18" /><span>فریلنسر هستم</span>
+          </button>
+
           <RouterLink
             v-if="isLoggedIn"
             to="/dashboard"

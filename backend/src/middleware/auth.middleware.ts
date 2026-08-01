@@ -17,8 +17,8 @@ export const authMiddleware = (
   try {
     const authHeader = req.headers.authorization;
 
-    // بررسی وجود هدر و ساختار درست آن (Bearer Token)
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("Auth Error: No token provided or invalid format");
       return res.status(401).json({
         success: false,
         message: "توکن احراز هویت ارسال نشده یا ساختار آن نامعتبر است",
@@ -26,19 +26,20 @@ export const authMiddleware = (
     }
 
     const token = authHeader.split(" ")[1];
-
-    // 🌟 استفاده از کلید مخفی امن با مقدار پیش‌فرض مطمئن
     const secret = process.env.JWT_SECRET || "supersecretkey";
 
+    // بررسی دقیق خطا در تایید توکن
     const decoded = jwt.verify(token, secret) as {
       userId: number;
       phone: string;
     };
 
     req.user = decoded;
-
     next();
-  } catch {
+  } catch (error: any) {
+    // 🌟 چاپ دقیق دلیل رد شدن توکن در ترمینال
+    console.error("JWT Verification Error Message:", error.message);
+
     return res.status(401).json({
       success: false,
       message: "توکن نامعتبر یا منقضی شده است",

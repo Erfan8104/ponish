@@ -7,6 +7,7 @@ import {
   loginWithPassword,
   checkLoginMethod,
   completeRegistration,
+  updateUserRole, // 🌟 ۱. ایمپورت تابع کنترلر جدید
 } from "../controllers/auth.controller";
 import {
   validateSendOtp,
@@ -31,5 +32,8 @@ router.put(
   validateCompleteRegistration,
   completeRegistration as any,
 );
+
+// 🌟 ۲. اضافه کردن مسیر تغییر نقش (نیاز به توکن دارد)
+router.patch("/update-role", authMiddleware, updateUserRole as any);
 
 export default router;
