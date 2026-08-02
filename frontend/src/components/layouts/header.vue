@@ -115,7 +115,7 @@ const switchRole = async (targetRole: 'employer' | 'freelancer' | 'both') => {
             v-if="isLoggedIn"
             to="/dashboard"
             class="hover:text-white text-sm text-slate-300 transition"
-            >داشبورد</RouterLink
+            >پنل کاربری</RouterLink
           >
           <RouterLink v-else to="/login" class="hover:text-white text-sm text-slate-300 transition"
             >راهنما</RouterLink
@@ -194,7 +194,7 @@ const switchRole = async (targetRole: 'employer' | 'freelancer' | 'both') => {
             class="inline-flex rounded-2xl px-4 py-3 text-sm text-slate-200 transition hover:bg-slate-800"
             @click="isMobileMenuOpen = false"
           >
-            داشبورد
+            پنل کاربری
           </RouterLink>
           <RouterLink
             v-else

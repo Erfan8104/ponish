@@ -126,6 +126,65 @@ export const verifyOtp = async (req: Request, res: Response) => {
   }
 };
 
+export const deleteAccount = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+
+    // ۱. پیدا کردن کاربر برای بررسی وجود و دسترسی به ایمیل/اطلاعات
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "کاربر یافت نشد",
+      });
+    }
+
+    // ۲. بررسی قراردادهای فعال یا دارای اختلاف
+    const activeContracts = await prisma.contract.findFirst({
+      where: {
+        OR: [{ employerId: userId }, { freelancerId: userId }],
+        status: {
+          in: ["active", "disputed"],
+        },
+      },
+    });
+
+    if (activeContracts) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "شما دارای قرارداد فعال یا در حال اختلاف هستید. امکان حذف حساب کاربری تا تعیین تکلیف نهایی وجود ندارد.",
+      });
+    }
+
+    // ۳. انجام Soft Delete و آزاد کردن شماره و ایمیل برای ثبت‌نام‌های بعدی
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        deletedAt: new Date(),
+        isVerified: false,
+        profileCompleted: false,
+        phone: `deleted_${userId}_${Date.now()}`,
+        email: user.email ? `deleted_${userId}_${Date.now()}` : null,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: "حساب کاربری شما با موفقیت غیرفعال و حذف شد.",
+    });
+  } catch (error) {
+    console.error("Delete Account Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "خطای سرور در حذف حساب کاربری",
+    });
+  }
+};
+
 export const completeRegistration = async (req: AuthRequest, res: Response) => {
   try {
     const { username, role } = req.body;

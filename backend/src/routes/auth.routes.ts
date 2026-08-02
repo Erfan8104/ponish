@@ -8,6 +8,7 @@ import {
   checkLoginMethod,
   completeRegistration,
   updateUserRole, // 🌟 ۱. ایمپورت تابع کنترلر جدید
+  deleteAccount,
 } from "../controllers/auth.controller";
 import {
   validateSendOtp,
@@ -35,5 +36,5 @@ router.put(
 
 // 🌟 ۲. اضافه کردن مسیر تغییر نقش (نیاز به توکن دارد)
 router.patch("/update-role", authMiddleware, updateUserRole as any);
-
+router.delete("/account", authMiddleware, deleteAccount as any);
 export default router;

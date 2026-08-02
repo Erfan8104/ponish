@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { useRoleStore } from '@/stores/role.store' // 🌟 اضافه کردن ایمپورت
 
+import { deleteAccountApi } from '@/services/auth.service'
+
 // تعریف یک اینترفیس برای ورودی متد آپدیت مشخصات جهت خوانایی بیشتر کدهای تایپ‌اسکریپت
 interface ProfileUpdateInput {
   name: string
@@ -44,6 +46,8 @@ export const useAuthStore = defineStore('auth', {
     avatar: localStorage.getItem('avatar') || '',
 
     id: localStorage.getItem('userId') || '', // 👈 این فیلد را اضافه کنید
+    loading: false,
+    errorMessage: null as string | null,
   }),
 
   actions: {
@@ -169,6 +173,28 @@ export const useAuthStore = defineStore('auth', {
         localStorage.removeItem('province')
         localStorage.removeItem('city')
         localStorage.removeItem('company')
+      }
+    },
+
+    async removeAccount() {
+      this.loading = true
+      this.errorMessage = null
+
+      try {
+        await deleteAccountApi()
+
+        // اجرای متد logout برای پاکسازی کامل استور و تمام کلیدهای لوکال‌استوری
+        this.logout()
+
+        // انتقال کاربر به صفحه ورود
+        window.location.href = '/login'
+      } catch (error: any) {
+        console.error('خطا در حذف حساب کاربری:', error)
+        this.errorMessage =
+          error.response?.data?.message || 'خطایی در حذف حساب رخ داد. لطفا دوباره تلاش کنید.'
+        throw error
+      } finally {
+        this.loading = false
       }
     },
 

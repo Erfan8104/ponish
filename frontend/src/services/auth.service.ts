@@ -50,3 +50,8 @@ export const checkLoginMethod = async (identifier: string) => {
 
   return response.data
 }
+
+export const deleteAccountApi = async () => {
+  const response = await api.delete('/auth/account') // یا مسیر دقیق اندپوینت حذف حساب در بک‌اند شما
+  return response.data
+}
