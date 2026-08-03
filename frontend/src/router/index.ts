@@ -92,7 +92,12 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
-  const adminStore = useAdminStore() // دسترسی به استور ادمین
+  const adminStore = useAdminStore()
+
+  // 🌟 اگر توکن ادمین وجود دارد، مطمئن شویم هدر آکسیوس ست شده است
+  if (adminStore.token) {
+    adminStore.setAuthHeader()
+  }
 
   const isAdminRoute = to.path.startsWith('/admin')
   const isAdminLoginPage = to.path === '/admin/login'
@@ -100,14 +105,14 @@ router.beforeEach((to, from, next) => {
   // سناریو ۱: اگر مسیر مربوط به ادمین است (به جز صفحه لاگین ادمین)
   if (isAdminRoute && !isAdminLoginPage) {
     if (!adminStore.token) {
-      return next('/admin/login') // اگر ادمین لاگین نکرده، بفرستش صفحه لاگین ادمین
+      return next('/admin/login')
     }
-    return next() // اگر لاگین کرده، اجازه عبور بده
+    return next()
   }
 
   // سناریو ۲: اگر ادمینِ لاگین‌شده می‌خواهد دوباره برود صفحه لاگین ادمین
   if (isAdminLoginPage && adminStore.token) {
-    return next('/admin/users') // یا داشبورد ادمین
+    return next('/admin/users')
   }
 
   // سناریو ۳: صفحه نیاز به احراز هویت کاربر عادی دارد اما توکن ندارد
@@ -115,13 +120,11 @@ router.beforeEach((to, from, next) => {
     return next('/signup')
   }
 
-  // سناریو ۴: کاربر عادی لاگین کرده اما می‌خواهد برود صفحات مهمان (مثل لاگین/ثبت‌نام)
+  // سناریو ۴: کاربر عادی لاگین کرده اما می‌خواهد برود صفحات مهمان
   if (to.meta.requiresGuest && authStore.token) {
     return next('/dashboard')
   }
 
-  // در غیر این صورت اجازه عبور بده
   return next()
 })
-
 export default router

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { getAllUsersApi } from '@/services/admin.service'
+import { ref, onMounted, h } from 'vue'
+import { getAllUsersApi, toggleUserStatusApi } from '@/services/admin.service'
 import {
   useVueTable,
   getCoreRowModel,
@@ -14,12 +14,11 @@ const loading = ref(true)
 const globalFilter = ref('')
 
 // دریافت داده‌ها از سرور
-// دریافت داده‌ها از سرور
 onMounted(async () => {
   try {
     const data = await getAllUsersApi()
-    if (data.success) {
-      users.value = data.users
+    if (data && data.success) {
+      users.value = data.users || []
     }
   } catch (error) {
     console.error('خطا در دریافت کاربران:', error)
@@ -28,7 +27,23 @@ onMounted(async () => {
   }
 })
 
-// تعریف ستون‌های جدول با TanStack Table
+// تابع تغییر وضعیت کاربر
+const toggleUserStatus = async (userId: number) => {
+  try {
+    const res = await toggleUserStatusApi(userId)
+    if (res && res.success) {
+      const user = users.value.find((u) => u.id === userId)
+      if (user) {
+        // اصلاح‌شده: خواندن مقدار isActive از داخل شیء user پاسخ سرور
+        user.isActive = res.user.isActive
+      }
+    }
+  } catch (error) {
+    console.error('خطا در تغییر وضعیت کاربر:', error)
+  }
+}
+
+// تعریف ستون‌های جدول
 const columns = [
   {
     accessorKey: 'name',
@@ -56,6 +71,39 @@ const columns = [
     },
   },
   {
+    accessorKey: 'isActive',
+    header: 'وضعیت حساب',
+    cell: (info: any) => {
+      const isActive = info.getValue()
+      return h(
+        'span',
+        {
+          class: isActive
+            ? 'px-2.5 py-1 rounded-md text-[10px] font-bold bg-green-50 text-green-600 inline-block'
+            : 'px-2.5 py-1 rounded-md text-[10px] font-bold bg-red-50 text-red-600 inline-block',
+        },
+        isActive ? 'فعال' : 'مسدود',
+      )
+    },
+  },
+  {
+    id: 'actions',
+    header: 'عملیات',
+    cell: ({ row }: any) => {
+      const user = row.original
+      return h(
+        'button',
+        {
+          onClick: () => toggleUserStatus(user.id),
+          class: user.isActive
+            ? 'px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-[11px] font-medium transition-colors cursor-pointer'
+            : 'px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg text-[11px] font-medium transition-colors cursor-pointer',
+        },
+        user.isActive ? 'مسدود کردن' : 'فعال‌سازی',
+      )
+    },
+  },
+  {
     accessorKey: 'createdAt',
     header: 'تاریخ عضویت',
     cell: (info: any) => {
@@ -65,7 +113,7 @@ const columns = [
   },
 ]
 
-// راه‌اندازی TanStack Table
+// راه‌اندازی جدول با TanStack Table
 const table = useVueTable({
   get data() {
     return users.value
@@ -82,7 +130,7 @@ const table = useVueTable({
     },
   },
   onGlobalFilterChange: (val) => {
-    globalFilter.value = val
+    globalFilter.value = val as string
   },
 })
 </script>
@@ -90,14 +138,13 @@ const table = useVueTable({
 <template>
   <div class="min-h-screen bg-gray-50 p-8 text-gray-800" style="direction: rtl">
     <div class="max-w-6xl mx-auto">
-      <!-- هدر بخش کاربران -->
+      <!-- هدر صفحه -->
       <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <div>
           <h1 class="text-xl font-bold text-gray-900">مدیریت کاربران</h1>
-          <p class="text-xs text-gray-400 mt-1">فهرست تمام کاربران ثبت‌نام شده در پلتفرم پونیشا</p>
+          <p class="text-xs text-gray-400 mt-1">فهرست تمام کاربران ثبت‌نام شده در پلتفرم</p>
         </div>
 
-        <!-- باکس جستجوی زنده -->
         <div class="w-full md:w-72">
           <input
             v-model="globalFilter"
@@ -108,7 +155,7 @@ const table = useVueTable({
         </div>
       </div>
 
-      <!-- جدول داده‌ها -->
+      <!-- جدول مدیریت -->
       <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
         <div v-if="loading" class="text-center py-16 text-xs text-gray-400">
           در حال بارگذاری لیست کاربران...
@@ -151,26 +198,26 @@ const table = useVueTable({
           </table>
         </div>
 
-        <!-- فوتر جدول و صفحه‌بندی (Pagination) -->
+        <!-- فوتر و صفحه‌بندی -->
         <div
           class="flex items-center justify-between px-6 py-4 bg-gray-50/50 border-t border-gray-100 text-xs"
         >
           <span class="text-gray-400">
-            صفحه {{ table.getState().pagination.pageIndex + 1 }} از {{ table.getPageCount() }}
+            صفحه {{ table.getState().pagination.pageIndex + 1 }} از {{ table.getPageCount() || 1 }}
           </span>
 
           <div class="flex gap-2">
             <button
               @click="table.previousPage()"
               :disabled="!table.getCanPreviousPage()"
-              class="px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
+              class="px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors cursor-pointer"
             >
               قبلی
             </button>
             <button
               @click="table.nextPage()"
               :disabled="!table.getCanNextPage()"
-              class="px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
+              class="px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors cursor-pointer"
             >
               بعدی
             </button>

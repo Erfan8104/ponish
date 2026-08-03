@@ -11,3 +11,9 @@ export const getAllUsersApi = async () => {
   const response = await api.get('/admin/users')
   return response.data
 }
+
+// 🌟 تغییر وضعیت (فعال/غیرفعال) کاربر توسط ادمین
+export const toggleUserStatusApi = async (userId: number) => {
+  const response = await api.patch(`/admin/users/${userId}/toggle-status`)
+  return response.data
+}
