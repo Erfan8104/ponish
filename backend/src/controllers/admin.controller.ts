@@ -14,7 +14,6 @@ export const adminLogin = async (req: Request, res: Response) => {
       });
     }
 
-    // پیدا کردن کاربر
     const user = await prisma.user.findUnique({
       where: { phone },
     });
@@ -26,7 +25,14 @@ export const adminLogin = async (req: Request, res: Response) => {
       });
     }
 
-    // بررسی رمز عبور
+    // 🌟 بررسی فعال بودن حساب کاربری
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "حساب کاربری شما غیرفعال شده است",
+      });
+    }
+
     if (!user.password) {
       return res.status(401).json({
         success: false,
@@ -42,12 +48,11 @@ export const adminLogin = async (req: Request, res: Response) => {
       });
     }
 
-    // تولید توکن JWT حاوی نقش ادمین
     const token = jwt.sign(
       {
         userId: user.id,
         phone: user.phone,
-        role: user.role, // 👈 اینجا نقش ادمین داخل توکن قرار می‌گیرد
+        role: user.role,
       },
       process.env.JWT_SECRET || "supersecretkey",
       { expiresIn: "7d" },
@@ -61,6 +66,7 @@ export const adminLogin = async (req: Request, res: Response) => {
         phone: user.phone,
         name: user.name,
         role: user.role,
+        isActive: user.isActive,
       },
     });
   } catch (error) {
@@ -82,10 +88,11 @@ export const getAllUsersForAdmin = async (req: Request, res: Response) => {
         email: true,
         role: true,
         profileCompleted: true,
+        isActive: true, // 🌟 اضافه کردن وضعیت فعال/غیرفعال بودن
         createdAt: true,
       },
       orderBy: {
-        createdAt: "desc", // جدیدترین کاربران در ابتدا
+        createdAt: "desc",
       },
     });
 
@@ -98,5 +105,49 @@ export const getAllUsersForAdmin = async (req: Request, res: Response) => {
     return res
       .status(500)
       .json({ success: false, message: "خطا در دریافت لیست کاربران" });
+  }
+};
+
+export const toggleUserStatus = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // پیدا کردن کاربر فعلی
+    const user = await prisma.user.findUnique({
+      where: { id: Number(id) },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "کاربر مورد نظر یافت نشد",
+      });
+    }
+
+    // تغییر وضعیت (برعکس کردن مقدار فعلی isActive)
+    const updatedUser = await prisma.user.update({
+      where: { id: Number(id) },
+      data: {
+        isActive: !user.isActive,
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        isActive: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: `حساب کاربری با موفقیت ${updatedUser.isActive ? "فعال" : "غیرفعال"} شد`,
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Toggle User Status Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "خطا در تغییر وضعیت کاربر",
+    });
   }
 };

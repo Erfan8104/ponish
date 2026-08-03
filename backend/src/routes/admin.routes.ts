@@ -4,6 +4,7 @@ import { adminMiddleware } from "../middleware/admin.middleware";
 import {
   adminLogin,
   getAllUsersForAdmin,
+  toggleUserStatus, // 🌟 اضافه کردن کنترلر جدید
 } from "../controllers/admin.controller";
 
 const router = Router();
@@ -16,8 +17,16 @@ router.get("/test", authMiddleware, adminMiddleware, (req, res) => {
   });
 });
 
-// مسیر ورود ادمین
+// مسیر ورود ادمین (چون کاربر هنوز لاگین نکرده، نیاز به میدلور امنیتی ندارد)
 router.post("/login", adminLogin);
-router.get("/users", getAllUsersForAdmin);
+
+// 🌟 مسیرهای مدیریت کاربران (نیازمند لاگین و داشتن دسترسی ادمین)
+router.get("/users", authMiddleware, adminMiddleware, getAllUsersForAdmin);
+router.patch(
+  "/users/:id/toggle-status",
+  authMiddleware,
+  adminMiddleware,
+  toggleUserStatus,
+);
 
 export default router;
