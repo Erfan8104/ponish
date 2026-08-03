@@ -78,9 +78,11 @@
       password         String?
 
       isVerified       Boolean   @default(false)
+      isActive         Boolean   @default(true)
       profileCompleted Boolean   @default(false)
 
       role             UserRole  @default(employer)
+      
 
       name             String?
       avatar           String?
@@ -113,6 +115,7 @@
       @@index([email])
       @@index([role])
       @@index([province, city])
+      @@index([isActive])
     }
 
     model EmployerProfile {
