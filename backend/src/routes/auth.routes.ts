@@ -36,5 +36,4 @@ router.put(
 
 // 🌟 ۲. اضافه کردن مسیر تغییر نقش (نیاز به توکن دارد)
 router.patch("/update-role", authMiddleware, updateUserRole as any);
-router.delete("/account", authMiddleware, deleteAccount as any);
 export default router;

@@ -11,6 +11,9 @@ import CreateUsername from '../pages/CreateUsername.vue'
 import WelcomePage from '../pages/WelcomePage.vue'
 import NewprojectPage from '../pages/CreateProjectPage.vue'
 import ProfilePage from '../pages/profilePage.vue'
+import AdminLoginPage from '../pages/AdminLoginPage.vue'
+import AdminUsersPage from '../pages/AdminUserPage.vue'
+import { useAdminStore } from '@/stores/admin.store'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -38,6 +41,16 @@ const router = createRouter({
       path: '/login/password',
       component: PasswordView,
       meta: { requiresGuest: true },
+    },
+    {
+      path: '/admin/login',
+      component: AdminLoginPage,
+      meta: { requiresGuest: true },
+    },
+    {
+      path: '/admin/users',
+      component: AdminUsersPage,
+      meta: { requiresAuth: true, requiresAdmin: true },
     },
 
     // --- روت‌های محافظت شده (نیاز به لاگین دارند) ---
@@ -77,24 +90,38 @@ const router = createRouter({
   },
 })
 
-// ۴. پیاده‌سازی منطق روت گارد قبل از جابجایی بین صفحات
 router.beforeEach((to, from, next) => {
-  const authStore = useAuthStore() // دسترسی به پینیا و توکن کاربر
+  const authStore = useAuthStore()
+  const adminStore = useAdminStore() // دسترسی به استور ادمین
 
-  // سناریو اول: صفحه نیاز به احراز هویت دارد اما کاربر توکن ندارد (لاگین نکرده)
+  const isAdminRoute = to.path.startsWith('/admin')
+  const isAdminLoginPage = to.path === '/admin/login'
+
+  // سناریو ۱: اگر مسیر مربوط به ادمین است (به جز صفحه لاگین ادمین)
+  if (isAdminRoute && !isAdminLoginPage) {
+    if (!adminStore.token) {
+      return next('/admin/login') // اگر ادمین لاگین نکرده، بفرستش صفحه لاگین ادمین
+    }
+    return next() // اگر لاگین کرده، اجازه عبور بده
+  }
+
+  // سناریو ۲: اگر ادمینِ لاگین‌شده می‌خواهد دوباره برود صفحه لاگین ادمین
+  if (isAdminLoginPage && adminStore.token) {
+    return next('/admin/users') // یا داشبورد ادمین
+  }
+
+  // سناریو ۳: صفحه نیاز به احراز هویت کاربر عادی دارد اما توکن ندارد
   if (to.meta.requiresAuth && !authStore.token) {
-    next('/signup') // بفرستش صفحه ثبت نام/ورود
+    return next('/signup')
   }
 
-  // سناریو دوم: کاربر لاگین کرده اما می‌خواهد دستی آدرس /login یا /signup را باز کند!
-  else if (to.meta.requiresGuest && authStore.token) {
-    next('/dashboard') // برش گردان به داشبورد خودش
+  // سناریو ۴: کاربر عادی لاگین کرده اما می‌خواهد برود صفحات مهمان (مثل لاگین/ثبت‌نام)
+  if (to.meta.requiresGuest && authStore.token) {
+    return next('/dashboard')
   }
 
-  // در غیر این صورت اجازه بده عبور کند
-  else {
-    next()
-  }
+  // در غیر این صورت اجازه عبور بده
+  return next()
 })
 
 export default router

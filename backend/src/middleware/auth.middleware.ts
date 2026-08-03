@@ -5,6 +5,7 @@ export interface AuthRequest extends Request {
   user?: {
     userId: number;
     phone: string;
+    role: string; // 🌟 این خط اضافه شد
   };
   file?: Express.Multer.File;
 }
@@ -29,11 +30,12 @@ export const authMiddleware = (
     const secret = process.env.JWT_SECRET || "supersecretkey";
 
     // بررسی دقیق خطا در تایید توکن
+
     const decoded = jwt.verify(token, secret) as {
       userId: number;
       phone: string;
+      role: string; // 🌟 این خط اضافه شد
     };
-
     req.user = decoded;
     next();
   } catch (error: any) {

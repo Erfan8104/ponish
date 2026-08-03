@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import dotenv from "dotenv";
+import bcrypt from "bcrypt"; // 🌟 ایمپورت برای هش کردن رمز عبور ادمین
 
 // خواندن متغیرهای محیطی برای اتصال به دیتابیس
 dotenv.config();
@@ -13,8 +14,9 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log("🌱 در حال درج دسته‌بندی‌های پیش‌فرض...");
+  console.log("🌱 در حال درج اطلاعات اولیه...");
 
+  // ۱. درج دسته‌بندی‌های پیش‌فرض
   const categories = [
     {
       name: "نقشه‌برداری زمینی",
@@ -45,8 +47,31 @@ async function main() {
       create: cat,
     });
   }
-
   console.log("✅ دسته‌بندی‌ها با موفقیت اضافه شدند.");
+
+  // ۲. ایجاد یا به‌روزرسانی ادمین پیش‌فرض 🌟
+  const adminPhone = "09120000000"; // شماره تلفن دلخواه برای ادمین
+  const rawPassword = "AdminSecretPassword123"; // رمز عبور اولیه ادمین
+  const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
+  await prisma.user.upsert({
+    where: { phone: adminPhone },
+    update: {
+      role: "admin",
+    },
+    create: {
+      phone: adminPhone,
+      password: hashedPassword,
+      role: "admin",
+      name: "مدیر کل سیستم",
+      profileCompleted: true,
+      isVerified: true,
+    },
+  });
+
+  console.log(
+    `✅ حساب ادمین با شماره ${adminPhone} و رمز عبور ${rawPassword} ایجاد شد.`,
+  );
 }
 
 main()

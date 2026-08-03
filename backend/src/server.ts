@@ -10,6 +10,7 @@ import profileRoutes from "./routes/profile.routes";
 import projectRouter from "./routes/project.routes";
 import messageRoutes from "./routes/message.routes";
 import contractRoutes from "./routes/contract.routes";
+import adminRoutes from "./routes/admin.routes";
 
 dotenv.config();
 
@@ -49,7 +50,7 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/projects", projectRouter);
 app.use("/api/messages", messageRoutes);
 app.use("/api/contracts", contractRoutes);
-
+app.use("/api/admin", adminRoutes);
 // ==============================
 // Health Check
 // ==============================

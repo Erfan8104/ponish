@@ -30,17 +30,22 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // اگر توکن منقضی شده باشد یا خطای 401 (Unauthorized) برگردد
     if (error.response && error.response.status === 401) {
-      // ۱. پاک کردن توکن منقضی شده از حافظه کاربر
+      // ۱. پاک کردن توکن منقضی شده
       localStorage.removeItem('token')
 
-      // ۲. پاک کردن استیت‌های کاربری در صورت نیاز (مثل Pinia)
-      // مثلاً: authStore.logout() یا صفر کردن اطلاعات کاربر
+      // ۲. بررسی اینکه آیا کاربر در بخش ادمین است یا پنل عادی
+      const isAdminRoute = window.location.pathname.startsWith('/admin')
 
-      // ۳. هدایت خودکار کاربر به صفحه ورود (اگر در صفحه ورود نیست)
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login'
+      // ۳. هدایت به صفحه ورود متناسب با مسیر فعلی
+      if (isAdminRoute) {
+        if (!window.location.pathname.includes('/admin/login')) {
+          window.location.href = '/admin/login'
+        }
+      } else {
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login'
+        }
       }
     }
     return Promise.reject(error)
