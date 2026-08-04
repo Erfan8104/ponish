@@ -5,6 +5,7 @@ import { sendOtp } from '../services/auth.service'
 import { loginSchema } from '../schemas/login.schema'
 import { RouterLink } from 'vue-router'
 import { checkLoginMethod } from '../services/auth.service'
+import geokarMark from '@/assets/logo/geokar-logo-mark.svg'
 
 const identifier = ref('')
 const error = ref('')
@@ -50,15 +51,11 @@ const submit = async () => {
     <div class="w-full max-w-md bg-white border border-gray-200 rounded-xl p-8 shadow-sm md:mb-50">
       <!-- Logo -->
 
-      <div class="inline-flex items-center gap-3 rounded-3xl px-4 py-3 text-white md:mr-20 mb-10">
-        <div
-          class="flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br from-cyan-500 to-indigo-600 text-2xl font-bold text-white shadow-md"
-        >
-          P
-        </div>
+      <div class="inline-flex items-center gap-3 rounded-3xl px-4 py-3 md:mr-20 mb-10">
+        <img :src="geokarMark" alt="GeoKar" class="h-12 w-12 rounded-2xl shadow-md shrink-0" />
         <div class="flex flex-col leading-tight">
-          <span class="text-lg text-slate-600 font-semibold">Ponisha</span>
-          <span class="text-xs text-slate-600">بازار فریلنسر ایرانی</span>
+          <span class="text-lg text-slate-600 font-semibold">GeoKar</span>
+          <span class="text-xs text-slate-600">بازار تخصصی نقشه‌برداری</span>
         </div>
       </div>
 
@@ -87,7 +84,7 @@ const submit = async () => {
 
       <!-- Register -->
       <div class="text-center mt-6 text-sm text-gray-600">
-        در پونیشا ثبت‌نام نکرده‌اید؟
+        در جئوکار ثبت‌نام نکرده‌اید؟
         <RouterLink to="/signup" class="text-green-700 font-medium hover:underline">
           ثبت نام</RouterLink
         >

@@ -2,6 +2,8 @@
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
+import geokarMark from '@/assets/logo/geokar-logo-mark.svg'
+
 import { verifyOtp } from '@/services/auth.service'
 
 // States & Type Definitions
@@ -187,14 +189,11 @@ onBeforeUnmount(() => {
         class="bg-white border border-gray-100 rounded-xl p-8 max-w-md w-full shadow-sm text-center"
       >
         <!-- Logo -->
-        <div class="flex justify-center mb-8">
-          <div class="flex items-center gap-2" style="direction: rtl">
-            <div
-              class="bg-[#008f55] text-white rounded-xl p-2 font-black text-xl flex items-center justify-center w-11 h-11 shadow-sm"
-            >
-              پ
-            </div>
-            <span class="text-2xl font-bold text-gray-800 tracking-tight">پونیشا</span>
+        <div class="inline-flex items-center gap-3 rounded-3xl px-4 py-3 md:mr-20 mb-10">
+          <img :src="geokarMark" alt="GeoKar" class="h-12 w-12 rounded-2xl shadow-md shrink-0" />
+          <div class="flex flex-col leading-tight">
+            <span class="text-lg text-slate-600 font-semibold">GeoKar</span>
+            <span class="text-xs text-slate-600">بازار تخصصی نقشه‌برداری</span>
           </div>
         </div>
 
