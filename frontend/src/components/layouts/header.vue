@@ -164,13 +164,14 @@ const switchRole = async (targetRole: 'employer' | 'freelancer' | 'both') => {
             >
               ثبت نام
             </RouterLink>
-            <button
-              type="button"
-              class="inline-flex items-center justify-center rounded-full border border-slate-800 bg-slate-900/90 px-4 py-2.5 text-sm text-slate-200 shadow-sm transition hover:border-slate-700 hover:bg-slate-800 whitespace-nowrap"
+            <RouterLink
+              to="/consultation"
+              class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-800 px-4 py-3 text-sm font-semibold text-slate-200 shadow-sm transition hover:border-slate-700 hover:bg-slate-800"
+              @click="isMobileMenuOpen = false"
             >
-              <MessageCircle :size="18" class="text-slate-200 shrink-0" />
-              <span class="mr-2">درخواست مشاوره</span>
-            </button>
+              <MessageCircle :size="18" />
+              درخواست مشاوره
+            </RouterLink>
           </template>
 
           <template v-else>
@@ -243,13 +244,14 @@ const switchRole = async (targetRole: 'employer' | 'freelancer' | 'both') => {
             >
               ثبت نام
             </RouterLink>
-            <button
-              type="button"
+            <RouterLink
+              to="/consultation"
               class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-800 px-4 py-3 text-sm font-semibold text-slate-200 shadow-sm transition hover:border-slate-700 hover:bg-slate-800"
+              @click="isMobileMenuOpen = false"
             >
               <MessageCircle :size="18" />
               درخواست مشاوره
-            </button>
+            </RouterLink>
           </template>
         </div>
       </div>

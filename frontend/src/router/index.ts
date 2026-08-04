@@ -14,6 +14,7 @@ import ProfilePage from '../pages/profilePage.vue'
 import AdminLoginPage from '../pages/AdminLoginPage.vue'
 import AdminUsersPage from '../pages/AdminUserPage.vue'
 import { useAdminStore } from '@/stores/admin.store'
+import ConsultationPage from '@/pages/consultationPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -58,6 +59,11 @@ const router = createRouter({
       path: '/dashboard',
       component: DashboardPage,
       meta: { requiresAuth: true }, // ۳. اضافه کردن روت گارد
+    },
+    {
+      path: '/consultation',
+      name: 'consultation',
+      component: ConsultationPage,
     },
     {
       path: '/onboarding/create-username',
