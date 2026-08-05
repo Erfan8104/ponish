@@ -5,7 +5,9 @@ export interface AuthRequest extends Request {
   user?: {
     userId: number;
     phone: string;
-    role: string; // 🌟 این خط اضافه شد
+    role: string;
+    adminRoles?: string[]; // 🌟 نقش‌های ادمین (مثل SUPER_ADMIN)
+    permissions?: string[]; // 🌟 لیست دسترسی‌ها یا ["*"]
   };
   file?: Express.Multer.File;
 }
@@ -29,17 +31,24 @@ export const authMiddleware = (
     const token = authHeader.split(" ")[1];
     const secret = process.env.JWT_SECRET || "supersecretkey";
 
-    // بررسی دقیق خطا در تایید توکن
-
     const decoded = jwt.verify(token, secret) as {
       userId: number;
       phone: string;
-      role: string; // 🌟 این خط اضافه شد
+      role: string;
+      adminRoles?: string[];
+      permissions?: string[];
     };
-    req.user = decoded;
+
+    req.user = {
+      userId: decoded.userId,
+      phone: decoded.phone,
+      role: decoded.role,
+      adminRoles: decoded.adminRoles || [],
+      permissions: decoded.permissions || [],
+    };
+
     next();
   } catch (error: any) {
-    // 🌟 چاپ دقیق دلیل رد شدن توکن در ترمینال
     console.error("JWT Verification Error Message:", error.message);
 
     return res.status(401).json({

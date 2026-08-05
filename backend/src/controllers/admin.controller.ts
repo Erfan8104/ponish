@@ -14,18 +14,38 @@ export const adminLogin = async (req: Request, res: Response) => {
       });
     }
 
+    // کاربر را همراه با نقش‌های ادمین و دسترسی‌ها پیدا کن
     const user = await prisma.user.findUnique({
       where: { phone },
+      include: {
+        adminRoles: {
+          include: {
+            role: {
+              include: {
+                rolePermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
-    if (!user || user.role !== "admin") {
+    // یا role === "admin" باشد، یا حداقل یک نقش ادمین داشته باشد
+    const hasAdminRole =
+      user?.role === "admin" ||
+      (user?.adminRoles && user.adminRoles.length > 0);
+
+    if (!user || !hasAdminRole) {
       return res.status(401).json({
         success: false,
         message: "اطلاعات ورود نامعتبر است یا دسترسی ادمین ندارید",
       });
     }
 
-    // 🌟 بررسی فعال بودن حساب کاربری
     if (!user.isActive) {
       return res.status(403).json({
         success: false,
@@ -48,11 +68,30 @@ export const adminLogin = async (req: Request, res: Response) => {
       });
     }
 
+    // استخراج نقش‌ها و دسترسی‌ها
+    const adminRoles = user.adminRoles.map((ur) => ({
+      name: ur.role.name,
+      displayName: ur.role.displayName,
+    }));
+
+    const permissionsSet = new Set<string>();
+    user.adminRoles.forEach((ur) => {
+      ur.role.rolePermissions.forEach((rp) => {
+        permissionsSet.add(rp.permission.key);
+      });
+    });
+    const permissions = Array.from(permissionsSet);
+
+    // اگر نقش SUPER_ADMIN داشت، همه دسترسی‌ها را بده (اختیاری ولی مفید)
+    const isSuperAdmin = adminRoles.some((r) => r.name === "SUPER_ADMIN");
+
     const token = jwt.sign(
       {
         userId: user.id,
         phone: user.phone,
         role: user.role,
+        adminRoles: adminRoles.map((r) => r.name),
+        permissions: isSuperAdmin ? ["*"] : permissions, // * یعنی همه دسترسی‌ها
       },
       process.env.JWT_SECRET || "supersecretkey",
       { expiresIn: "7d" },
@@ -67,6 +106,8 @@ export const adminLogin = async (req: Request, res: Response) => {
         name: user.name,
         role: user.role,
         isActive: user.isActive,
+        adminRoles,
+        permissions: isSuperAdmin ? ["*"] : permissions,
       },
     });
   } catch (error) {
@@ -88,7 +129,7 @@ export const getAllUsersForAdmin = async (req: Request, res: Response) => {
         email: true,
         role: true,
         profileCompleted: true,
-        isActive: true, // 🌟 اضافه کردن وضعیت فعال/غیرفعال بودن
+        isActive: true,
         createdAt: true,
       },
       orderBy: {
@@ -112,7 +153,6 @@ export const toggleUserStatus = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    // پیدا کردن کاربر فعلی
     const user = await prisma.user.findUnique({
       where: { id: Number(id) },
     });
@@ -124,7 +164,9 @@ export const toggleUserStatus = async (req: Request, res: Response) => {
       });
     }
 
-    // تغییر وضعیت (برعکس کردن مقدار فعلی isActive)
+    // جلوگیری از غیرفعال کردن خود ادمین (اختیاری)
+    // if (user.role === "admin") { ... }
+
     const updatedUser = await prisma.user.update({
       where: { id: Number(id) },
       data: {
