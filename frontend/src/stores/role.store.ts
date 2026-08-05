@@ -1,17 +1,22 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+type UserRole = 'freelancer' | 'employer' | 'both' | 'admin'
+
+const VALID_ROLES: readonly UserRole[] = ['freelancer', 'employer', 'both', 'admin']
+
+// اعتبارسنجی مقدار خوانده‌شده از localStorage تا مقادیر دستکاری‌شده یا نامعتبر وارد استیت نشن
+const getStoredRole = (): UserRole | null => {
+  const stored = localStorage.getItem('user_role')
+  return VALID_ROLES.includes(stored as UserRole) ? (stored as UserRole) : null
+}
+
 export const useRoleStore = defineStore('user', () => {
   // خواندن مقادیر از LocalStorage در زمان لود اولیه سایت
   const username = ref<string>(localStorage.getItem('username') || '')
-  const role = ref<'freelancer' | 'employer' | 'both' | null>(
-    localStorage.getItem('user_role') as 'freelancer' | 'employer' | 'both' | null,
-  )
+  const role = ref<UserRole | null>(getStoredRole())
 
-  const setUserRegistration = (
-    userUsername: string,
-    userRole: 'freelancer' | 'employer' | 'both',
-  ) => {
+  const setUserRegistration = (userUsername: string, userRole: UserRole) => {
     username.value = userUsername
     role.value = userRole
 

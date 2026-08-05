@@ -2,7 +2,9 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAdminStore } from '@/stores/admin.store'
+import { useRoleStore } from '@/stores/role.store'
 
+const roleStore = useRoleStore()
 const router = useRouter()
 const adminStore = useAdminStore()
 
@@ -18,7 +20,8 @@ const handleAdminLogin = async () => {
   const success = await adminStore.login(phone.value, password.value)
 
   if (success) {
-    router.push('/admin/users')
+    roleStore.setUserRegistration(adminStore.name, 'admin')
+    await router.replace('/admin/dashboard')
   }
 }
 </script>

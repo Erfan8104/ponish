@@ -1,20 +1,25 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/stores/auth.store' // ۱. ایمپورت کردن استور پینیا
+import { useAuthStore } from '@/stores/auth.store'
+import { useAdminStore } from '@/stores/admin.store'
 
-import LoginPage from '../pages/LoginPage.vue'
-import OtpView from '../pages/OtpPage.vue'
-import DashboardPage from '../pages/DashboardPage.vue'
+// صفحات عمومی و کاربر
 import HomePage from '../pages/HomePage.vue'
-import PasswordView from '../pages/PasswordPage.vue'
+import LoginPage from '../pages/LoginPage.vue'
 import SignupPage from '../pages/SignupPage.vue'
+import OtpView from '../pages/OtpPage.vue'
+import PasswordView from '../pages/PasswordPage.vue'
+import DashboardPage from '../pages/DashboardPage.vue'
 import CreateUsername from '../pages/CreateUsername.vue'
 import WelcomePage from '../pages/WelcomePage.vue'
 import NewprojectPage from '../pages/CreateProjectPage.vue'
 import ProfilePage from '../pages/profilePage.vue'
-import AdminLoginPage from '../pages/AdminLoginPage.vue'
-import AdminUsersPage from '../pages/AdminUserPage.vue'
-import { useAdminStore } from '@/stores/admin.store'
 import ConsultationPage from '@/pages/consultationPage.vue'
+
+// صفحات و لایوت مدیریت
+import AdminLoginPage from '../pages/AdminLoginPage.vue'
+import AdminLayout from '../components/admin/AdminLayout/AdminLayout.vue' // یا مسیر دقیق قرارگیری این کامپوننت
+import AdminDashboardPage from '../pages/AdminDashboardPage.vue'
+import AdminUsersPage from '../pages/AdminUserPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -26,7 +31,7 @@ const router = createRouter({
     {
       path: '/login',
       component: LoginPage,
-      meta: { requiresGuest: true }, // ۲. کاربر لاگین شده نباید دوباره بتونه بیاد این صفحه
+      meta: { requiresGuest: true },
     },
     {
       path: '/signup',
@@ -48,17 +53,34 @@ const router = createRouter({
       component: AdminLoginPage,
       meta: { requiresGuest: true },
     },
+
+    // --- مسیرهای پنل مدیریت تحت لایوت AdminLayout ---
     {
-      path: '/admin/users',
-      component: AdminUsersPage,
+      path: '/admin',
+      component: AdminLayout,
       meta: { requiresAuth: true, requiresAdmin: true },
+      children: [
+        {
+          path: '',
+          redirect: '/admin/dashboard',
+        },
+        {
+          path: 'dashboard',
+          component: AdminDashboardPage,
+        },
+        {
+          path: 'users',
+          component: AdminUsersPage,
+        },
+        // در صورت نیاز به روت‌های دیگر ادمین مانند پروژه‌ها و قراردادها، اینجا اضافه خواهند شد
+      ],
     },
 
-    // --- روت‌های محافظت شده (نیاز به لاگین دارند) ---
+    // --- روت‌های محافظت شده کاربری ---
     {
       path: '/dashboard',
       component: DashboardPage,
-      meta: { requiresAuth: true }, // ۳. اضافه کردن روت گارد
+      meta: { requiresAuth: true },
     },
     {
       path: '/consultation',
@@ -100,37 +122,34 @@ router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   const adminStore = useAdminStore()
 
-  // 🌟 اگر توکن ادمین وجود دارد، مطمئن شویم هدر آکسیوس ست شده است
   if (adminStore.token) {
     adminStore.setAuthHeader()
   }
 
-  const isAdminRoute = to.path.startsWith('/admin')
   const isAdminLoginPage = to.path === '/admin/login'
 
-  // سناریو ۱: اگر مسیر مربوط به ادمین است (به جز صفحه لاگین ادمین)
-  if (isAdminRoute && !isAdminLoginPage) {
+  // سناریو ۱: مسیر نیاز به احراز هویت ادمین دارد
+  if (to.meta.requiresAdmin) {
     if (!adminStore.token) {
       return next('/admin/login')
     }
     return next()
   }
 
-  // سناریو ۲: اگر ادمینِ لاگین‌شده می‌خواهد دوباره برود صفحه لاگین ادمین
+  // سناریو ۲: ادمینِ لاگین‌شده می‌خواهد دوباره برود صفحه لاگین ادمین
   if (isAdminLoginPage && adminStore.token) {
-    return next('/admin/users')
+    return next('/admin/dashboard')
   }
 
-  // سناریو ۳: صفحه نیاز به احراز هویت کاربر عادی دارد اما توکن ندارد
   if (to.meta.requiresAuth && !authStore.token) {
     return next('/signup')
   }
 
-  // سناریو ۴: کاربر عادی لاگین کرده اما می‌خواهد برود صفحات مهمان
   if (to.meta.requiresGuest && authStore.token) {
     return next('/dashboard')
   }
 
   return next()
 })
+
 export default router
