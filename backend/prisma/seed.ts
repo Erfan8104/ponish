@@ -175,9 +175,8 @@ async function main() {
   const roleMap = Object.fromEntries(allRoles.map((r) => [r.name, r.id]));
   const permMap = Object.fromEntries(allPermissions.map((p) => [p.key, p.id]));
 
-  // تعریف دسترسی هر نقش
   const rolePermissionMap: Record<string, string[]> = {
-    SUPER_ADMIN: allPermissions.map((p) => p.key), // همه چیز
+    SUPER_ADMIN: allPermissions.map((p) => p.key),
 
     ADMIN: [
       "users.view",
@@ -262,59 +261,88 @@ async function main() {
   console.log("✅ دسترسی‌ها به نقش‌ها اختصاص داده شدند.");
 
   // ============================================================
-  // ۵. ایجاد یا به‌روزرسانی ادمین پیش‌فرض
+  // ۵. ایجاد کاربران ادمین برای همه نقش‌ها
   // ============================================================
-  const adminPhone = "09120000000";
-  const rawPassword = "AdminSecretPassword123";
-  const hashedPassword = await bcrypt.hash(rawPassword, 10);
-
-  const adminUser = await prisma.user.upsert({
-    where: { phone: adminPhone },
-    update: {
-      role: "admin",
-      password: hashedPassword,
+  const adminUsers = [
+    {
+      phone: "09120000000",
+      password: "AdminSecretPassword123",
       name: "مدیر کل سیستم",
-      isVerified: true,
-      profileCompleted: true,
-      isActive: true,
+      roleName: "SUPER_ADMIN" as const,
     },
-    create: {
-      phone: adminPhone,
-      password: hashedPassword,
-      role: "admin",
-      name: "مدیر کل سیستم",
-      profileCompleted: true,
-      isVerified: true,
-      isActive: true,
+    {
+      phone: "09121111111",
+      password: "AdminPass123",
+      name: "ادمین سیستم",
+      roleName: "ADMIN" as const,
     },
-  });
+    {
+      phone: "09122222222",
+      password: "SupportPass123",
+      name: "پشتیبان سیستم",
+      roleName: "SUPPORT" as const,
+    },
+    {
+      phone: "09123333333",
+      password: "FinancePass123",
+      name: "مدیر مالی",
+      roleName: "FINANCE" as const,
+    },
+    {
+      phone: "09124444444",
+      password: "ModPass123",
+      name: "ناظر محتوا",
+      roleName: "MODERATOR" as const,
+    },
+  ];
 
-  console.log(
-    `✅ حساب ادمین با شماره ${adminPhone} و رمز عبور ${rawPassword} ایجاد شد.`,
-  );
+  for (const item of adminUsers) {
+    const hashedPassword = await bcrypt.hash(item.password, 10);
 
-  // ============================================================
-  // ۶. اختصاص نقش SUPER_ADMIN به ادمین پیش‌فرض
-  // ============================================================
-  const superAdminRole = await prisma.adminRole.findUnique({
-    where: { name: "SUPER_ADMIN" },
-  });
-
-  if (superAdminRole) {
-    await prisma.userAdminRole.upsert({
-      where: {
-        userId_roleId: {
-          userId: adminUser.id,
-          roleId: superAdminRole.id,
-        },
+    const user = await prisma.user.upsert({
+      where: { phone: item.phone },
+      update: {
+        role: "admin",
+        password: hashedPassword,
+        name: item.name,
+        isVerified: true,
+        profileCompleted: true,
+        isActive: true,
       },
-      update: {},
       create: {
-        userId: adminUser.id,
-        roleId: superAdminRole.id,
+        phone: item.phone,
+        password: hashedPassword,
+        role: "admin",
+        name: item.name,
+        profileCompleted: true,
+        isVerified: true,
+        isActive: true,
       },
     });
-    console.log("✅ نقش SUPER_ADMIN به ادمین پیش‌فرض اختصاص داده شد.");
+
+    const role = await prisma.adminRole.findUnique({
+      where: { name: item.roleName },
+    });
+
+    if (role) {
+      await prisma.userAdminRole.upsert({
+        where: {
+          userId_roleId: {
+            userId: user.id,
+            roleId: role.id,
+          },
+        },
+        update: {},
+        create: {
+          userId: user.id,
+          roleId: role.id,
+        },
+      });
+    }
+
+    console.log(
+      `✅ کاربر ${item.roleName} → شماره: ${item.phone} | رمز: ${item.password}`,
+    );
   }
 
   console.log("🎉 Seed با موفقیت کامل شد.");

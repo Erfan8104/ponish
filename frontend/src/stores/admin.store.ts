@@ -1,19 +1,40 @@
 import { defineStore } from 'pinia'
 import { adminLoginApi, getAllUsersApi, toggleUserStatusApi } from '@/services/admin.service'
-import { api } from '@/services/api' // فرض بر این است که نمونه آکسیوس شما اینجا قرار دارد
+import { api } from '@/services/api'
 
 export const useAdminStore = defineStore('admin', {
   state: () => ({
     token: localStorage.getItem('adminToken') || '',
     name: localStorage.getItem('adminName') || '',
     phone: localStorage.getItem('adminPhone') || '',
-    users: [] as any[], // 🌟 نگهداری لیست کاربران
+    adminRoles: JSON.parse(localStorage.getItem('adminRoles') || '[]') as {
+      name: string
+      displayName: string
+    }[],
+    permissions: JSON.parse(localStorage.getItem('adminPermissions') || '[]') as string[],
+    users: [] as any[],
     loading: false,
     errorMessage: null as string | null,
   }),
 
+  getters: {
+    // آیا کاربر لاگین کرده؟
+    isAuthenticated: (state) => !!state.token,
+
+    // آیا Super Admin است؟
+    isSuperAdmin: (state) =>
+      state.permissions.includes('*') || state.adminRoles.some((r) => r.name === 'SUPER_ADMIN'),
+
+    // چک کردن یک دسترسی خاص
+    hasPermission: (state) => {
+      return (permissionKey: string) => {
+        if (state.permissions.includes('*')) return true
+        return state.permissions.includes(permissionKey)
+      }
+    },
+  },
+
   actions: {
-    // تنظیم توکن ادمین روی هدر آکسیوس برای درخواست‌های بعدی
     setAuthHeader() {
       if (this.token) {
         api.defaults.headers.common['Authorization'] = `Bearer ${this.token}`
@@ -31,19 +52,24 @@ export const useAdminStore = defineStore('admin', {
 
         if (data.success) {
           this.token = data.token
-          this.name = data.user.name
+          this.name = data.user.name || ''
           this.phone = data.user.phone
+          this.adminRoles = data.user.adminRoles || []
+          this.permissions = data.user.permissions || []
 
-          // ذخیره در localStorage با کلیدهای اختصاصی ادمین
+          // ذخیره در localStorage
           localStorage.setItem('adminToken', data.token)
-          localStorage.setItem('adminName', data.user.name)
+          localStorage.setItem('adminName', data.user.name || '')
           localStorage.setItem('adminPhone', data.user.phone)
+          localStorage.setItem('adminRoles', JSON.stringify(this.adminRoles))
+          localStorage.setItem('adminPermissions', JSON.stringify(this.permissions))
 
-          // اعمال توکن در هدر
           this.setAuthHeader()
-
           return true
         }
+
+        this.errorMessage = data.message || 'ورود ناموفق بود'
+        return false
       } catch (error: any) {
         this.errorMessage =
           error.response?.data?.message || 'خطا در ورود به پنل مدیریت. لطفاً اطلاعات را بررسی کنید.'
@@ -53,7 +79,6 @@ export const useAdminStore = defineStore('admin', {
       }
     },
 
-    // 🌟 گرفتن لیست کاربران
     async fetchUsers() {
       this.loading = true
       try {
@@ -69,19 +94,18 @@ export const useAdminStore = defineStore('admin', {
       }
     },
 
-    // 🌟 تغییر وضعیت کاربر
     async toggleUserStatus(userId: number) {
       try {
         this.setAuthHeader()
         const data = await toggleUserStatusApi(userId)
         if (data.success) {
-          // آپدیت کردن لیست محلی در استور بدون نیاز به ریکوئست مجدد
           const userIndex = this.users.findIndex((u) => u.id === userId)
           if (userIndex !== -1) {
             this.users[userIndex].isActive = data.user.isActive
           }
           return true
         }
+        return false
       } catch (error) {
         console.error('Error toggling user status:', error)
         return false
@@ -92,10 +116,15 @@ export const useAdminStore = defineStore('admin', {
       this.token = ''
       this.name = ''
       this.phone = ''
+      this.adminRoles = []
+      this.permissions = []
+      this.users = []
 
       localStorage.removeItem('adminToken')
       localStorage.removeItem('adminName')
       localStorage.removeItem('adminPhone')
+      localStorage.removeItem('adminRoles')
+      localStorage.removeItem('adminPermissions')
 
       delete api.defaults.headers.common['Authorization']
     },

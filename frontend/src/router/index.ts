@@ -17,7 +17,7 @@ import ConsultationPage from '@/pages/consultationPage.vue'
 
 // صفحات و لایوت مدیریت
 import AdminLoginPage from '../pages/AdminLoginPage.vue'
-import AdminLayout from '../components/admin/AdminLayout/AdminLayout.vue' // یا مسیر دقیق قرارگیری این کامپوننت
+import AdminLayout from '../components/admin/AdminLayout/AdminLayout.vue'
 import AdminDashboardPage from '../pages/AdminDashboardPage.vue'
 import AdminUsersPage from '../pages/AdminUserPage.vue'
 
@@ -51,14 +51,14 @@ const router = createRouter({
     {
       path: '/admin/login',
       component: AdminLoginPage,
-      meta: { requiresGuest: true },
+      // ⚠️ دیگر requiresGuest نمی‌گذاریم تا کاربر عادی هم بتواند وارد صفحه لاگین ادمین شود
     },
 
-    // --- مسیرهای پنل مدیریت تحت لایوت AdminLayout ---
+    // --- مسیرهای پنل مدیریت ---
     {
       path: '/admin',
       component: AdminLayout,
-      meta: { requiresAuth: true, requiresAdmin: true },
+      meta: { requiresAdmin: true },
       children: [
         {
           path: '',
@@ -71,12 +71,15 @@ const router = createRouter({
         {
           path: 'users',
           component: AdminUsersPage,
+          meta: { permission: 'users.view' }, // 🌟 مثال دسترسی
         },
-        // در صورت نیاز به روت‌های دیگر ادمین مانند پروژه‌ها و قراردادها، اینجا اضافه خواهند شد
+        // مسیرهای بعدی را اینجا اضافه کن:
+        // { path: 'projects', component: ..., meta: { permission: 'projects.view' } },
+        // { path: 'payments', component: ..., meta: { permission: 'payments.view' } },
       ],
     },
 
-    // --- روت‌های محافظت شده کاربری ---
+    // --- روت‌های محافظت‌شده کاربری ---
     {
       path: '/dashboard',
       component: DashboardPage,
@@ -112,9 +115,8 @@ const router = createRouter({
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) {
       return savedPosition
-    } else {
-      return { top: 0, behavior: 'smooth' }
     }
+    return { top: 0, behavior: 'smooth' }
   },
 })
 
@@ -122,25 +124,40 @@ router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   const adminStore = useAdminStore()
 
+  // همیشه هدر ادمین را ست کن اگر توکن دارد
   if (adminStore.token) {
     adminStore.setAuthHeader()
   }
 
+  const isAdminRoute = to.path.startsWith('/admin')
   const isAdminLoginPage = to.path === '/admin/login'
 
-  // سناریو ۱: مسیر نیاز به احراز هویت ادمین دارد
-  if (to.meta.requiresAdmin) {
+  // ---------- مسیرهای ادمین ----------
+  if (isAdminRoute) {
+    // صفحه لاگین ادمین
+    if (isAdminLoginPage) {
+      if (adminStore.token) {
+        return next('/admin/dashboard')
+      }
+      return next()
+    }
+
+    // بقیه مسیرهای /admin/*
     if (!adminStore.token) {
       return next('/admin/login')
     }
+
+    // چک دسترسی خاص (اگر meta.permission تعریف شده باشد)
+    const requiredPermission = to.meta.permission as string | undefined
+    if (requiredPermission && !adminStore.hasPermission(requiredPermission)) {
+      // می‌توانی به صفحه 403 بفرستی یا به داشبورد
+      return next('/admin/dashboard')
+    }
+
     return next()
   }
 
-  // سناریو ۲: ادمینِ لاگین‌شده می‌خواهد دوباره برود صفحه لاگین ادمین
-  if (isAdminLoginPage && adminStore.token) {
-    return next('/admin/dashboard')
-  }
-
+  // ---------- مسیرهای عادی کاربر ----------
   if (to.meta.requiresAuth && !authStore.token) {
     return next('/signup')
   }
