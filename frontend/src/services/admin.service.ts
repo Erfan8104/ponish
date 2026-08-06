@@ -17,3 +17,8 @@ export const toggleUserStatusApi = async (userId: number) => {
   const response = await api.patch(`/admin/users/${userId}/toggle-status`)
   return response.data
 }
+
+export const getDashboardStatsApi = async () => {
+  const response = await api.get('/admin/dashboard/stats')
+  return response.data
+}

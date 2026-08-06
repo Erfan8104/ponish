@@ -1,6 +1,29 @@
 import { defineStore } from 'pinia'
-import { adminLoginApi, getAllUsersApi, toggleUserStatusApi } from '@/services/admin.service'
+import {
+  adminLoginApi,
+  getAllUsersApi,
+  toggleUserStatusApi,
+  getDashboardStatsApi,
+} from '@/services/admin.service'
 import { api } from '@/services/api'
+
+export interface DashboardStats {
+  usersCount: number
+  projectsCount: number
+  activeProjects: number
+  activeContracts: number
+  todayPayments: number
+  newUsersToday: number
+  revenue: number
+  pendingReviews: number
+  pendingReports: number
+}
+
+export interface ChartPoint {
+  date: string
+  label: string
+  value: number
+}
 
 export const useAdminStore = defineStore('admin', {
   state: () => ({
@@ -15,17 +38,25 @@ export const useAdminStore = defineStore('admin', {
     users: [] as any[],
     loading: false,
     errorMessage: null as string | null,
+
+    // ---- داشبورد ----
+    dashboardLoading: false,
+    stats: null as DashboardStats | null,
+    latestUsers: [] as any[],
+    latestProjects: [] as any[],
+    charts: {
+      dailyRegistrations: [] as ChartPoint[],
+      dailyProjects: [] as ChartPoint[],
+      dailyPayments: [] as ChartPoint[],
+    },
   }),
 
   getters: {
-    // آیا کاربر لاگین کرده؟
     isAuthenticated: (state) => !!state.token,
 
-    // آیا Super Admin است؟
     isSuperAdmin: (state) =>
       state.permissions.includes('*') || state.adminRoles.some((r) => r.name === 'SUPER_ADMIN'),
 
-    // چک کردن یک دسترسی خاص
     hasPermission: (state) => {
       return (permissionKey: string) => {
         if (state.permissions.includes('*')) return true
@@ -57,7 +88,6 @@ export const useAdminStore = defineStore('admin', {
           this.adminRoles = data.user.adminRoles || []
           this.permissions = data.user.permissions || []
 
-          // ذخیره در localStorage
           localStorage.setItem('adminToken', data.token)
           localStorage.setItem('adminName', data.user.name || '')
           localStorage.setItem('adminPhone', data.user.phone)
@@ -112,6 +142,29 @@ export const useAdminStore = defineStore('admin', {
       }
     },
 
+    // 🌟 دریافت آمار داشبورد
+    async fetchDashboardStats() {
+      this.dashboardLoading = true
+      try {
+        this.setAuthHeader()
+        const data = await getDashboardStatsApi()
+        if (data.success) {
+          this.stats = data.stats
+          this.latestUsers = data.latestUsers || []
+          this.latestProjects = data.latestProjects || []
+          this.charts = {
+            dailyRegistrations: data.charts?.dailyRegistrations || [],
+            dailyProjects: data.charts?.dailyProjects || [],
+            dailyPayments: data.charts?.dailyPayments || [],
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error)
+      } finally {
+        this.dashboardLoading = false
+      }
+    },
+
     logout() {
       this.token = ''
       this.name = ''
@@ -119,6 +172,14 @@ export const useAdminStore = defineStore('admin', {
       this.adminRoles = []
       this.permissions = []
       this.users = []
+      this.stats = null
+      this.latestUsers = []
+      this.latestProjects = []
+      this.charts = {
+        dailyRegistrations: [],
+        dailyProjects: [],
+        dailyPayments: [],
+      }
 
       localStorage.removeItem('adminToken')
       localStorage.removeItem('adminName')

@@ -1,157 +1,259 @@
-<!-- src/pages/AdminDashboardPage.vue -->
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, computed } from 'vue'
 import { useAdminStore } from '@/stores/admin.store'
-import {
-  Users,
-  FolderKanban,
-  Briefcase,
-  FileText,
-  ArrowLeft,
-  UserCheck,
-  UserX,
-} from 'lucide-vue-next'
+import AdminStatCard from '@/components/admin/ui/AdminStatCard.vue'
+import AdminCard from '@/components/admin/ui/AdminCard.vue'
+import AdminTable from '@/components/admin/ui/AdminTable.vue'
+import StatusBadge from '@/components/admin/ui/StatusBadge.vue'
+import type { TableColumn } from '@/components/admin/ui/AdminTable.vue'
 
 const adminStore = useAdminStore()
 
-// داده‌های ساختگی (Mock Data) موقت برای فاز اول پروژه
-const mockStats = ref({
-  totalUsers: 148,
-  totalProjects: 64,
-  activeProjects: 12,
-  totalContracts: 8,
+onMounted(() => {
+  adminStore.fetchDashboardStats()
 })
 
-const mockRecentUsers = ref([
-  { id: 1, name: 'امیرحسین رضایی', phone: '09123456789', isActive: true, role: 'فریلنسر' },
-  { id: 2, name: 'سارا کریمی', phone: '09187654321', isActive: true, role: 'کارفرما' },
-  { id: 3, name: 'محمد علوی', phone: '09098765432', isActive: false, role: 'فریلنسر' },
-  { id: 4, name: 'زهرا حسینی', phone: '09351112233', isActive: true, role: 'کارفرما' },
-])
+const stats = computed(() => adminStore.stats)
+
+function formatNumber(n: number | undefined) {
+  if (n === undefined || n === null) return '—'
+  return new Intl.NumberFormat('fa-IR').format(n)
+}
+
+function formatMoney(n: number | undefined) {
+  if (n === undefined || n === null) return '—'
+  return new Intl.NumberFormat('fa-IR').format(n) + ' تومان'
+}
+
+const roleLabel: Record<string, string> = {
+  employer: 'کارفرما',
+  freelancer: 'فریلنسر',
+  both: 'هردو',
+  admin: 'ادمین',
+}
+
+const userColumns: TableColumn[] = [
+  { key: 'name', label: 'نام' },
+  { key: 'phone', label: 'شماره' },
+  { key: 'role', label: 'نقش' },
+  { key: 'isActive', label: 'وضعیت', align: 'center' },
+]
+
+const projectColumns: TableColumn[] = [
+  { key: 'title', label: 'عنوان' },
+  { key: 'employer', label: 'کارفرما' },
+  { key: 'location', label: 'محل' },
+  { key: 'status', label: 'وضعیت', align: 'center' },
+]
+
+const latestUserRows = computed(() =>
+  adminStore.latestUsers.map((u) => ({
+    id: u.id,
+    name: u.name || '—',
+    phone: u.phone,
+    role: roleLabel[u.role] || u.role,
+    isActive: u.isActive,
+  })),
+)
+
+const latestProjectRows = computed(() =>
+  adminStore.latestProjects.map((p) => ({
+    id: p.id,
+    title: p.title || 'بدون عنوان',
+    employer: p.employer?.name || p.employer?.phone || '—',
+    location: [p.province, p.city].filter(Boolean).join('، ') || '—',
+    status: p.status,
+  })),
+)
+
+// برای نمودار ساده میله‌ای
+function maxValue(points: { value: number }[]) {
+  return Math.max(...points.map((p) => p.value), 1)
+}
 </script>
 
 <template>
   <div class="space-y-6" style="direction: rtl">
-    <!-- هدر صفحه داشبورد -->
+    <!-- هدر -->
     <div>
-      <h1 class="text-2xl font-bold text-gray-900">داشبورد مدیریت</h1>
-      <p class="text-sm text-gray-550 mt-1">خلاصه‌ای از وضعیت کلی پروژه ponisha-clone (فاز اول)</p>
+      <h1 class="text-xl font-bold text-gray-900">داشبورد مدیریت</h1>
+      <p class="text-xs text-gray-400 mt-1">خلاصه وضعیت کلی پلتفرم</p>
     </div>
 
-    <!-- کارت‌های آمار کلیدی -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <!-- کارت کاربران -->
-      <div
-        class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between"
-      >
-        <div>
-          <p class="text-sm text-gray-400 font-medium">کل کاربران</p>
-          <h3 class="text-3xl font-bold text-gray-800 mt-2">{{ mockStats.totalUsers }}</h3>
-        </div>
-        <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-          <Users class="w-6 h-6" />
-        </div>
-      </div>
-
-      <!-- کارت کل پروژه‌ها -->
-      <div
-        class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between"
-      >
-        <div>
-          <p class="text-sm text-gray-400 font-medium">کل پروژه‌ها</p>
-          <h3 class="text-3xl font-bold text-gray-800 mt-2">{{ mockStats.totalProjects }}</h3>
-        </div>
-        <div
-          class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center"
-        >
-          <FolderKanban class="w-6 h-6" />
-        </div>
-      </div>
-
-      <!-- کارت پروژه‌های فعال -->
-      <div
-        class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between"
-      >
-        <div>
-          <p class="text-sm text-gray-400 font-medium">پروژه‌های فعال</p>
-          <h3 class="text-3xl font-bold text-gray-800 mt-2">{{ mockStats.activeProjects }}</h3>
-        </div>
-        <div
-          class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center"
-        >
-          <Briefcase class="w-6 h-6" />
-        </div>
-      </div>
-
-      <!-- کارت قراردادها -->
-      <div
-        class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between"
-      >
-        <div>
-          <p class="text-sm text-gray-400 font-medium">کل قراردادها</p>
-          <h3 class="text-3xl font-bold text-gray-800 mt-2">{{ mockStats.totalContracts }}</h3>
-        </div>
-        <div
-          class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center"
-        >
-          <FileText class="w-6 h-6" />
-        </div>
-      </div>
+    <!-- لودینگ -->
+    <div v-if="adminStore.dashboardLoading && !stats" class="flex justify-center py-20">
+      <div class="w-8 h-8 border-2 border-gray-200 border-t-[#008f55] rounded-full animate-spin" />
     </div>
 
-    <!-- جدول کاربران اخیر -->
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-        <h2 class="text-lg font-bold text-gray-900">آخرین کاربران ثبت‌نام شده</h2>
-        <router-link
-          to="/admin/users"
-          class="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
-        >
-          مشاهده همه کاربران
-          <ArrowLeft class="w-4 h-4" />
-        </router-link>
+    <template v-else>
+      <!-- کارت‌های آماری -->
+      <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <AdminStatCard
+          title="کل کاربران"
+          :value="formatNumber(stats?.usersCount)"
+          icon="👥"
+          color="blue"
+        />
+        <AdminStatCard
+          title="کل پروژه‌ها"
+          :value="formatNumber(stats?.projectsCount)"
+          icon="📋"
+          color="purple"
+        />
+        <AdminStatCard
+          title="پروژه‌های فعال"
+          :value="formatNumber(stats?.activeProjects)"
+          icon="⚡"
+          color="green"
+        />
+        <AdminStatCard
+          title="قراردادهای فعال"
+          :value="formatNumber(stats?.activeContracts)"
+          icon="📝"
+          color="amber"
+        />
+        <AdminStatCard
+          title="پرداخت امروز"
+          :value="formatNumber(stats?.todayPayments)"
+          icon="💳"
+          color="green"
+        />
+        <AdminStatCard
+          title="کاربران جدید امروز"
+          :value="formatNumber(stats?.newUsersToday)"
+          icon="✨"
+          color="blue"
+        />
       </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full text-right border-collapse">
-          <thead>
-            <tr class="bg-gray-50/70 border-b border-gray-100 text-gray-500 text-xs font-semibold">
-              <th class="px-6 py-4">نام و نام خانوادگی</th>
-              <th class="px-6 py-4">شماره همراه</th>
-              <th class="px-6 py-4">نقش کاربر</th>
-              <th class="px-6 py-4">وضعیت حساب</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100 text-sm text-gray-700">
-            <tr
-              v-for="user in mockRecentUsers"
-              :key="user.id"
-              class="hover:bg-gray-50/50 transition-colors"
+      <!-- ردیف دوم آمار -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <AdminStatCard
+          title="درآمد کل"
+          :value="formatMoney(stats?.revenue)"
+          icon="💰"
+          color="green"
+        />
+        <AdminStatCard
+          title="نظرات ثبت‌شده"
+          :value="formatNumber(stats?.pendingReviews)"
+          icon="⭐"
+          color="amber"
+        />
+        <AdminStatCard
+          title="گزارش‌های باز"
+          :value="formatNumber(stats?.pendingReports)"
+          icon="🚩"
+          color="red"
+        />
+      </div>
+
+      <!-- نمودارهای ساده -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- ثبت‌نام روزانه -->
+        <AdminCard title="ثبت‌نام روزانه" subtitle="۷ روز اخیر">
+          <div class="flex items-end gap-1.5 h-28 mt-2">
+            <div
+              v-for="point in adminStore.charts.dailyRegistrations"
+              :key="point.date"
+              class="flex-1 flex flex-col items-center gap-1"
             >
-              <td class="px-6 py-4 font-medium text-gray-900">{{ user.name }}</td>
-              <td class="px-6 py-4 font-mono text-gray-500">{{ user.phone }}</td>
-              <td class="px-6 py-4">
-                <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">
-                  {{ user.role }}
-                </span>
-              </td>
-              <td class="px-6 py-4">
-                <span
-                  :class="[
-                    'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border',
-                    user.isActive
-                      ? 'bg-green-50 text-green-700 border-green-200'
-                      : 'bg-red-50 text-red-700 border-red-200',
-                  ]"
-                >
-                  <component :is="user.isActive ? UserCheck : UserX" class="w-3.5 h-3.5" />
-                  {{ user.isActive ? 'فعال' : 'مسدود' }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              <div
+                class="w-full rounded-t-md bg-[#008f55]/80 min-h-[4px] transition-all"
+                :style="{
+                  height:
+                    (point.value / maxValue(adminStore.charts.dailyRegistrations)) * 100 + '%',
+                }"
+              />
+              <span class="text-[9px] text-gray-400 truncate w-full text-center">
+                {{ point.label }}
+              </span>
+            </div>
+          </div>
+        </AdminCard>
+
+        <!-- ثبت پروژه -->
+        <AdminCard title="ثبت پروژه" subtitle="۷ روز اخیر">
+          <div class="flex items-end gap-1.5 h-28 mt-2">
+            <div
+              v-for="point in adminStore.charts.dailyProjects"
+              :key="point.date"
+              class="flex-1 flex flex-col items-center gap-1"
+            >
+              <div
+                class="w-full rounded-t-md bg-blue-500/80 min-h-[4px] transition-all"
+                :style="{
+                  height: (point.value / maxValue(adminStore.charts.dailyProjects)) * 100 + '%',
+                }"
+              />
+              <span class="text-[9px] text-gray-400 truncate w-full text-center">
+                {{ point.label }}
+              </span>
+            </div>
+          </div>
+        </AdminCard>
+
+        <!-- پرداخت‌ها -->
+        <AdminCard title="پرداخت‌ها" subtitle="۷ روز اخیر (مبلغ)">
+          <div class="flex items-end gap-1.5 h-28 mt-2">
+            <div
+              v-for="point in adminStore.charts.dailyPayments"
+              :key="point.date"
+              class="flex-1 flex flex-col items-center gap-1"
+            >
+              <div
+                class="w-full rounded-t-md bg-amber-500/80 min-h-[4px] transition-all"
+                :style="{
+                  height: (point.value / maxValue(adminStore.charts.dailyPayments)) * 100 + '%',
+                }"
+              />
+              <span class="text-[9px] text-gray-400 truncate w-full text-center">
+                {{ point.label }}
+              </span>
+            </div>
+          </div>
+        </AdminCard>
       </div>
-    </div>
+
+      <!-- جداول -->
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <!-- آخرین کاربران -->
+        <AdminCard title="آخرین کاربران" subtitle="۵ کاربر اخیر">
+          <template #actions>
+            <router-link
+              to="/admin/users"
+              class="text-xs font-semibold text-[#008f55] hover:underline"
+            >
+              مشاهده همه
+            </router-link>
+          </template>
+
+          <AdminTable
+            :columns="userColumns"
+            :rows="latestUserRows"
+            :loading="adminStore.dashboardLoading"
+            empty-text="هنوز کاربری ثبت نشده"
+          >
+            <template #cell-isActive="{ value }">
+              <StatusBadge :status="value ? 'active' : 'inactive'" />
+            </template>
+          </AdminTable>
+        </AdminCard>
+
+        <!-- آخرین پروژه‌ها -->
+        <AdminCard title="آخرین پروژه‌ها" subtitle="۵ پروژه اخیر">
+          <AdminTable
+            :columns="projectColumns"
+            :rows="latestProjectRows"
+            :loading="adminStore.dashboardLoading"
+            empty-text="هنوز پروژه‌ای ثبت نشده"
+          >
+            <template #cell-status="{ value }">
+              <StatusBadge :status="value" />
+            </template>
+          </AdminTable>
+        </AdminCard>
+      </div>
+    </template>
   </div>
 </template>

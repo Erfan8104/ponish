@@ -4,12 +4,12 @@ import { adminMiddleware } from "../middleware/admin.middleware";
 import {
   adminLogin,
   getAllUsersForAdmin,
-  toggleUserStatus, // 🌟 اضافه کردن کنترلر جدید
+  toggleUserStatus,
+  getDashboardStats, // 🌟 اضافه شد
 } from "../controllers/admin.controller";
 
 const router = Router();
 
-// یک مسیر تستی برای ادمین که هم نیاز به لاگین دارد و هم نقش ادمین
 router.get("/test", authMiddleware, adminMiddleware, (req, res) => {
   return res.json({
     success: true,
@@ -17,10 +17,16 @@ router.get("/test", authMiddleware, adminMiddleware, (req, res) => {
   });
 });
 
-// مسیر ورود ادمین (چون کاربر هنوز لاگین نکرده، نیاز به میدلور امنیتی ندارد)
 router.post("/login", adminLogin);
 
-// 🌟 مسیرهای مدیریت کاربران (نیازمند لاگین و داشتن دسترسی ادمین)
+// 🌟 داشبورد
+router.get(
+  "/dashboard/stats",
+  authMiddleware,
+  adminMiddleware,
+  getDashboardStats,
+);
+
 router.get("/users", authMiddleware, adminMiddleware, getAllUsersForAdmin);
 router.patch(
   "/users/:id/toggle-status",

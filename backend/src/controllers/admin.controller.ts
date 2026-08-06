@@ -193,3 +193,183 @@ export const toggleUserStatus = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const getDashboardStats = async (req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const last7Days = new Date(now);
+    last7Days.setDate(last7Days.getDate() - 6);
+    last7Days.setHours(0, 0, 0, 0);
+
+    // ---- آمار کلی ----
+    const [
+      usersCount,
+      projectsCount,
+      activeProjects,
+      activeContracts,
+      todayPaymentsCount,
+      newUsersToday,
+      revenueAgg,
+      pendingReviews,
+      latestUsers,
+      latestProjects,
+    ] = await Promise.all([
+      prisma.user.count({
+        where: { deletedAt: null, role: { not: "admin" } },
+      }),
+      prisma.project.count({
+        where: { deletedAt: null },
+      }),
+      prisma.project.count({
+        where: {
+          deletedAt: null,
+          status: { in: ["open", "in_progress"] },
+        },
+      }),
+      prisma.contract.count({
+        where: { status: "active" },
+      }),
+      prisma.payment.count({
+        where: {
+          status: "paid",
+          paidAt: { gte: startOfToday },
+        },
+      }),
+      prisma.user.count({
+        where: {
+          createdAt: { gte: startOfToday },
+          role: { not: "admin" },
+        },
+      }),
+      prisma.payment.aggregate({
+        where: { status: "paid" },
+        _sum: { amount: true },
+      }),
+      prisma.review.count(),
+      prisma.user.findMany({
+        where: { role: { not: "admin" }, deletedAt: null },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          role: true,
+          isActive: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
+      prisma.project.findMany({
+        where: { deletedAt: null },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          province: true,
+          city: true,
+          createdAt: true,
+          employer: {
+            select: { name: true, phone: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
+    ]);
+
+    // ---- داده نمودار ۷ روز اخیر ----
+    const days: { date: string; label: string }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      d.setHours(0, 0, 0, 0);
+      days.push({
+        date: d.toISOString().slice(0, 10),
+        label: d.toLocaleDateString("fa-IR", {
+          month: "short",
+          day: "numeric",
+        }),
+      });
+    }
+
+    const [usersInRange, projectsInRange, paymentsInRange] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          createdAt: { gte: last7Days },
+          role: { not: "admin" },
+        },
+        select: { createdAt: true },
+      }),
+      prisma.project.findMany({
+        where: {
+          createdAt: { gte: last7Days },
+          deletedAt: null,
+        },
+        select: { createdAt: true },
+      }),
+      prisma.payment.findMany({
+        where: {
+          status: "paid",
+          paidAt: { gte: last7Days },
+        },
+        select: { paidAt: true, amount: true },
+      }),
+    ]);
+
+    const countByDay = (
+      items: { createdAt?: Date | null; paidAt?: Date | null }[],
+      field: "createdAt" | "paidAt",
+    ) => {
+      return days.map((day) => {
+        const count = items.filter((item) => {
+          const dateVal = field === "createdAt" ? item.createdAt : item.paidAt;
+          if (!dateVal) return false;
+          return dateVal.toISOString().slice(0, 10) === day.date;
+        }).length;
+        return { date: day.date, label: day.label, value: count };
+      });
+    };
+
+    const revenueByDay = days.map((day) => {
+      const sum = paymentsInRange
+        .filter(
+          (p) => p.paidAt && p.paidAt.toISOString().slice(0, 10) === day.date,
+        )
+        .reduce((acc, p) => acc + Number(p.amount), 0);
+      return { date: day.date, label: day.label, value: sum };
+    });
+
+    return res.json({
+      success: true,
+      stats: {
+        usersCount,
+        projectsCount,
+        activeProjects,
+        activeContracts,
+        todayPayments: todayPaymentsCount,
+        newUsersToday,
+        revenue: Number(revenueAgg._sum.amount || 0),
+        pendingReviews,
+        pendingReports: 0, // مدل Report هنوز نداریم
+      },
+      latestUsers,
+      latestProjects,
+      charts: {
+        dailyRegistrations: countByDay(usersInRange, "createdAt"),
+        dailyProjects: countByDay(projectsInRange, "createdAt"),
+        dailyPayments: revenueByDay,
+      },
+    });
+  } catch (error) {
+    console.error("Dashboard Stats Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "خطا در دریافت آمار داشبورد",
+    });
+  }
+};
