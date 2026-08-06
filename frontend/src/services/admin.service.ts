@@ -6,12 +6,6 @@ export const adminLoginApi = async (phone: string, password: string) => {
   return response.data
 }
 
-// 🌟 دریافت لیست کاربران برای پنل مدیریت
-export const getAllUsersApi = async () => {
-  const response = await api.get('/admin/users')
-  return response.data
-}
-
 // 🌟 تغییر وضعیت (فعال/غیرفعال) کاربر توسط ادمین
 export const toggleUserStatusApi = async (userId: number) => {
   const response = await api.patch(`/admin/users/${userId}/toggle-status`)
@@ -20,5 +14,44 @@ export const toggleUserStatusApi = async (userId: number) => {
 
 export const getDashboardStatsApi = async () => {
   const response = await api.get('/admin/dashboard/stats')
+  return response.data
+}
+export const getAllUsersApi = async (
+  params: {
+    search?: string
+    role?: string
+    status?: string
+    verified?: string
+    sortBy?: string
+    page?: number
+    limit?: number
+  } = {},
+) => {
+  const response = await api.get('/admin/users', { params })
+  return response.data
+}
+
+export const getUserDetailApi = async (id: number) => {
+  const response = await api.get(`/admin/users/${id}`)
+  return response.data
+}
+
+export const verifyUserApi = async (id: number) => {
+  const response = await api.patch(`/admin/users/${id}/verify`)
+  return response.data
+}
+
+export const deleteUserApi = async (id: number) => {
+  const response = await api.delete(`/admin/users/${id}`)
+  return response.data
+}
+
+export const resetUserPasswordApi = async (id: number) => {
+  const response = await api.post(`/admin/users/${id}/reset-password`)
+  return response.data
+}
+
+export const changeUserRoleApi = async (id: number, role: string) => {
+  const response = await api.patch(`/admin/users/${id}/role`, { role })
   return response.data
 }

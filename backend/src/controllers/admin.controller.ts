@@ -3,6 +3,268 @@ import bcrypt from "bcrypt";
 import { prisma } from "../lib/prisma";
 import jwt from "jsonwebtoken";
 
+import crypto from "crypto";
+
+// جایگزین getAllUsersForAdmin فعلی بشه
+export const getAllUsersForAdmin = async (req: Request, res: Response) => {
+  try {
+    const {
+      search = "",
+      role,
+      status,
+      verified,
+      sortBy = "newest",
+      page = "1",
+      limit = "10",
+    } = req.query as Record<string, string>;
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 10);
+
+    const where: any = { deletedAt: null };
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { phone: { contains: search } },
+        { email: { contains: search, mode: "insensitive" } },
+      ];
+    }
+    if (role) where.role = role;
+    if (status) where.isActive = status === "active";
+    if (verified) where.isVerified = verified === "verified";
+
+    const baseSelect = {
+      id: true,
+      name: true,
+      phone: true,
+      email: true,
+      role: true,
+      profileCompleted: true,
+      isActive: true,
+      isVerified: true,
+      createdAt: true,
+      _count: { select: { projects: true } },
+    };
+
+    let orderBy: any = { createdAt: sortBy === "oldest" ? "asc" : "desc" };
+    if (sortBy === "projectsCount") orderBy = { projects: { _count: "desc" } };
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        select: baseSelect,
+        orderBy,
+        skip: (pageNum - 1) * limitNum,
+        take: limitNum,
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    return res.json({
+      success: true,
+      users,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum) || 1,
+      },
+    });
+  } catch (error) {
+    console.error("Get Users Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت لیست کاربران" });
+  }
+};
+
+// جزئیات کامل یک کاربر
+export const getUserDetail = async (req: Request, res: Response) => {
+  try {
+    const userId = Number(req.params.id);
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        employerProfile: true,
+        freelancerProfile: {
+          include: { skills: { include: { skill: true } } },
+        },
+        projects: {
+          select: { id: true, title: true, status: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+        },
+        contractsAsEmployer: {
+          select: {
+            id: true,
+            status: true,
+            totalAmount: true,
+            createdAt: true,
+            freelancer: { select: { name: true, phone: true } },
+          },
+        },
+        contractsAsFreelancer: {
+          select: {
+            id: true,
+            status: true,
+            totalAmount: true,
+            createdAt: true,
+            employer: { select: { name: true, phone: true } },
+          },
+        },
+        reviewsGiven: {
+          select: {
+            id: true,
+            rating: true,
+            comment: true,
+            createdAt: true,
+            reviewed: { select: { name: true } },
+          },
+        },
+        reviewsReceived: {
+          select: {
+            id: true,
+            rating: true,
+            comment: true,
+            createdAt: true,
+            reviewer: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "کاربر یافت نشد" });
+    }
+
+    const contractIds = [
+      ...user.contractsAsEmployer.map((c) => c.id),
+      ...user.contractsAsFreelancer.map((c) => c.id),
+    ];
+
+    const payments = contractIds.length
+      ? await prisma.payment.findMany({
+          where: { contractId: { in: contractIds } },
+          orderBy: { createdAt: "desc" },
+        })
+      : [];
+
+    const messages = await prisma.message.findMany({
+      where: { OR: [{ senderId: userId }, { receiverId: userId }] },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: {
+        id: true,
+        content: true,
+        type: true,
+        createdAt: true,
+        senderId: true,
+        receiverId: true,
+      },
+    });
+
+    const { password, ...safeUser } = user;
+    return res.json({ success: true, user: safeUser, payments, messages });
+  } catch (error) {
+    console.error("Get User Detail Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت جزئیات کاربر" });
+  }
+};
+
+export const verifyUser = async (req: Request, res: Response) => {
+  try {
+    const user = await prisma.user.update({
+      where: { id: Number(req.params.id) },
+      data: { isVerified: true },
+      select: { id: true, isVerified: true },
+    });
+    return res.json({ success: true, message: "کاربر تایید شد", user });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در تایید کاربر" });
+  }
+};
+
+// Soft delete
+export const deleteUser = async (req: Request, res: Response) => {
+  try {
+    const user = await prisma.user.update({
+      where: { id: Number(req.params.id) },
+      data: { deletedAt: new Date(), isActive: false },
+      select: { id: true, deletedAt: true },
+    });
+    return res.json({ success: true, message: "کاربر حذف شد", user });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در حذف کاربر" });
+  }
+};
+
+export const resetUserPassword = async (req: Request, res: Response) => {
+  try {
+    const newPassword = crypto.randomBytes(4).toString("hex");
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: Number(req.params.id) },
+      data: { password: hashed },
+    });
+
+    // این رمز فقط همین یک بار در پاسخ برمی‌گردد و جایی ذخیره نمی‌شود
+    return res.json({
+      success: true,
+      message: "رمز عبور بازنشانی شد",
+      newPassword,
+    });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در بازنشانی رمز عبور" });
+  }
+};
+
+export const changeUserRole = async (req: Request, res: Response) => {
+  try {
+    const { role } = req.body;
+    const allowedRoles = ["employer", "freelancer", "both", "admin"];
+    if (!allowedRoles.includes(role)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "نقش نامعتبر است" });
+    }
+
+    // فقط سوپر ادمین بتواند نقش admin بدهد
+    // ⚠️ فرض شده req.user.permissions توسط authMiddleware ست می‌شود — چک کن با middleware واقعی‌ات هماهنگ باشد
+    if (role === "admin") {
+      const requesterPermissions = (req as any).user?.permissions || [];
+      if (!requesterPermissions.includes("*")) {
+        return res.status(403).json({
+          success: false,
+          message: "فقط سوپر ادمین می‌تواند نقش ادمین اختصاص دهد",
+        });
+      }
+    }
+
+    const user = await prisma.user.update({
+      where: { id: Number(req.params.id) },
+      data: { role },
+      select: { id: true, role: true },
+    });
+
+    return res.json({ success: true, message: "نقش کاربر تغییر یافت", user });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در تغییر نقش" });
+  }
+};
 export const adminLogin = async (req: Request, res: Response) => {
   try {
     const { phone, password } = req.body;
@@ -116,36 +378,6 @@ export const adminLogin = async (req: Request, res: Response) => {
       success: false,
       message: "خطای سرور در ورود ادمین",
     });
-  }
-};
-
-export const getAllUsersForAdmin = async (req: Request, res: Response) => {
-  try {
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        email: true,
-        role: true,
-        profileCompleted: true,
-        isActive: true,
-        createdAt: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return res.json({
-      success: true,
-      users,
-    });
-  } catch (error) {
-    console.error("Get Users Error:", error);
-    return res
-      .status(500)
-      .json({ success: false, message: "خطا در دریافت لیست کاربران" });
   }
 };
 

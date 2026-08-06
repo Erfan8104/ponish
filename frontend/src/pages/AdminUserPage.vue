@@ -1,229 +1,196 @@
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { getAllUsersApi, toggleUserStatusApi } from '@/services/admin.service'
-import {
-  useVueTable,
-  getCoreRowModel,
-  getPaginationRowModel,
-  getFilteredRowModel,
-  FlexRender,
-} from '@tanstack/vue-table'
+import AdminSearch from '@/components/admin/ui/AdminSearch.vue'
+import AdminFilter from '@/components/admin/ui/AdminFilter.vue'
+import AdminTable from '@/components/admin/ui/AdminTable.vue'
+import Pagination from '@/components/admin/ui/Pagination.vue'
+import StatusBadge from '@/components/admin/ui/StatusBadge.vue'
+import type { TableColumn } from '@/components/admin/ui/AdminTable.vue'
+
+const router = useRouter()
 
 const users = ref<any[]>([])
 const loading = ref(true)
-const globalFilter = ref('')
+const search = ref('')
+const roleFilter = ref<string | null>(null)
+const statusFilter = ref<string | null>(null)
+const verifiedFilter = ref<string | null>(null)
+const sortBy = ref<string>('newest')
+const page = ref(1)
+const limit = 10
+const totalItems = ref(0)
+const totalPages = ref(1)
 
-// دریافت داده‌ها از سرور
-onMounted(async () => {
+const roleOptions = [
+  { label: 'کارفرما', value: 'employer' },
+  { label: 'فریلنسر', value: 'freelancer' },
+  { label: 'هردو', value: 'both' },
+  { label: 'ادمین', value: 'admin' },
+]
+const statusOptions = [
+  { label: 'فعال', value: 'active' },
+  { label: 'غیرفعال', value: 'inactive' },
+]
+const verifiedOptions = [
+  { label: 'تایید شده', value: 'verified' },
+  { label: 'تایید نشده', value: 'unverified' },
+]
+const sortOptions = [
+  { label: 'جدیدترین', value: 'newest' },
+  { label: 'قدیمی‌ترین', value: 'oldest' },
+  { label: 'بیشترین پروژه', value: 'projectsCount' },
+]
+
+const roleLabel: Record<string, string> = {
+  employer: 'کارفرما',
+  freelancer: 'فریلنسر',
+  both: 'هردو',
+  admin: 'ادمین',
+}
+
+async function fetchUsers() {
+  loading.value = true
   try {
-    const data = await getAllUsersApi()
-    if (data && data.success) {
+    const data = await getAllUsersApi({
+      search: search.value || undefined,
+      role: roleFilter.value || undefined,
+      status: statusFilter.value || undefined,
+      verified: verifiedFilter.value || undefined,
+      sortBy: sortBy.value,
+      page: page.value,
+      limit,
+    } as any)
+    if (data?.success) {
       users.value = data.users || []
+      totalItems.value = data.pagination?.total || 0
+      totalPages.value = data.pagination?.totalPages || 1
     }
   } catch (error) {
     console.error('خطا در دریافت کاربران:', error)
   } finally {
     loading.value = false
   }
-})
+}
 
-// تابع تغییر وضعیت کاربر
-const toggleUserStatus = async (userId: number) => {
-  try {
-    const res = await toggleUserStatusApi(userId)
-    if (res && res.success) {
-      const user = users.value.find((u) => u.id === userId)
-      if (user) {
-        // اصلاح‌شده: خواندن مقدار isActive از داخل شیء user پاسخ سرور
-        user.isActive = res.user.isActive
-      }
-    }
-  } catch (error) {
-    console.error('خطا در تغییر وضعیت کاربر:', error)
+onMounted(fetchUsers)
+watch([roleFilter, statusFilter, verifiedFilter, sortBy, search], () => {
+  page.value = 1
+  fetchUsers()
+})
+watch(page, fetchUsers)
+
+async function toggleStatus(userId: number) {
+  const res = await toggleUserStatusApi(userId)
+  if (res?.success) {
+    const user = users.value.find((u) => u.id === userId)
+    if (user) user.isActive = res.user.isActive
   }
 }
 
-// تعریف ستون‌های جدول
-const columns = [
-  {
-    accessorKey: 'name',
-    header: 'نام و نام خانوادگی',
-    cell: (info: any) => info.getValue() || 'تکمیل نشده',
-  },
-  {
-    accessorKey: 'phone',
-    header: 'شماره تماس',
-  },
-  {
-    accessorKey: 'email',
-    header: 'ایمیل',
-    cell: (info: any) => info.getValue() || 'ثبت نشده',
-  },
-  {
-    accessorKey: 'role',
-    header: 'نقش کاربر',
-    cell: (info: any) => {
-      const role = info.getValue()
-      if (role === 'admin') return 'مدیر کل'
-      if (role === 'employer') return 'کارفرما'
-      if (role === 'freelancer') return 'فریلنسر'
-      return 'نامشخص'
-    },
-  },
-  {
-    accessorKey: 'isActive',
-    header: 'وضعیت حساب',
-    cell: (info: any) => {
-      const isActive = info.getValue()
-      return h(
-        'span',
-        {
-          class: isActive
-            ? 'px-2.5 py-1 rounded-md text-[10px] font-bold bg-green-50 text-green-600 inline-block'
-            : 'px-2.5 py-1 rounded-md text-[10px] font-bold bg-red-50 text-red-600 inline-block',
-        },
-        isActive ? 'فعال' : 'مسدود',
-      )
-    },
-  },
-  {
-    id: 'actions',
-    header: 'عملیات',
-    cell: ({ row }: any) => {
-      const user = row.original
-      return h(
-        'button',
-        {
-          onClick: () => toggleUserStatus(user.id),
-          class: user.isActive
-            ? 'px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-[11px] font-medium transition-colors cursor-pointer'
-            : 'px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg text-[11px] font-medium transition-colors cursor-pointer',
-        },
-        user.isActive ? 'مسدود کردن' : 'فعال‌سازی',
-      )
-    },
-  },
-  {
-    accessorKey: 'createdAt',
-    header: 'تاریخ عضویت',
-    cell: (info: any) => {
-      const date = info.getValue()
-      return date ? new Date(date).toLocaleDateString('fa-IR') : '-'
-    },
-  },
+const columns: TableColumn[] = [
+  { key: 'name', label: 'نام و نام خانوادگی' },
+  { key: 'phone', label: 'شماره تماس' },
+  { key: 'email', label: 'ایمیل' },
+  { key: 'role', label: 'نقش', align: 'center' },
+  { key: 'isVerified', label: 'احراز هویت', align: 'center' },
+  { key: 'isActive', label: 'وضعیت', align: 'center' },
+  { key: 'createdAt', label: 'تاریخ عضویت' },
+  { key: 'actions', label: 'عملیات', align: 'center' },
 ]
 
-// راه‌اندازی جدول با TanStack Table
-const table = useVueTable({
-  get data() {
-    return users.value
-  },
-  get columns() {
-    return columns
-  },
-  getCoreRowModel: getCoreRowModel(),
-  getPaginationRowModel: getPaginationRowModel(),
-  getFilteredRowModel: getFilteredRowModel(),
-  state: {
-    get globalFilter() {
-      return globalFilter.value
-    },
-  },
-  onGlobalFilterChange: (val) => {
-    globalFilter.value = val as string
-  },
-})
+const rows = computed(() =>
+  users.value.map((u) => ({
+    id: u.id,
+    name: u.name || 'تکمیل نشده',
+    phone: u.phone,
+    email: u.email || 'ثبت نشده',
+    role: roleLabel[u.role] || u.role,
+    isVerified: u.isVerified,
+    isActive: u.isActive,
+    createdAt: u.createdAt ? new Date(u.createdAt).toLocaleDateString('fa-IR') : '-',
+    _raw: u,
+  })),
+)
+
+function goToDetail(row: Record<string, any>) {
+  router.push(`/admin/users/${row.id}`)
+}
 </script>
 
 <template>
   <div class="min-h-screen bg-gray-50 p-8 text-gray-800" style="direction: rtl">
-    <div class="max-w-6xl mx-auto">
-      <!-- هدر صفحه -->
-      <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-        <div>
-          <h1 class="text-xl font-bold text-gray-900">مدیریت کاربران</h1>
-          <p class="text-xs text-gray-400 mt-1">فهرست تمام کاربران ثبت‌نام شده در پلتفرم</p>
-        </div>
-
-        <div class="w-full md:w-72">
-          <input
-            v-model="globalFilter"
-            type="text"
-            placeholder="جستجو در کاربران..."
-            class="w-full h-10 px-4 bg-white border border-gray-200 rounded-xl text-xs focus:border-[#008f55] outline-none transition-all shadow-sm"
-          />
-        </div>
+    <div class="max-w-7xl mx-auto space-y-6">
+      <div>
+        <h1 class="text-xl font-bold text-gray-900">مدیریت کاربران</h1>
+        <p class="text-xs text-gray-400 mt-1">فهرست تمام کاربران ثبت‌نام شده در پلتفرم</p>
       </div>
 
-      <!-- جدول مدیریت -->
-      <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-        <div v-if="loading" class="text-center py-16 text-xs text-gray-400">
-          در حال بارگذاری لیست کاربران...
+      <div class="flex flex-col lg:flex-row gap-3 lg:items-end">
+        <div class="lg:w-80">
+          <AdminSearch v-model="search" placeholder="جستجو با نام، شماره یا ایمیل..." />
         </div>
-
-        <div v-else-if="users.length === 0" class="text-center py-16 text-xs text-gray-400">
-          هیچ کاربری یافت نشد.
-        </div>
-
-        <div v-else class="overflow-x-auto">
-          <table class="w-full text-right border-collapse">
-            <thead>
-              <tr
-                class="bg-gray-50/70 border-b border-gray-100 text-[11px] font-bold text-gray-500"
-              >
-                <th v-for="header in table.getFlatHeaders()" :key="header.id" class="px-6 py-4">
-                  <FlexRender
-                    v-if="!header.isPlaceholder"
-                    :render="header.column.columnDef.header"
-                    :props="header.getContext()"
-                  />
-                </th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100 text-xs text-gray-600">
-              <tr
-                v-for="row in table.getRowModel().rows"
-                :key="row.id"
-                class="hover:bg-gray-50/50 transition-colors"
-              >
-                <td
-                  v-for="cell in row.getVisibleCells()"
-                  :key="cell.id"
-                  class="px-6 py-4 font-medium"
-                >
-                  <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- فوتر و صفحه‌بندی -->
-        <div
-          class="flex items-center justify-between px-6 py-4 bg-gray-50/50 border-t border-gray-100 text-xs"
-        >
-          <span class="text-gray-400">
-            صفحه {{ table.getState().pagination.pageIndex + 1 }} از {{ table.getPageCount() || 1 }}
-          </span>
-
-          <div class="flex gap-2">
-            <button
-              @click="table.previousPage()"
-              :disabled="!table.getCanPreviousPage()"
-              class="px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors cursor-pointer"
-            >
-              قبلی
-            </button>
-            <button
-              @click="table.nextPage()"
-              :disabled="!table.getCanNextPage()"
-              class="px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors cursor-pointer"
-            >
-              بعدی
-            </button>
-          </div>
-        </div>
+        <AdminFilter
+          v-model="roleFilter"
+          label="نقش"
+          :options="roleOptions"
+          placeholder="همه نقش‌ها"
+        />
+        <AdminFilter
+          v-model="statusFilter"
+          label="وضعیت"
+          :options="statusOptions"
+          placeholder="همه وضعیت‌ها"
+        />
+        <AdminFilter
+          v-model="verifiedFilter"
+          label="احراز هویت"
+          :options="verifiedOptions"
+          placeholder="همه"
+        />
+        <AdminFilter
+          v-model="sortBy"
+          label="مرتب‌سازی"
+          :options="sortOptions"
+          placeholder="جدیدترین"
+        />
       </div>
+
+      <AdminTable
+        :columns="columns"
+        :rows="rows"
+        :loading="loading"
+        empty-text="هیچ کاربری یافت نشد"
+        @row-click="goToDetail"
+      >
+        <template #cell-isVerified="{ value }">
+          <StatusBadge :status="value ? 'active' : 'inactive'" />
+        </template>
+        <template #cell-isActive="{ value }">
+          <StatusBadge :status="value ? 'active' : 'inactive'" />
+        </template>
+        <template #cell-actions="{ row }">
+          <button
+            class="px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors"
+            :class="
+              row._raw.isActive
+                ? 'bg-red-50 hover:bg-red-100 text-red-600'
+                : 'bg-green-50 hover:bg-green-100 text-green-600'
+            "
+            @click.stop="toggleStatus(row.id)"
+          >
+            {{ row._raw.isActive ? 'مسدود کردن' : 'فعال‌سازی' }}
+          </button>
+        </template>
+      </AdminTable>
+
+      <Pagination
+        v-model:page="page"
+        :total-pages="totalPages"
+        :total-items="totalItems"
+        :per-page="limit"
+      />
     </div>
   </div>
 </template>

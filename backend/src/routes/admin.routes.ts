@@ -1,11 +1,19 @@
 import { Router } from "express";
 import { authMiddleware } from "../middleware/auth.middleware";
-import { adminMiddleware } from "../middleware/admin.middleware";
+import {
+  adminMiddleware,
+  requirePermission,
+} from "../middleware/admin.middleware";
 import {
   adminLogin,
   getAllUsersForAdmin,
+  getUserDetail,
   toggleUserStatus,
-  getDashboardStats, // 🌟 اضافه شد
+  verifyUser,
+  deleteUser,
+  resetUserPassword,
+  changeUserRole,
+  getDashboardStats,
 } from "../controllers/admin.controller";
 
 const router = Router();
@@ -19,7 +27,7 @@ router.get("/test", authMiddleware, adminMiddleware, (req, res) => {
 
 router.post("/login", adminLogin);
 
-// 🌟 داشبورد
+// داشبورد — کلید permission اختصاصی نداریم، فقط عمومی بودن ادمین کافیست
 router.get(
   "/dashboard/stats",
   authMiddleware,
@@ -27,12 +35,58 @@ router.get(
   getDashboardStats,
 );
 
-router.get("/users", authMiddleware, adminMiddleware, getAllUsersForAdmin);
+// مشاهده — SUPER_ADMIN, ADMIN, SUPPORT, FINANCE, MODERATOR همه دسترسی دارند
+router.get(
+  "/users",
+  authMiddleware,
+  requirePermission("users.view"),
+  getAllUsersForAdmin,
+);
+router.get(
+  "/users/:id",
+  authMiddleware,
+  requirePermission("users.view"),
+  getUserDetail,
+);
+
+// مسدود/فعال‌سازی — فقط SUPER_ADMIN, ADMIN, MODERATOR
 router.patch(
   "/users/:id/toggle-status",
   authMiddleware,
-  adminMiddleware,
+  requirePermission("users.ban"),
   toggleUserStatus,
+);
+
+// تایید هویت — SUPER_ADMIN, ADMIN, SUPPORT
+router.patch(
+  "/users/:id/verify",
+  authMiddleware,
+  requirePermission("users.edit"),
+  verifyUser,
+);
+
+// حذف — فقط SUPER_ADMIN (طبق rolePermissionMap فقط SUPER_ADMIN کلید users.delete رو داره)
+router.delete(
+  "/users/:id",
+  authMiddleware,
+  requirePermission("users.delete"),
+  deleteUser,
+);
+
+// ری‌ست رمز — حساس است، حداقل users.edit لازم است
+router.post(
+  "/users/:id/reset-password",
+  authMiddleware,
+  requirePermission("users.edit"),
+  resetUserPassword,
+);
+
+// تغییر نقش — users.edit پایه، ولی تبدیل به admin داخل کنترلر چک اضافه دارد (فقط "*")
+router.patch(
+  "/users/:id/role",
+  authMiddleware,
+  requirePermission("users.edit"),
+  changeUserRole,
 );
 
 export default router;
