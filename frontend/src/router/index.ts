@@ -21,6 +21,7 @@ import AdminLayout from '../components/admin/AdminLayout/AdminLayout.vue'
 import AdminDashboardPage from '../pages/AdminDashboardPage.vue'
 import AdminUsersPage from '../pages/AdminUserPage.vue'
 import AdminUserDetailPage from '../pages/AdminUserDetailPage.vue'
+import AdminProjectPage from '../pages/AdminProjectPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -78,6 +79,11 @@ const router = createRouter({
           path: 'users/:id',
           component: AdminUserDetailPage,
           meta: { permission: 'users.view' },
+        },
+        {
+          path: 'projects',
+          component: AdminProjectPage,
+          meta: { permission: 'projects.view' },
         },
         // مسیرهای بعدی را اینجا اضافه کن:
         // { path: 'projects', component: ..., meta: { permission: 'projects.view' } },

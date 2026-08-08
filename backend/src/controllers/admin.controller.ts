@@ -79,6 +79,78 @@ export const getAllUsersForAdmin = async (req: Request, res: Response) => {
   }
 };
 
+export const getAllProjectsForAdmin = async (req: Request, res: Response) => {
+  try {
+    const {
+      search = "",
+      status,
+      sortBy = "newest",
+      page = "1",
+      limit = "10",
+    } = req.query as Record<string, string>;
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 10);
+
+    const where: any = { deletedAt: null };
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { employer: { name: { contains: search, mode: "insensitive" } } },
+        { employer: { phone: { contains: search } } },
+      ];
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    let orderBy: any = { createdAt: "desc" };
+    if (sortBy === "oldest") orderBy = { createdAt: "asc" };
+    if (sortBy === "budget") orderBy = { maxBudget: "desc" };
+
+    const [projects, total] = await Promise.all([
+      prisma.project.findMany({
+        where,
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          province: true,
+          minBudget: true,
+          maxBudget: true,
+          budgetType: true,
+          createdAt: true,
+          employer: {
+            select: { name: true, phone: true },
+          },
+        },
+        orderBy,
+        skip: (pageNum - 1) * limitNum,
+        take: limitNum,
+      }),
+      prisma.project.count({ where }),
+    ]);
+
+    return res.json({
+      success: true,
+      projects,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum) || 1,
+      },
+    });
+  } catch (error) {
+    console.error("Get All Projects Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "خطا در دریافت لیست پروژه‌ها",
+    });
+  }
+};
 // جزئیات کامل یک کاربر
 export const getUserDetail = async (req: Request, res: Response) => {
   try {

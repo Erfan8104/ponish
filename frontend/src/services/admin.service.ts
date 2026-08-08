@@ -55,3 +55,16 @@ export const changeUserRoleApi = async (id: number, role: string) => {
   const response = await api.patch(`/admin/users/${id}/role`, { role })
   return response.data
 }
+
+export const getAllProjectsApi = async (
+  params: {
+    search?: string
+    status?: string
+    sortBy?: string
+    page?: number
+    limit?: number
+  } = {},
+) => {
+  const response = await api.get('/admin/projects', { params })
+  return response.data
+}

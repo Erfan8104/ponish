@@ -14,6 +14,7 @@ import {
   resetUserPassword,
   changeUserRole,
   getDashboardStats,
+  getAllProjectsForAdmin,
 } from "../controllers/admin.controller";
 
 const router = Router();
@@ -47,6 +48,13 @@ router.get(
   authMiddleware,
   requirePermission("users.view"),
   getUserDetail,
+);
+
+router.get(
+  "/projects",
+  authMiddleware,
+  requirePermission("projects.view"),
+  getAllProjectsForAdmin,
 );
 
 // مسدود/فعال‌سازی — فقط SUPER_ADMIN, ADMIN, MODERATOR
