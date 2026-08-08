@@ -22,6 +22,7 @@ import AdminDashboardPage from '../pages/AdminDashboardPage.vue'
 import AdminUsersPage from '../pages/AdminUserPage.vue'
 import AdminUserDetailPage from '../pages/AdminUserDetailPage.vue'
 import AdminProjectPage from '../pages/AdminProjectPage.vue'
+import AdminProjectDetailPage from '../pages/AdminProjectDetailPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -79,6 +80,11 @@ const router = createRouter({
           path: 'users/:id',
           component: AdminUserDetailPage,
           meta: { permission: 'users.view' },
+        },
+        {
+          path: 'projects/:id',
+          component: AdminProjectDetailPage,
+          meta: { permission: 'projects.view' },
         },
         {
           path: 'projects',

@@ -19,6 +19,7 @@ import {
   closeProject,
   toggleFeatureProject,
   deleteProjectByAdmin,
+  getProjectDetailForAdmin,
 } from "../controllers/admin.controller";
 
 const router = Router();
@@ -52,6 +53,13 @@ router.get(
   authMiddleware,
   requirePermission("users.view"),
   getUserDetail,
+);
+
+router.get(
+  "/projects/:id",
+  authMiddleware,
+  requirePermission("projects.view"),
+  getProjectDetailForAdmin,
 );
 
 router.get(

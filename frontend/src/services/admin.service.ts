@@ -88,3 +88,8 @@ export const deleteProjectApi = async (id: number) => {
   const response = await api.delete(`/admin/projects/${id}`)
   return response.data
 }
+
+export const getProjectDetailApi = async (id: number) => {
+  const response = await api.get(`/admin/projects/${id}`)
+  return response.data
+}

@@ -79,6 +79,38 @@ export const getAllUsersForAdmin = async (req: Request, res: Response) => {
   }
 };
 
+export const getProjectDetailForAdmin = async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        employer: {
+          select: { id: true, name: true, phone: true, email: true },
+        },
+        category: true,
+        _count: {
+          select: { proposals: true },
+        },
+      },
+    });
+
+    if (!project || project.deletedAt) {
+      return res
+        .status(404)
+        .json({ success: false, message: "پروژه یافت نشد" });
+    }
+
+    return res.json({ success: true, project });
+  } catch (error) {
+    console.error("Get Project Detail Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت جزئیات پروژه" });
+  }
+};
+
 export const getAllProjectsForAdmin = async (req: Request, res: Response) => {
   try {
     const {

@@ -14,6 +14,7 @@ import AdminTable from '@/components/admin/ui/AdminTable.vue'
 import Pagination from '@/components/admin/ui/Pagination.vue'
 import StatusBadge from '@/components/admin/ui/StatusBadge.vue'
 import type { TableColumn } from '@/components/admin/ui/AdminTable.vue'
+import { useRouter } from 'vue-router'
 
 const projects = ref<any[]>([])
 const loading = ref(true)
@@ -24,6 +25,7 @@ const limit = 10
 const totalItems = ref(0)
 const totalPages = ref(1)
 const sortBy = ref('newest')
+const router = useRouter()
 
 const statusOptions = [
   { label: 'پیش‌نویس', value: 'draft' },
@@ -39,6 +41,10 @@ const sortOptions = [
   { label: 'قدیمی‌ترین', value: 'oldest' },
   { label: 'بیشترین بودجه', value: 'budget' },
 ]
+
+function goToDetail(row: Record<string, any>) {
+  router.push(`/admin/projects/${row.id}`)
+}
 async function fetchProjects() {
   loading.value = true
   try {
@@ -166,13 +172,14 @@ const rows = computed(() =>
         :rows="rows"
         :loading="loading"
         empty-text="هیچ پروژه‌ای یافت نشد"
+        @row-click="goToDetail"
       >
         <template #cell-status="{ value }">
           <StatusBadge :status="value" />
         </template>
 
         <template #cell-actions="{ row }">
-          <div class="flex gap-1.5 justify-center flex-wrap">
+          <div class="flex gap-1.5 justify-center flex-wrap" @click.stop>
             <button
               v-if="row._raw.status === 'draft'"
               class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-[10px] font-medium"

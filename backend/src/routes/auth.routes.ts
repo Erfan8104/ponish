@@ -8,7 +8,6 @@ import {
   checkLoginMethod,
   completeRegistration,
   updateUserRole, // 🌟 ۱. ایمپورت تابع کنترلر جدید
-  deleteAccount,
 } from "../controllers/auth.controller";
 import {
   validateSendOtp,
