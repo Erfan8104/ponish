@@ -11,6 +11,7 @@ const menuItems: MenuItem[] = [
   { label: 'داشبورد', path: '/admin/dashboard', icon: '📊' },
   { label: 'کاربران', path: '/admin/users', icon: '👥' },
   { label: 'پروژه‌ها', path: '/admin/projects', icon: '📁' },
+  { label: 'پیشنهادها', path: '/admin/proposals', icon: '📝' },
   { label: 'قراردادها', path: '/admin/contracts', icon: '📄' },
   { label: 'پرداخت‌ها', path: '/admin/payments', icon: '💳' },
   { label: 'دسته‌بندی‌ها', path: '/admin/categories', icon: '🗂️' },

@@ -93,3 +93,22 @@ export const getProjectDetailApi = async (id: number) => {
   const response = await api.get(`/admin/projects/${id}`)
   return response.data
 }
+
+export const getAllProposalsApi = async () => {
+  const response = await api.get('/admin/proposals')
+  return response.data
+}
+export const acceptProposalApi = async (id: number) => {
+  const response = await api.patch(`/admin/proposals/${id}/accept`)
+  return response.data
+}
+
+export const rejectProposalApi = async (id: number) => {
+  const response = await api.patch(`/admin/proposals/${id}/reject`)
+  return response.data
+}
+
+export const deleteProposalApi = async (id: number) => {
+  const response = await api.delete(`/admin/proposals/${id}`)
+  return response.data
+}

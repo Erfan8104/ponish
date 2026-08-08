@@ -20,6 +20,10 @@ import {
   toggleFeatureProject,
   deleteProjectByAdmin,
   getProjectDetailForAdmin,
+  getAllProposalsForAdmin,
+  acceptProposalForAdmin,
+  rejectProposalForAdmin,
+  deleteProposalForAdmin,
 } from "../controllers/admin.controller";
 
 const router = Router();
@@ -67,6 +71,14 @@ router.get(
   authMiddleware,
   requirePermission("projects.view"),
   getAllProjectsForAdmin,
+);
+
+// پیشنهادها — مشاهده با proposals.view (نه projects.view)
+router.get(
+  "/proposals",
+  authMiddleware,
+  requirePermission("proposals.view"),
+  getAllProposalsForAdmin,
 );
 
 // مسدود/فعال‌سازی — فقط SUPER_ADMIN, ADMIN, MODERATOR
@@ -133,4 +145,27 @@ router.delete(
   requirePermission("projects.delete"),
   deleteProjectByAdmin,
 );
+
+// پیشنهادها — عملیات نوشتنی (تایید/رد/حذف) با proposals.manage
+router.patch(
+  "/proposals/:id/accept",
+  authMiddleware,
+  requirePermission("proposals.manage"),
+  acceptProposalForAdmin,
+);
+
+router.patch(
+  "/proposals/:id/reject",
+  authMiddleware,
+  requirePermission("proposals.manage"),
+  rejectProposalForAdmin,
+);
+
+router.delete(
+  "/proposals/:id",
+  authMiddleware,
+  requirePermission("proposals.manage"),
+  deleteProposalForAdmin,
+);
+
 export default router;

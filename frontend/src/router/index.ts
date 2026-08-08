@@ -23,6 +23,7 @@ import AdminUsersPage from '../pages/AdminUserPage.vue'
 import AdminUserDetailPage from '../pages/AdminUserDetailPage.vue'
 import AdminProjectPage from '../pages/AdminProjectPage.vue'
 import AdminProjectDetailPage from '../pages/AdminProjectDetailPage.vue'
+import AdminProposalPage from '../pages/AdminProposalPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -70,6 +71,11 @@ const router = createRouter({
         {
           path: 'dashboard',
           component: AdminDashboardPage,
+        },
+        {
+          path: 'proposals',
+          component: AdminProposalPage,
+          meta: { permission: 'projects.view' },
         },
         {
           path: 'users',

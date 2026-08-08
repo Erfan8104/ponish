@@ -116,6 +116,14 @@ async function main() {
     { key: "projects.delete", name: "حذف پروژه‌ها", group: "projects" },
     { key: "projects.feature", name: "ویژه کردن پروژه", group: "projects" },
 
+    // Proposals
+    { key: "proposals.view", name: "مشاهده پیشنهادها", group: "proposals" },
+    {
+      key: "proposals.manage",
+      name: "مدیریت پیشنهادها (تایید/رد/حذف)",
+      group: "proposals",
+    },
+
     // Contracts
     { key: "contracts.view", name: "مشاهده قراردادها", group: "contracts" },
     { key: "contracts.edit", name: "ویرایش قراردادها", group: "contracts" },
@@ -187,6 +195,8 @@ async function main() {
       "projects.edit",
       "projects.delete",
       "projects.feature",
+      "proposals.view",
+      "proposals.manage",
       "contracts.view",
       "contracts.edit",
       "contracts.cancel",
@@ -206,6 +216,7 @@ async function main() {
       "users.view",
       "users.edit",
       "projects.view",
+      "proposals.view",
       "contracts.view",
       "messages.view",
       "messages.delete",
@@ -215,6 +226,7 @@ async function main() {
     FINANCE: [
       "users.view",
       "projects.view",
+      "proposals.view",
       "contracts.view",
       "payments.view",
       "payments.refund",
@@ -228,6 +240,7 @@ async function main() {
       "users.ban",
       "projects.view",
       "projects.delete",
+      "proposals.view",
       "reviews.view",
       "reviews.delete",
       "messages.view",

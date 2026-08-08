@@ -816,3 +816,188 @@ export const deleteProjectByAdmin = async (req: Request, res: Response) => {
       .json({ success: false, message: "خطا در حذف پروژه" });
   }
 };
+
+export const getAllProposalsForAdmin = async (req: Request, res: Response) => {
+  try {
+    const proposals = await prisma.proposal.findMany({
+      select: {
+        id: true,
+        amount: true,
+        deliveryDays: true,
+        status: true,
+        createdAt: true,
+        freelancer: {
+          select: { id: true, name: true, phone: true },
+        },
+        project: {
+          select: { id: true, title: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.json({
+      success: true,
+      proposals,
+    });
+  } catch (error) {
+    console.error("Get All Proposals Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "خطا در دریافت لیست پیشنهادها",
+    });
+  }
+};
+
+// تایید پیشنهاد → ساخت قرارداد + رد خودکار بقیه پیشنهادهای همون پروژه
+export const acceptProposalForAdmin = async (req: Request, res: Response) => {
+  try {
+    const proposalId = Number(req.params.id);
+
+    const proposal = await prisma.proposal.findUnique({
+      where: { id: proposalId },
+      include: { project: true },
+    });
+
+    if (!proposal) {
+      return res
+        .status(404)
+        .json({ success: false, message: "پیشنهاد یافت نشد" });
+    }
+
+    if (proposal.status !== "pending") {
+      return res.status(400).json({
+        success: false,
+        message: "فقط پیشنهادهای در انتظار قابل تایید هستند",
+      });
+    }
+
+    const existingContract = await prisma.contract.findUnique({
+      where: { projectId: proposal.projectId },
+    });
+    if (existingContract) {
+      return res.status(400).json({
+        success: false,
+        message: "برای این پروژه قبلاً قرارداد ثبت شده است",
+      });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedProposal = await tx.proposal.update({
+        where: { id: proposalId },
+        data: { status: "accepted" },
+      });
+
+      await tx.proposal.updateMany({
+        where: {
+          projectId: proposal.projectId,
+          id: { not: proposalId },
+          status: "pending",
+        },
+        data: { status: "rejected" },
+      });
+
+      const contract = await tx.contract.create({
+        data: {
+          projectId: proposal.projectId,
+          proposalId: proposal.id,
+          employerId: proposal.project.employerId,
+          freelancerId: proposal.freelancerId,
+          totalAmount: proposal.amount,
+          status: "active",
+        },
+      });
+
+      await tx.project.update({
+        where: { id: proposal.projectId },
+        data: { status: "in_progress" },
+      });
+
+      return { updatedProposal, contract };
+    });
+
+    return res.json({
+      success: true,
+      message: "پیشنهاد تایید شد و قرارداد ایجاد شد",
+      proposal: result.updatedProposal,
+      contract: result.contract,
+    });
+  } catch (error) {
+    console.error("Accept Proposal Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در تایید پیشنهاد" });
+  }
+};
+
+// رد پیشنهاد
+export const rejectProposalForAdmin = async (req: Request, res: Response) => {
+  try {
+    const proposal = await prisma.proposal.findUnique({
+      where: { id: Number(req.params.id) },
+    });
+
+    if (!proposal) {
+      return res
+        .status(404)
+        .json({ success: false, message: "پیشنهاد یافت نشد" });
+    }
+
+    if (proposal.status !== "pending") {
+      return res.status(400).json({
+        success: false,
+        message: "فقط پیشنهادهای در انتظار قابل رد هستند",
+      });
+    }
+
+    const updated = await prisma.proposal.update({
+      where: { id: proposal.id },
+      data: { status: "rejected" },
+      select: { id: true, status: true },
+    });
+
+    return res.json({
+      success: true,
+      message: "پیشنهاد رد شد",
+      proposal: updated,
+    });
+  } catch (error) {
+    console.error("Reject Proposal Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در رد پیشنهاد" });
+  }
+};
+
+// حذف پیشنهاد (Proposal مدل soft-delete نداره، حذف واقعیه)
+export const deleteProposalForAdmin = async (req: Request, res: Response) => {
+  try {
+    const proposal = await prisma.proposal.findUnique({
+      where: { id: Number(req.params.id) },
+    });
+
+    if (!proposal) {
+      return res
+        .status(404)
+        .json({ success: false, message: "پیشنهاد یافت نشد" });
+    }
+
+    // Contract.proposalId → onDelete: Cascade
+    // یعنی اگه پیشنهاد accepted حذف بشه، قرارداد فعالش هم پاک می‌شه
+    if (proposal.status === "accepted") {
+      return res.status(400).json({
+        success: false,
+        message: "پیشنهاد تاییدشده (دارای قرارداد) قابل حذف نیست",
+      });
+    }
+
+    await prisma.proposal.delete({ where: { id: proposal.id } });
+
+    return res.json({ success: true, message: "پیشنهاد حذف شد" });
+  } catch (error) {
+    console.error("Delete Proposal Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در حذف پیشنهاد" });
+  }
+};
