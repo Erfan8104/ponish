@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { getProjectDetailApi } from '@/services/admin.service'
 import StatusBadge from '@/components/admin/ui/StatusBadge.vue'
 import AdminCard from '@/components/admin/ui/AdminCard.vue'
+import AdminProjectPdfExporter from '@/components/admin/ui/AdminProjectPdfExporter.vue'
+import AdminBoundaryMapView from '@/components/admin/ui/AdminBoundaryMapView.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,7 +18,11 @@ const activeTab = ref('info')
 
 const tabs = [
   { key: 'info', label: 'اطلاعات پروژه' },
-  // تب‌های بعدی (پیشنهادها، قرارداد، پیوست‌ها، مهارت‌ها، نقشه) در قدم‌های بعدی اضافه می‌شوند
+  { key: 'proposals', label: 'پیشنهادها' },
+  { key: 'contract', label: 'قرارداد' },
+  { key: 'attachments', label: 'پیوست‌ها' },
+  { key: 'skills', label: 'مهارت‌ها' },
+  { key: 'map', label: 'نقشه' },
 ]
 
 async function fetchDetail() {
@@ -80,9 +86,11 @@ function formatMoney(n: any) {
               کارفرما: {{ project.employer?.name || project.employer?.phone || '—' }}
             </p>
           </div>
-          <StatusBadge :status="project.status" size="md" />
+          <div class="flex items-center gap-3">
+            <StatusBadge :status="project.status" size="md" />
+            <AdminProjectPdfExporter :project="project" />
+          </div>
         </div>
-
         <!-- کارت‌های آماری -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <AdminCard>
@@ -157,6 +165,113 @@ function formatMoney(n: any) {
               {{ new Date(project.createdAt).toLocaleDateString('fa-IR') }}
             </div>
           </div>
+        </AdminCard>
+
+        <!-- محتوای تب: پیشنهادها -->
+        <AdminCard v-else-if="activeTab === 'proposals'" title="پیشنهادها">
+          <div v-if="project.proposals?.length" class="divide-y divide-gray-100">
+            <div
+              v-for="pr in project.proposals"
+              :key="pr.id"
+              class="py-3 flex justify-between items-center text-xs"
+            >
+              <div>
+                <p class="font-semibold">
+                  {{ pr.freelancer?.name || pr.freelancer?.phone || '—' }}
+                </p>
+                <p class="text-gray-400 mt-0.5">
+                  {{ formatMoney(pr.amount) }} · تحویل در {{ pr.deliveryDays }} روز
+                </p>
+                <p class="text-gray-400 mt-0.5 line-clamp-1">{{ pr.coverLetter }}</p>
+              </div>
+              <StatusBadge :status="pr.status" />
+            </div>
+          </div>
+          <p v-else class="text-xs text-gray-400">پیشنهادی برای این پروژه ثبت نشده.</p>
+        </AdminCard>
+
+        <!-- محتوای تب: قرارداد -->
+        <AdminCard v-else-if="activeTab === 'contract'" title="قرارداد">
+          <div v-if="project.contract" class="space-y-3 text-xs">
+            <div class="flex justify-between">
+              <span class="text-gray-400">فریلنسر:</span>
+              <span>
+                {{ project.contract.freelancer?.name || project.contract.freelancer?.phone || '—' }}
+              </span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">مبلغ کل قرارداد:</span>
+              <span>{{ formatMoney(project.contract.totalAmount) }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-gray-400">وضعیت قرارداد:</span>
+              <StatusBadge :status="project.contract.status" />
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">تاریخ شروع:</span>
+              <span>{{ new Date(project.contract.startedAt).toLocaleDateString('fa-IR') }}</span>
+            </div>
+            <div v-if="project.contract.completedAt" class="flex justify-between">
+              <span class="text-gray-400">تاریخ اتمام:</span>
+              <span>{{ new Date(project.contract.completedAt).toLocaleDateString('fa-IR') }}</span>
+            </div>
+
+            <div v-if="project.contract.milestones?.length" class="pt-3 border-t border-gray-100">
+              <p class="text-gray-400 mb-2">مایلستون‌ها</p>
+              <div
+                v-for="m in project.contract.milestones"
+                :key="m.id"
+                class="flex justify-between items-center py-2"
+              >
+                <div>
+                  <p class="font-medium">{{ m.title }}</p>
+                  <p class="text-gray-400 mt-0.5">{{ formatMoney(m.amount) }}</p>
+                </div>
+                <StatusBadge :status="m.status" />
+              </div>
+            </div>
+          </div>
+          <p v-else class="text-xs text-gray-400">قراردادی برای این پروژه ثبت نشده.</p>
+        </AdminCard>
+
+        <!-- محتوای تب: پیوست‌ها -->
+        <!-- محتوای تب: پیوست‌ها -->
+        <AdminCard v-else-if="activeTab === 'attachments'" title="پیوست‌ها">
+          <div v-if="project.attachments?.length" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <a
+              v-for="att in project.attachments"
+              :key="att.id"
+              :href="att.fileUrl"
+              target="_blank"
+              class="p-3 border border-gray-100 rounded-xl text-xs hover:bg-gray-50 transition-colors truncate"
+              >📎 {{ att.fileName }}</a
+            >
+          </div>
+          <p v-else class="text-xs text-gray-400">پیوستی برای این پروژه ثبت نشده.</p>
+        </AdminCard>
+
+        <!-- محتوای تب: مهارت‌ها -->
+        <AdminCard v-else-if="activeTab === 'skills'" title="مهارت‌های مورد نیاز">
+          <div v-if="project.skills?.length" class="flex flex-wrap gap-2">
+            <span
+              v-for="s in project.skills"
+              :key="s.id"
+              class="px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-xs"
+            >
+              {{ s.skill.name }}
+            </span>
+          </div>
+          <p v-else class="text-xs text-gray-400">مهارتی برای این پروژه ثبت نشده.</p>
+        </AdminCard>
+
+        <!-- محتوای تب: نقشه -->
+        <AdminCard v-else-if="activeTab === 'map'" title="نقشه و محدوده">
+          <AdminBoundaryMapView
+            v-if="project.geoJson"
+            :geo-json="project.geoJson"
+            :mapping-type="project.mappingType"
+          />
+          <p v-else class="text-xs text-gray-400">محدوده‌ای برای این پروژه ثبت نشده.</p>
         </AdminCard>
       </div>
     </div>

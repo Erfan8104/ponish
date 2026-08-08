@@ -93,6 +93,28 @@ export const getProjectDetailForAdmin = async (req: Request, res: Response) => {
         _count: {
           select: { proposals: true },
         },
+        proposals: {
+          include: {
+            freelancer: {
+              select: { id: true, name: true, phone: true },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+        },
+        contract: {
+          include: {
+            freelancer: {
+              select: { id: true, name: true, phone: true },
+            },
+            milestones: true,
+          },
+        },
+        attachments: true,
+        skills: {
+          include: {
+            skill: true,
+          },
+        },
       },
     });
 
