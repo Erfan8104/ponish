@@ -121,6 +121,8 @@ export const getAllProjectsForAdmin = async (req: Request, res: Response) => {
           minBudget: true,
           maxBudget: true,
           budgetType: true,
+          isFeatured: true,
+
           createdAt: true,
           employer: {
             select: { name: true, phone: true },
@@ -675,5 +677,88 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       success: false,
       message: "خطا در دریافت آمار داشبورد",
     });
+  }
+};
+
+export const publishProject = async (req: Request, res: Response) => {
+  try {
+    const project = await prisma.project.update({
+      where: { id: Number(req.params.id) },
+      data: { status: "open", publishedAt: new Date() },
+      select: { id: true, status: true, publishedAt: true },
+    });
+    return res.json({ success: true, message: "پروژه منتشر شد", project });
+  } catch (error) {
+    console.error("Publish Project Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در انتشار پروژه" });
+  }
+};
+
+export const closeProject = async (req: Request, res: Response) => {
+  try {
+    const project = await prisma.project.update({
+      where: { id: Number(req.params.id) },
+      data: { status: "completed", closedAt: new Date() },
+      select: { id: true, status: true, closedAt: true },
+    });
+    return res.json({ success: true, message: "پروژه بسته شد", project });
+  } catch (error) {
+    console.error("Close Project Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در بستن پروژه" });
+  }
+};
+
+export const toggleFeatureProject = async (req: Request, res: Response) => {
+  try {
+    const current = await prisma.project.findUnique({
+      where: { id: Number(req.params.id) },
+      select: { isFeatured: true },
+    });
+
+    if (!current) {
+      return res
+        .status(404)
+        .json({ success: false, message: "پروژه یافت نشد" });
+    }
+
+    const project = await prisma.project.update({
+      where: { id: Number(req.params.id) },
+      data: { isFeatured: !current.isFeatured },
+      select: { id: true, isFeatured: true },
+    });
+
+    return res.json({
+      success: true,
+      message: project.isFeatured
+        ? "پروژه ویژه شد"
+        : "پروژه از حالت ویژه خارج شد",
+      project,
+    });
+  } catch (error) {
+    console.error("Toggle Feature Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در تغییر وضعیت ویژه" });
+  }
+};
+
+// Soft delete
+export const deleteProjectByAdmin = async (req: Request, res: Response) => {
+  try {
+    const project = await prisma.project.update({
+      where: { id: Number(req.params.id) },
+      data: { deletedAt: new Date(), status: "cancelled" },
+      select: { id: true, deletedAt: true },
+    });
+    return res.json({ success: true, message: "پروژه حذف شد", project });
+  } catch (error) {
+    console.error("Delete Project Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در حذف پروژه" });
   }
 };

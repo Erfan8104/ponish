@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { getAllProjectsApi } from '@/services/admin.service'
+import {
+  getAllProjectsApi,
+  publishProjectApi,
+  closeProjectApi,
+  toggleFeatureProjectApi,
+  deleteProjectApi,
+} from '@/services/admin.service'
+import ConfirmModal from '@/components/admin/ui/ConfirmModal.vue'
 import AdminSearch from '@/components/admin/ui/AdminSearch.vue'
 import AdminFilter from '@/components/admin/ui/AdminFilter.vue'
 import AdminTable from '@/components/admin/ui/AdminTable.vue'
@@ -55,6 +62,36 @@ async function fetchProjects() {
   }
 }
 
+async function publish(id: number) {
+  const res = await publishProjectApi(id)
+  if (res?.success) fetchProjects()
+}
+
+async function close(id: number) {
+  const res = await closeProjectApi(id)
+  if (res?.success) fetchProjects()
+}
+
+async function toggleFeature(id: number) {
+  const res = await toggleFeatureProjectApi(id)
+  if (res?.success) fetchProjects()
+}
+
+const showDeleteModal = ref(false)
+const deleteTargetId = ref<number | null>(null)
+
+function askDelete(id: number) {
+  deleteTargetId.value = id
+  showDeleteModal.value = true
+}
+
+async function confirmDelete() {
+  if (!deleteTargetId.value) return
+  const res = await deleteProjectApi(deleteTargetId.value)
+  if (res?.success) fetchProjects()
+  showDeleteModal.value = false
+}
+
 onMounted(fetchProjects)
 
 // وقتی جستجو یا فیلتر عوض شد، برگرد صفحه ۱ و دوباره fetch کن
@@ -81,6 +118,7 @@ const columns: TableColumn[] = [
   { key: 'status', label: 'وضعیت', align: 'center' },
   { key: 'province', label: 'استان' },
   { key: 'createdAt', label: 'تاریخ ثبت' },
+  { key: 'actions', label: 'عملیات', align: 'center' },
 ]
 
 const rows = computed(() =>
@@ -92,6 +130,7 @@ const rows = computed(() =>
     status: p.status,
     province: p.province || '—',
     createdAt: p.createdAt ? new Date(p.createdAt).toLocaleDateString('fa-IR') : '-',
+    _raw: p,
   })),
 )
 </script>
@@ -131,6 +170,42 @@ const rows = computed(() =>
         <template #cell-status="{ value }">
           <StatusBadge :status="value" />
         </template>
+
+        <template #cell-actions="{ row }">
+          <div class="flex gap-1.5 justify-center flex-wrap">
+            <button
+              v-if="row._raw.status === 'draft'"
+              class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-[10px] font-medium"
+              @click="publish(row.id)"
+            >
+              انتشار
+            </button>
+            <button
+              v-if="['open', 'in_progress'].includes(row._raw.status)"
+              class="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-[10px] font-medium"
+              @click="close(row.id)"
+            >
+              بستن
+            </button>
+            <button
+              class="px-2.5 py-1 rounded-lg text-[10px] font-medium"
+              :class="
+                row._raw.isFeatured
+                  ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                  : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+              "
+              @click="toggleFeature(row.id)"
+            >
+              {{ row._raw.isFeatured ? 'حذف ویژه' : 'ویژه کردن' }}
+            </button>
+            <button
+              class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-[10px] font-medium"
+              @click="askDelete(row.id)"
+            >
+              حذف
+            </button>
+          </div>
+        </template>
       </AdminTable>
 
       <Pagination
@@ -140,5 +215,14 @@ const rows = computed(() =>
         :per-page="limit"
       />
     </div>
+
+    <ConfirmModal
+      v-model="showDeleteModal"
+      title="حذف پروژه"
+      message="آیا از حذف این پروژه مطمئن هستید؟ این عمل قابل بازگشت نیست."
+      confirm-text="حذف کن"
+      variant="danger"
+      @confirm="confirmDelete"
+    />
   </div>
 </template>

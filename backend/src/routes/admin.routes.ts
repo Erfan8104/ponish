@@ -15,6 +15,10 @@ import {
   changeUserRole,
   getDashboardStats,
   getAllProjectsForAdmin,
+  publishProject,
+  closeProject,
+  toggleFeatureProject,
+  deleteProjectByAdmin,
 } from "../controllers/admin.controller";
 
 const router = Router();
@@ -97,4 +101,28 @@ router.patch(
   changeUserRole,
 );
 
+router.patch(
+  "/projects/:id/publish",
+  authMiddleware,
+  requirePermission("projects.edit"),
+  publishProject,
+);
+router.patch(
+  "/projects/:id/close",
+  authMiddleware,
+  requirePermission("projects.edit"),
+  closeProject,
+);
+router.patch(
+  "/projects/:id/feature",
+  authMiddleware,
+  requirePermission("projects.feature"),
+  toggleFeatureProject,
+);
+router.delete(
+  "/projects/:id",
+  authMiddleware,
+  requirePermission("projects.delete"),
+  deleteProjectByAdmin,
+);
 export default router;

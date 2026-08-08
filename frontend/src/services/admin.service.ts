@@ -68,3 +68,23 @@ export const getAllProjectsApi = async (
   const response = await api.get('/admin/projects', { params })
   return response.data
 }
+
+export const publishProjectApi = async (id: number) => {
+  const response = await api.patch(`/admin/projects/${id}/publish`)
+  return response.data
+}
+
+export const closeProjectApi = async (id: number) => {
+  const response = await api.patch(`/admin/projects/${id}/close`)
+  return response.data
+}
+
+export const toggleFeatureProjectApi = async (id: number) => {
+  const response = await api.patch(`/admin/projects/${id}/feature`)
+  return response.data
+}
+
+export const deleteProjectApi = async (id: number) => {
+  const response = await api.delete(`/admin/projects/${id}`)
+  return response.data
+}
