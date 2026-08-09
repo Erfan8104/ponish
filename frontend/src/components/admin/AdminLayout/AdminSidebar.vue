@@ -20,6 +20,8 @@ const menuItems: MenuItem[] = [
   { label: 'پیام‌ها', path: '/admin/messages', icon: '💬' },
   { label: 'فایل‌ها', path: '/admin/files', icon: '📎' },
   { label: 'گزارش‌ها', path: '/admin/reports', icon: '📈' },
+  { label: 'لاگ فعالیت‌ها', path: '/admin/activity-logs', icon: '📋' },
+
   { label: 'تنظیمات', path: '/admin/settings', icon: '⚙️' },
 ]
 </script>

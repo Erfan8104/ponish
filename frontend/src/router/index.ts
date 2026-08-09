@@ -33,6 +33,7 @@ import AdminMessagePage from '../pages/AdminMessagePage.vue'
 import AdminReviewPage from '../pages/AdminReviewPage.vue'
 import AdminFilePage from '../pages/AdminFilePage.vue'
 import AdminReportPage from '../pages/AdminReportPage.vue'
+import AdminActivityLogPage from '@/pages/AdminActivityLogPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -84,6 +85,11 @@ const router = createRouter({
         {
           path: 'dashboard',
           component: AdminDashboardPage,
+        },
+        {
+          path: 'activity-logs',
+          component: AdminActivityLogPage,
+          meta: { permission: 'settings.view' },
         },
         {
           path: 'reports',

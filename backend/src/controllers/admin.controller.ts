@@ -4,19 +4,95 @@ import { prisma } from "../lib/prisma";
 import fs from "fs";
 import path from "path";
 import jwt from "jsonwebtoken";
-
 import crypto from "crypto";
+import { logAdminActivity, getAdminId } from "../utils/activityLog";
 
-// ---------- مدیریت فایل‌ها (فاز ۱۲) ----------
+// ==============================
+// لاگ فعالیت‌ها (فاز ۱۴)
+// ==============================
 
-/** مسیر پایه uploads (نسبت به ریشه backend) */
+export const getAllActivityLogsForAdmin = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const {
+      search = "",
+      action,
+      targetType,
+      adminId,
+      page = "1",
+      limit = "20",
+    } = req.query as Record<string, string>;
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 20));
+
+    const where: any = {};
+
+    if (action) where.action = action;
+    if (targetType) where.targetType = targetType;
+    if (adminId) where.adminId = Number(adminId);
+
+    if (search) {
+      where.OR = [
+        { description: { contains: search, mode: "insensitive" } },
+        { action: { contains: search, mode: "insensitive" } },
+        { admin: { name: { contains: search, mode: "insensitive" } } },
+        { admin: { phone: { contains: search } } },
+      ];
+    }
+
+    const [logs, total] = await Promise.all([
+      prisma.activityLog.findMany({
+        where,
+        select: {
+          id: true,
+          action: true,
+          targetType: true,
+          targetId: true,
+          description: true,
+          metadata: true,
+          ipAddress: true,
+          createdAt: true,
+          admin: {
+            select: { id: true, name: true, phone: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (pageNum - 1) * limitNum,
+        take: limitNum,
+      }),
+      prisma.activityLog.count({ where }),
+    ]);
+
+    return res.json({
+      success: true,
+      logs,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum) || 1,
+      },
+    });
+  } catch (error) {
+    console.error("Get Activity Logs Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت لاگ فعالیت‌ها" });
+  }
+};
+
+// ==============================
+// مدیریت فایل‌ها (فاز ۱۲)
+// ==============================
+
 const UPLOADS_ROOT = path.join(process.cwd(), "uploads");
 
 function tryDeletePhysicalFile(fileUrlOrPath: string | null | undefined) {
   if (!fileUrlOrPath) return;
   try {
-    // پشتیبانی از حالت‌های مختلف ذخیره:
-    // "/uploads/avatars/xxx.jpg"  یا  "avatars/xxx.jpg"  یا  فقط نام فایل
     let relative = fileUrlOrPath.replace(/^\/+/, "");
     if (relative.startsWith("uploads/")) {
       relative = relative.slice("uploads/".length);
@@ -34,7 +110,7 @@ export const getAllFilesForAdmin = async (req: Request, res: Response) => {
   try {
     const {
       search = "",
-      type, // 'avatar' | 'attachment' | undefined
+      type,
       page = "1",
       limit = "20",
     } = req.query as Record<string, string>;
@@ -128,7 +204,6 @@ export const getAllFilesForAdmin = async (req: Request, res: Response) => {
       }
     }
 
-    // مرتب‌سازی نهایی بر اساس تاریخ (جدیدترین اول)
     results.sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -158,7 +233,7 @@ export const getAllFilesForAdmin = async (req: Request, res: Response) => {
 
 export const deleteFileByAdmin = async (req: Request, res: Response) => {
   try {
-    const { type, id } = req.params; // type = 'avatar' | 'attachment'
+    const { type, id } = req.params;
     const numId = Number(id);
 
     if (!["avatar", "attachment"].includes(type) || isNaN(numId)) {
@@ -170,7 +245,7 @@ export const deleteFileByAdmin = async (req: Request, res: Response) => {
     if (type === "avatar") {
       const user = await prisma.user.findUnique({
         where: { id: numId },
-        select: { id: true, avatar: true },
+        select: { id: true, avatar: true, name: true, phone: true },
       });
       if (!user || !user.avatar) {
         return res
@@ -185,12 +260,26 @@ export const deleteFileByAdmin = async (req: Request, res: Response) => {
         data: { avatar: null },
       });
 
+      // لاگ
+      const adminId = getAdminId(req);
+      if (adminId) {
+        await logAdminActivity({
+          adminId,
+          action: "file.delete",
+          targetType: "avatar",
+          targetId: numId,
+          description: `ادمین آواتار کاربر «${user.name || user.phone}» را حذف کرد`,
+          req,
+        });
+      }
+
       return res.json({ success: true, message: "آواتار حذف شد" });
     }
 
     // attachment
     const attachment = await prisma.projectAttachment.findUnique({
       where: { id: numId },
+      include: { project: { select: { id: true, title: true } } },
     });
     if (!attachment) {
       return res
@@ -202,6 +291,19 @@ export const deleteFileByAdmin = async (req: Request, res: Response) => {
 
     await prisma.projectAttachment.delete({ where: { id: numId } });
 
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "file.delete",
+        targetType: "attachment",
+        targetId: numId,
+        description: `ادمین فایل پیوست «${attachment.fileName}» از پروژه «${attachment.project?.title || attachment.projectId}» را حذف کرد`,
+        req,
+      });
+    }
+
     return res.json({ success: true, message: "فایل پیوست حذف شد" });
   } catch (error) {
     console.error("Delete File Error:", error);
@@ -209,7 +311,10 @@ export const deleteFileByAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// جایگزین getAllUsersForAdmin فعلی بشه
+// ==============================
+// مدیریت کاربران
+// ==============================
+
 export const getAllUsersForAdmin = async (req: Request, res: Response) => {
   try {
     const {
@@ -283,135 +388,6 @@ export const getAllUsersForAdmin = async (req: Request, res: Response) => {
   }
 };
 
-export const getProjectDetailForAdmin = async (req: Request, res: Response) => {
-  try {
-    const projectId = Number(req.params.id);
-
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      include: {
-        employer: {
-          select: { id: true, name: true, phone: true, email: true },
-        },
-        category: true,
-        _count: {
-          select: { proposals: true },
-        },
-        proposals: {
-          include: {
-            freelancer: {
-              select: { id: true, name: true, phone: true },
-            },
-          },
-          orderBy: { createdAt: "desc" },
-        },
-        contract: {
-          include: {
-            freelancer: {
-              select: { id: true, name: true, phone: true },
-            },
-            milestones: true,
-          },
-        },
-        attachments: true,
-        skills: {
-          include: {
-            skill: true,
-          },
-        },
-      },
-    });
-
-    if (!project || project.deletedAt) {
-      return res
-        .status(404)
-        .json({ success: false, message: "پروژه یافت نشد" });
-    }
-
-    return res.json({ success: true, project });
-  } catch (error) {
-    console.error("Get Project Detail Error:", error);
-    return res
-      .status(500)
-      .json({ success: false, message: "خطا در دریافت جزئیات پروژه" });
-  }
-};
-
-export const getAllProjectsForAdmin = async (req: Request, res: Response) => {
-  try {
-    const {
-      search = "",
-      status,
-      sortBy = "newest",
-      page = "1",
-      limit = "10",
-    } = req.query as Record<string, string>;
-
-    const pageNum = Math.max(1, parseInt(page) || 1);
-    const limitNum = Math.max(1, parseInt(limit) || 10);
-
-    const where: any = { deletedAt: null };
-
-    if (search) {
-      where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { employer: { name: { contains: search, mode: "insensitive" } } },
-        { employer: { phone: { contains: search } } },
-      ];
-    }
-
-    if (status) {
-      where.status = status;
-    }
-
-    let orderBy: any = { createdAt: "desc" };
-    if (sortBy === "oldest") orderBy = { createdAt: "asc" };
-    if (sortBy === "budget") orderBy = { maxBudget: "desc" };
-
-    const [projects, total] = await Promise.all([
-      prisma.project.findMany({
-        where,
-        select: {
-          id: true,
-          title: true,
-          status: true,
-          province: true,
-          minBudget: true,
-          maxBudget: true,
-          budgetType: true,
-          isFeatured: true,
-
-          createdAt: true,
-          employer: {
-            select: { name: true, phone: true },
-          },
-        },
-        orderBy,
-        skip: (pageNum - 1) * limitNum,
-        take: limitNum,
-      }),
-      prisma.project.count({ where }),
-    ]);
-
-    return res.json({
-      success: true,
-      projects,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum) || 1,
-      },
-    });
-  } catch (error) {
-    console.error("Get All Projects Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "خطا در دریافت لیست پروژه‌ها",
-    });
-  }
-};
-// جزئیات کامل یک کاربر
 export const getUserDetail = async (req: Request, res: Response) => {
   try {
     const userId = Number(req.params.id);
@@ -513,8 +489,22 @@ export const verifyUser = async (req: Request, res: Response) => {
     const user = await prisma.user.update({
       where: { id: Number(req.params.id) },
       data: { isVerified: true },
-      select: { id: true, isVerified: true },
+      select: { id: true, name: true, phone: true, isVerified: true },
     });
+
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "user.verify",
+        targetType: "user",
+        targetId: user.id,
+        description: `ادمین کاربر «${user.name || user.phone}» را تأیید کرد`,
+        req,
+      });
+    }
+
     return res.json({ success: true, message: "کاربر تایید شد", user });
   } catch (error) {
     return res
@@ -529,8 +519,22 @@ export const deleteUser = async (req: Request, res: Response) => {
     const user = await prisma.user.update({
       where: { id: Number(req.params.id) },
       data: { deletedAt: new Date(), isActive: false },
-      select: { id: true, deletedAt: true },
+      select: { id: true, name: true, phone: true, deletedAt: true },
     });
+
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "user.delete",
+        targetType: "user",
+        targetId: user.id,
+        description: `ادمین کاربر «${user.name || user.phone}» را حذف کرد`,
+        req,
+      });
+    }
+
     return res.json({ success: true, message: "کاربر حذف شد", user });
   } catch (error) {
     return res
@@ -544,12 +548,25 @@ export const resetUserPassword = async (req: Request, res: Response) => {
     const newPassword = crypto.randomBytes(4).toString("hex");
     const hashed = await bcrypt.hash(newPassword, 10);
 
-    await prisma.user.update({
+    const user = await prisma.user.update({
       where: { id: Number(req.params.id) },
       data: { password: hashed },
+      select: { id: true, name: true, phone: true },
     });
 
-    // این رمز فقط همین یک بار در پاسخ برمی‌گردد و جایی ذخیره نمی‌شود
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "user.reset_password",
+        targetType: "user",
+        targetId: user.id,
+        description: `ادمین رمز عبور کاربر «${user.name || user.phone}» را بازنشانی کرد`,
+        req,
+      });
+    }
+
     return res.json({
       success: true,
       message: "رمز عبور بازنشانی شد",
@@ -572,8 +589,6 @@ export const changeUserRole = async (req: Request, res: Response) => {
         .json({ success: false, message: "نقش نامعتبر است" });
     }
 
-    // فقط سوپر ادمین بتواند نقش admin بدهد
-    // ⚠️ فرض شده req.user.permissions توسط authMiddleware ست می‌شود — چک کن با middleware واقعی‌ات هماهنگ باشد
     if (role === "admin") {
       const requesterPermissions = (req as any).user?.permissions || [];
       if (!requesterPermissions.includes("*")) {
@@ -587,8 +602,22 @@ export const changeUserRole = async (req: Request, res: Response) => {
     const user = await prisma.user.update({
       where: { id: Number(req.params.id) },
       data: { role },
-      select: { id: true, role: true },
+      select: { id: true, name: true, phone: true, role: true },
     });
+
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "user.change_role",
+        targetType: "user",
+        targetId: user.id,
+        description: `ادمین نقش کاربر «${user.name || user.phone}» را به «${role}» تغییر داد`,
+        metadata: { newRole: role },
+        req,
+      });
+    }
 
     return res.json({ success: true, message: "نقش کاربر تغییر یافت", user });
   } catch (error) {
@@ -597,6 +626,62 @@ export const changeUserRole = async (req: Request, res: Response) => {
       .json({ success: false, message: "خطا در تغییر نقش" });
   }
 };
+
+export const toggleUserStatus = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const user = await prisma.user.findUnique({
+      where: { id: Number(id) },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "کاربر مورد نظر یافت نشد",
+      });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: Number(id) },
+      data: {
+        isActive: !user.isActive,
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        isActive: true,
+      },
+    });
+
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: updatedUser.isActive ? "user.activate" : "user.deactivate",
+        targetType: "user",
+        targetId: updatedUser.id,
+        description: `ادمین حساب «${updatedUser.name || updatedUser.phone}» را ${updatedUser.isActive ? "فعال" : "غیرفعال"} کرد`,
+        req,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `حساب کاربری با موفقیت ${updatedUser.isActive ? "فعال" : "غیرفعال"} شد`,
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Toggle User Status Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "خطا در تغییر وضعیت کاربر",
+    });
+  }
+};
+
 export const adminLogin = async (req: Request, res: Response) => {
   try {
     const { phone, password } = req.body;
@@ -608,7 +693,6 @@ export const adminLogin = async (req: Request, res: Response) => {
       });
     }
 
-    // کاربر را همراه با نقش‌های ادمین و دسترسی‌ها پیدا کن
     const user = await prisma.user.findUnique({
       where: { phone },
       include: {
@@ -628,7 +712,6 @@ export const adminLogin = async (req: Request, res: Response) => {
       },
     });
 
-    // یا role === "admin" باشد، یا حداقل یک نقش ادمین داشته باشد
     const hasAdminRole =
       user?.role === "admin" ||
       (user?.adminRoles && user.adminRoles.length > 0);
@@ -662,7 +745,6 @@ export const adminLogin = async (req: Request, res: Response) => {
       });
     }
 
-    // استخراج نقش‌ها و دسترسی‌ها
     const adminRoles = user.adminRoles.map((ur) => ({
       name: ur.role.name,
       displayName: ur.role.displayName,
@@ -676,7 +758,6 @@ export const adminLogin = async (req: Request, res: Response) => {
     });
     const permissions = Array.from(permissionsSet);
 
-    // اگر نقش SUPER_ADMIN داشت، همه دسترسی‌ها را بده (اختیاری ولی مفید)
     const isSuperAdmin = adminRoles.some((r) => r.name === "SUPER_ADMIN");
 
     const token = jwt.sign(
@@ -685,7 +766,7 @@ export const adminLogin = async (req: Request, res: Response) => {
         phone: user.phone,
         role: user.role,
         adminRoles: adminRoles.map((r) => r.name),
-        permissions: isSuperAdmin ? ["*"] : permissions, // * یعنی همه دسترسی‌ها
+        permissions: isSuperAdmin ? ["*"] : permissions,
       },
       process.env.JWT_SECRET || "supersecretkey",
       { expiresIn: "7d" },
@@ -713,50 +794,9 @@ export const adminLogin = async (req: Request, res: Response) => {
   }
 };
 
-export const toggleUserStatus = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    const user = await prisma.user.findUnique({
-      where: { id: Number(id) },
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "کاربر مورد نظر یافت نشد",
-      });
-    }
-
-    // جلوگیری از غیرفعال کردن خود ادمین (اختیاری)
-    // if (user.role === "admin") { ... }
-
-    const updatedUser = await prisma.user.update({
-      where: { id: Number(id) },
-      data: {
-        isActive: !user.isActive,
-      },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        isActive: true,
-      },
-    });
-
-    return res.json({
-      success: true,
-      message: `حساب کاربری با موفقیت ${updatedUser.isActive ? "فعال" : "غیرفعال"} شد`,
-      user: updatedUser,
-    });
-  } catch (error) {
-    console.error("Toggle User Status Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "خطا در تغییر وضعیت کاربر",
-    });
-  }
-};
+// ==============================
+// داشبورد
+// ==============================
 
 export const getDashboardStats = async (req: Request, res: Response) => {
   try {
@@ -770,7 +810,6 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     last7Days.setDate(last7Days.getDate() - 6);
     last7Days.setHours(0, 0, 0, 0);
 
-    // ---- آمار کلی ----
     const [
       usersCount,
       projectsCount,
@@ -780,6 +819,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       newUsersToday,
       revenueAgg,
       pendingReviews,
+      pendingReports,
       latestUsers,
       latestProjects,
     ] = await Promise.all([
@@ -815,6 +855,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         _sum: { amount: true },
       }),
       prisma.review.count(),
+      prisma.report.count({ where: { status: "pending" } }),
       prisma.user.findMany({
         where: { role: { not: "admin" }, deletedAt: null },
         select: {
@@ -846,7 +887,6 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       }),
     ]);
 
-    // ---- داده نمودار ۷ روز اخیر ----
     const days: { date: string; label: string }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
@@ -919,7 +959,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         newUsersToday,
         revenue: Number(revenueAgg._sum.amount || 0),
         pendingReviews,
-        pendingReports: 0, // مدل Report هنوز نداریم
+        pendingReports,
       },
       latestUsers,
       latestProjects,
@@ -938,13 +978,159 @@ export const getDashboardStats = async (req: Request, res: Response) => {
   }
 };
 
+// ==============================
+// مدیریت پروژه‌ها
+// ==============================
+
+export const getAllProjectsForAdmin = async (req: Request, res: Response) => {
+  try {
+    const {
+      search = "",
+      status,
+      sortBy = "newest",
+      page = "1",
+      limit = "10",
+    } = req.query as Record<string, string>;
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 10);
+
+    const where: any = { deletedAt: null };
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { employer: { name: { contains: search, mode: "insensitive" } } },
+        { employer: { phone: { contains: search } } },
+      ];
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    let orderBy: any = { createdAt: "desc" };
+    if (sortBy === "oldest") orderBy = { createdAt: "asc" };
+    if (sortBy === "budget") orderBy = { maxBudget: "desc" };
+
+    const [projects, total] = await Promise.all([
+      prisma.project.findMany({
+        where,
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          province: true,
+          minBudget: true,
+          maxBudget: true,
+          budgetType: true,
+          isFeatured: true,
+          createdAt: true,
+          employer: {
+            select: { name: true, phone: true },
+          },
+        },
+        orderBy,
+        skip: (pageNum - 1) * limitNum,
+        take: limitNum,
+      }),
+      prisma.project.count({ where }),
+    ]);
+
+    return res.json({
+      success: true,
+      projects,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum) || 1,
+      },
+    });
+  } catch (error) {
+    console.error("Get All Projects Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "خطا در دریافت لیست پروژه‌ها",
+    });
+  }
+};
+
+export const getProjectDetailForAdmin = async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        employer: {
+          select: { id: true, name: true, phone: true, email: true },
+        },
+        category: true,
+        _count: {
+          select: { proposals: true },
+        },
+        proposals: {
+          include: {
+            freelancer: {
+              select: { id: true, name: true, phone: true },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+        },
+        contract: {
+          include: {
+            freelancer: {
+              select: { id: true, name: true, phone: true },
+            },
+            milestones: true,
+          },
+        },
+        attachments: true,
+        skills: {
+          include: {
+            skill: true,
+          },
+        },
+      },
+    });
+
+    if (!project || project.deletedAt) {
+      return res
+        .status(404)
+        .json({ success: false, message: "پروژه یافت نشد" });
+    }
+
+    return res.json({ success: true, project });
+  } catch (error) {
+    console.error("Get Project Detail Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت جزئیات پروژه" });
+  }
+};
+
 export const publishProject = async (req: Request, res: Response) => {
   try {
     const project = await prisma.project.update({
       where: { id: Number(req.params.id) },
       data: { status: "open", publishedAt: new Date() },
-      select: { id: true, status: true, publishedAt: true },
+      select: { id: true, title: true, status: true, publishedAt: true },
     });
+
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "project.publish",
+        targetType: "project",
+        targetId: project.id,
+        description: `ادمین پروژه «${project.title || project.id}» را منتشر کرد`,
+        req,
+      });
+    }
+
     return res.json({ success: true, message: "پروژه منتشر شد", project });
   } catch (error) {
     console.error("Publish Project Error:", error);
@@ -959,8 +1145,22 @@ export const closeProject = async (req: Request, res: Response) => {
     const project = await prisma.project.update({
       where: { id: Number(req.params.id) },
       data: { status: "completed", closedAt: new Date() },
-      select: { id: true, status: true, closedAt: true },
+      select: { id: true, title: true, status: true, closedAt: true },
     });
+
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "project.close",
+        targetType: "project",
+        targetId: project.id,
+        description: `ادمین پروژه «${project.title || project.id}» را بست`,
+        req,
+      });
+    }
+
     return res.json({ success: true, message: "پروژه بسته شد", project });
   } catch (error) {
     console.error("Close Project Error:", error);
@@ -974,7 +1174,7 @@ export const toggleFeatureProject = async (req: Request, res: Response) => {
   try {
     const current = await prisma.project.findUnique({
       where: { id: Number(req.params.id) },
-      select: { isFeatured: true },
+      select: { id: true, title: true, isFeatured: true },
     });
 
     if (!current) {
@@ -986,8 +1186,23 @@ export const toggleFeatureProject = async (req: Request, res: Response) => {
     const project = await prisma.project.update({
       where: { id: Number(req.params.id) },
       data: { isFeatured: !current.isFeatured },
-      select: { id: true, isFeatured: true },
+      select: { id: true, title: true, isFeatured: true },
     });
+
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: project.isFeatured ? "project.feature" : "project.unfeature",
+        targetType: "project",
+        targetId: project.id,
+        description: project.isFeatured
+          ? `ادمین پروژه «${project.title || project.id}» را ویژه کرد`
+          : `ادمین پروژه «${project.title || project.id}» را از حالت ویژه خارج کرد`,
+        req,
+      });
+    }
 
     return res.json({
       success: true,
@@ -1010,8 +1225,22 @@ export const deleteProjectByAdmin = async (req: Request, res: Response) => {
     const project = await prisma.project.update({
       where: { id: Number(req.params.id) },
       data: { deletedAt: new Date(), status: "cancelled" },
-      select: { id: true, deletedAt: true },
+      select: { id: true, title: true, deletedAt: true },
     });
+
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "project.delete",
+        targetType: "project",
+        targetId: project.id,
+        description: `ادمین پروژه «${project.title || project.id}» را حذف کرد`,
+        req,
+      });
+    }
+
     return res.json({ success: true, message: "پروژه حذف شد", project });
   } catch (error) {
     console.error("Delete Project Error:", error);
@@ -1020,6 +1249,10 @@ export const deleteProjectByAdmin = async (req: Request, res: Response) => {
       .json({ success: false, message: "خطا در حذف پروژه" });
   }
 };
+
+// ==============================
+// مدیریت پیشنهادها
+// ==============================
 
 export const getAllProposalsForAdmin = async (req: Request, res: Response) => {
   try {
@@ -1053,7 +1286,6 @@ export const getAllProposalsForAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// تایید پیشنهاد → ساخت قرارداد + رد خودکار بقیه پیشنهادهای همون پروژه
 export const acceptProposalForAdmin = async (req: Request, res: Response) => {
   try {
     const proposalId = Number(req.params.id);
@@ -1120,6 +1352,23 @@ export const acceptProposalForAdmin = async (req: Request, res: Response) => {
       return { updatedProposal, contract };
     });
 
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "proposal.accept",
+        targetType: "proposal",
+        targetId: proposalId,
+        description: `ادمین پیشنهاد #${proposalId} را تأیید کرد و قرارداد #${result.contract.id} ایجاد شد`,
+        metadata: {
+          contractId: result.contract.id,
+          projectId: proposal.projectId,
+        },
+        req,
+      });
+    }
+
     return res.json({
       success: true,
       message: "پیشنهاد تایید شد و قرارداد ایجاد شد",
@@ -1134,7 +1383,6 @@ export const acceptProposalForAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// رد پیشنهاد
 export const rejectProposalForAdmin = async (req: Request, res: Response) => {
   try {
     const proposal = await prisma.proposal.findUnique({
@@ -1160,6 +1408,19 @@ export const rejectProposalForAdmin = async (req: Request, res: Response) => {
       select: { id: true, status: true },
     });
 
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "proposal.reject",
+        targetType: "proposal",
+        targetId: proposal.id,
+        description: `ادمین پیشنهاد #${proposal.id} را رد کرد`,
+        req,
+      });
+    }
+
     return res.json({
       success: true,
       message: "پیشنهاد رد شد",
@@ -1173,7 +1434,6 @@ export const rejectProposalForAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// حذف پیشنهاد (Proposal مدل soft-delete نداره، حذف واقعیه)
 export const deleteProposalForAdmin = async (req: Request, res: Response) => {
   try {
     const proposal = await prisma.proposal.findUnique({
@@ -1186,8 +1446,6 @@ export const deleteProposalForAdmin = async (req: Request, res: Response) => {
         .json({ success: false, message: "پیشنهاد یافت نشد" });
     }
 
-    // Contract.proposalId → onDelete: Cascade
-    // یعنی اگه پیشنهاد accepted حذف بشه، قرارداد فعالش هم پاک می‌شه
     if (proposal.status === "accepted") {
       return res.status(400).json({
         success: false,
@@ -1196,6 +1454,19 @@ export const deleteProposalForAdmin = async (req: Request, res: Response) => {
     }
 
     await prisma.proposal.delete({ where: { id: proposal.id } });
+
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "proposal.delete",
+        targetType: "proposal",
+        targetId: proposal.id,
+        description: `ادمین پیشنهاد #${proposal.id} را حذف کرد`,
+        req,
+      });
+    }
 
     return res.json({ success: true, message: "پیشنهاد حذف شد" });
   } catch (error) {
@@ -1206,7 +1477,10 @@ export const deleteProposalForAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// لیست قراردادها با search/filter/pagination
+// ==============================
+// مدیریت قراردادها
+// ==============================
+
 export const getAllContractsForAdmin = async (req: Request, res: Response) => {
   try {
     const {
@@ -1277,7 +1551,6 @@ export const getAllContractsForAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// جزئیات کامل یک قرارداد
 export const getContractDetailForAdmin = async (
   req: Request,
   res: Response,
@@ -1337,7 +1610,6 @@ export const getContractDetailForAdmin = async (
   }
 };
 
-// لغو قرارداد — فقط از حالت active
 export const cancelContractByAdmin = async (req: Request, res: Response) => {
   try {
     const contract = await prisma.contract.findUnique({
@@ -1369,6 +1641,19 @@ export const cancelContractByAdmin = async (req: Request, res: Response) => {
       }),
     ]);
 
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "contract.cancel",
+        targetType: "contract",
+        targetId: contract.id,
+        description: `ادمین قرارداد #${contract.id} را لغو کرد`,
+        req,
+      });
+    }
+
     return res.json({
       success: true,
       message: "قرارداد لغو شد",
@@ -1382,7 +1667,6 @@ export const cancelContractByAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// تکمیل قرارداد — فقط از حالت active
 export const completeContractByAdmin = async (req: Request, res: Response) => {
   try {
     const contract = await prisma.contract.findUnique({
@@ -1414,6 +1698,19 @@ export const completeContractByAdmin = async (req: Request, res: Response) => {
       }),
     ]);
 
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "contract.complete",
+        targetType: "contract",
+        targetId: contract.id,
+        description: `ادمین قرارداد #${contract.id} را تکمیل کرد`,
+        req,
+      });
+    }
+
     return res.json({
       success: true,
       message: "قرارداد تکمیل شد",
@@ -1427,7 +1724,6 @@ export const completeContractByAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// رفع اختلاف — فقط از حالت disputed، ادمین تصمیم نهایی رو مشخص می‌کند
 export const resolveContractDisputeByAdmin = async (
   req: Request,
   res: Response,
@@ -1474,7 +1770,6 @@ export const resolveContractDisputeByAdmin = async (
       projectData.status = "cancelled";
       projectData.closedAt = new Date();
     } else {
-      // بازگشت به حالت عادی، پروژه در حال انجام باقی می‌ماند
       projectData.status = "in_progress";
     }
 
@@ -1495,6 +1790,20 @@ export const resolveContractDisputeByAdmin = async (
       }),
     ]);
 
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "contract.resolve_dispute",
+        targetType: "contract",
+        targetId: contract.id,
+        description: `ادمین اختلاف قرارداد #${contract.id} را با نتیجه «${resolution}» رفع کرد`,
+        metadata: { resolution },
+        req,
+      });
+    }
+
     return res.json({
       success: true,
       message: "اختلاف قرارداد رفع شد",
@@ -1507,6 +1816,10 @@ export const resolveContractDisputeByAdmin = async (
       .json({ success: false, message: "خطا در رفع اختلاف قرارداد" });
   }
 };
+
+// ==============================
+// مدیریت پرداخت‌ها
+// ==============================
 
 export const getAllPaymentsForAdmin = async (req: Request, res: Response) => {
   try {
@@ -1573,7 +1886,10 @@ export const getAllPaymentsForAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// ---------- کمکی: پیدا کردن همه‌ی فرزندان یک دسته (برای جلوگیری از حلقه) ----------
+// ==============================
+// مدیریت دسته‌بندی‌ها
+// ==============================
+
 async function getDescendantCategoryIds(categoryId: number): Promise<number[]> {
   const directChildren = await prisma.category.findMany({
     where: { parentId: categoryId },
@@ -1590,7 +1906,6 @@ async function getDescendantCategoryIds(categoryId: number): Promise<number[]> {
   return result;
 }
 
-// لیست دسته‌بندی‌ها (فلت، همراه با نام والد و تعداد پروژه/فرزند)
 export const getAllCategoriesForAdmin = async (req: Request, res: Response) => {
   try {
     const categories = await prisma.category.findMany({
@@ -1610,7 +1925,6 @@ export const getAllCategoriesForAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// ایجاد دسته‌بندی
 export const createCategoryByAdmin = async (req: Request, res: Response) => {
   try {
     const { name, slug, description, parentId } = req.body as {
@@ -1649,6 +1963,19 @@ export const createCategoryByAdmin = async (req: Request, res: Response) => {
       },
     });
 
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "category.create",
+        targetType: "category",
+        targetId: category.id,
+        description: `ادمین دسته‌بندی «${category.name}» را ایجاد کرد`,
+        req,
+      });
+    }
+
     return res.json({
       success: true,
       message: "دسته‌بندی ایجاد شد",
@@ -1668,7 +1995,6 @@ export const createCategoryByAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// ویرایش دسته‌بندی
 export const updateCategoryByAdmin = async (req: Request, res: Response) => {
   try {
     const categoryId = Number(req.params.id);
@@ -1688,7 +2014,6 @@ export const updateCategoryByAdmin = async (req: Request, res: Response) => {
         .json({ success: false, message: "دسته‌بندی یافت نشد" });
     }
 
-    // جلوگیری از حلقه: دسته نمی‌تواند والد خودش یا یکی از نوادگانش باشد
     if (parentId) {
       const newParentId = Number(parentId);
 
@@ -1729,6 +2054,19 @@ export const updateCategoryByAdmin = async (req: Request, res: Response) => {
       },
     });
 
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "category.update",
+        targetType: "category",
+        targetId: category.id,
+        description: `ادمین دسته‌بندی «${category.name}» را ویرایش کرد`,
+        req,
+      });
+    }
+
     return res.json({
       success: true,
       message: "دسته‌بندی ویرایش شد",
@@ -1748,7 +2086,6 @@ export const updateCategoryByAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// حذف دسته‌بندی — اگر زیرمجموعه دارد، حذف مسدود می‌شود
 export const deleteCategoryByAdmin = async (req: Request, res: Response) => {
   try {
     const categoryId = Number(req.params.id);
@@ -1772,8 +2109,20 @@ export const deleteCategoryByAdmin = async (req: Request, res: Response) => {
       });
     }
 
-    // پروژه‌های مرتبط با این دسته به‌خاطر onDelete: SetNull خودکار categoryId=null می‌شوند
     await prisma.category.delete({ where: { id: categoryId } });
+
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "category.delete",
+        targetType: "category",
+        targetId: categoryId,
+        description: `ادمین دسته‌بندی «${existing.name}» را حذف کرد`,
+        req,
+      });
+    }
 
     return res.json({ success: true, message: "دسته‌بندی حذف شد" });
   } catch (error) {
@@ -1784,7 +2133,10 @@ export const deleteCategoryByAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// لیست مهارت‌ها همراه با تعداد استفاده
+// ==============================
+// مدیریت مهارت‌ها
+// ==============================
+
 export const getAllSkillsForAdmin = async (req: Request, res: Response) => {
   try {
     const { search = "" } = req.query as Record<string, string>;
@@ -1811,7 +2163,6 @@ export const getAllSkillsForAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// ایجاد مهارت
 export const createSkillByAdmin = async (req: Request, res: Response) => {
   try {
     const { name, slug } = req.body as { name?: string; slug?: string };
@@ -1824,6 +2175,19 @@ export const createSkillByAdmin = async (req: Request, res: Response) => {
     }
 
     const skill = await prisma.skill.create({ data: { name, slug } });
+
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "skill.create",
+        targetType: "skill",
+        targetId: skill.id,
+        description: `ادمین مهارت «${skill.name}» را ایجاد کرد`,
+        req,
+      });
+    }
 
     return res.json({ success: true, message: "مهارت ایجاد شد", skill });
   } catch (error: any) {
@@ -1840,7 +2204,6 @@ export const createSkillByAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// ویرایش مهارت
 export const updateSkillByAdmin = async (req: Request, res: Response) => {
   try {
     const skillId = Number(req.params.id);
@@ -1861,6 +2224,19 @@ export const updateSkillByAdmin = async (req: Request, res: Response) => {
       },
     });
 
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "skill.update",
+        targetType: "skill",
+        targetId: skill.id,
+        description: `ادمین مهارت «${skill.name}» را ویرایش کرد`,
+        req,
+      });
+    }
+
     return res.json({ success: true, message: "مهارت ویرایش شد", skill });
   } catch (error: any) {
     if (error?.code === "P2002") {
@@ -1876,7 +2252,6 @@ export const updateSkillByAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// حذف مهارت — روابط FreelancerSkill/ProjectSkill به‌خاطر onDelete: Cascade خودکار حذف می‌شوند
 export const deleteSkillByAdmin = async (req: Request, res: Response) => {
   try {
     const skillId = Number(req.params.id);
@@ -1890,6 +2265,19 @@ export const deleteSkillByAdmin = async (req: Request, res: Response) => {
 
     await prisma.skill.delete({ where: { id: skillId } });
 
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "skill.delete",
+        targetType: "skill",
+        targetId: skillId,
+        description: `ادمین مهارت «${existing.name}» را حذف کرد`,
+        req,
+      });
+    }
+
     return res.json({ success: true, message: "مهارت حذف شد" });
   } catch (error) {
     console.error("Delete Skill Error:", error);
@@ -1899,7 +2287,6 @@ export const deleteSkillByAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// ادغام چند مهارت در یک مهارت مقصد
 export const mergeSkillsByAdmin = async (req: Request, res: Response) => {
   try {
     const { sourceSkillIds, targetSkillId } = req.body as {
@@ -1932,7 +2319,7 @@ export const mergeSkillsByAdmin = async (req: Request, res: Response) => {
     const allIds = [...cleanSourceIds, Number(targetSkillId)];
     const foundSkills = await prisma.skill.findMany({
       where: { id: { in: allIds } },
-      select: { id: true },
+      select: { id: true, name: true },
     });
 
     if (foundSkills.length !== allIds.length) {
@@ -1942,9 +2329,10 @@ export const mergeSkillsByAdmin = async (req: Request, res: Response) => {
       });
     }
 
+    const targetSkill = foundSkills.find((s) => s.id === Number(targetSkillId));
+
     await prisma.$transaction(async (tx) => {
       for (const sourceId of cleanSourceIds) {
-        // ---- انتقال FreelancerSkill ----
         const freelancerLinks = await tx.freelancerSkill.findMany({
           where: { skillId: sourceId },
         });
@@ -1960,7 +2348,6 @@ export const mergeSkillsByAdmin = async (req: Request, res: Response) => {
           });
 
           if (alreadyHasTarget) {
-            // فریلنسر از قبل مهارت مقصد را دارد → رکورد تکراری مبدأ حذف می‌شود
             await tx.freelancerSkill.delete({ where: { id: link.id } });
           } else {
             await tx.freelancerSkill.update({
@@ -1970,7 +2357,6 @@ export const mergeSkillsByAdmin = async (req: Request, res: Response) => {
           }
         }
 
-        // ---- انتقال ProjectSkill ----
         const projectLinks = await tx.projectSkill.findMany({
           where: { skillId: sourceId },
         });
@@ -1995,10 +2381,23 @@ export const mergeSkillsByAdmin = async (req: Request, res: Response) => {
           }
         }
 
-        // ---- حذف مهارت مبدأ ----
         await tx.skill.delete({ where: { id: sourceId } });
       }
     });
+
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "skill.merge",
+        targetType: "skill",
+        targetId: Number(targetSkillId),
+        description: `ادمین ${cleanSourceIds.length} مهارت را در «${targetSkill?.name || targetSkillId}» ادغام کرد`,
+        metadata: { sourceSkillIds: cleanSourceIds, targetSkillId },
+        req,
+      });
+    }
 
     return res.json({
       success: true,
@@ -2012,14 +2411,15 @@ export const mergeSkillsByAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// لیست مکالمات (هر مکالمه = یک قرارداد یا یک جفت کاربر بدون قرارداد)
+// ==============================
+// مدیریت پیام‌ها
+// ==============================
+
 export const getAllConversationsForAdmin = async (
   req: Request,
   res: Response,
 ) => {
   try {
-    // برای جلوگیری از فشار زیاد روی دیتابیس، آخرین چند هزار پیام را می‌گیریم
-    // (برای پروژه‌های خیلی بزرگ بعداً باید با raw query/pagination بهینه شود)
     const messages = await prisma.message.findMany({
       orderBy: { createdAt: "desc" },
       take: 5000,
@@ -2049,7 +2449,6 @@ export const getAllConversationsForAdmin = async (
         ? `contract-${m.contractId}`
         : `direct-${Math.min(m.senderId, m.receiverId)}-${Math.max(m.senderId, m.receiverId)}`;
 
-      // چون پیام‌ها از جدید به قدیم مرتب شدند، اولین باری که هر کلید دیده می‌شود همان آخرین پیام است
       if (!seen.has(key)) {
         seen.set(key, {
           key,
@@ -2079,7 +2478,6 @@ export const getAllConversationsForAdmin = async (
   }
 };
 
-// دریافت کل پیام‌های یک مکالمه (یا با contractId، یا با جفت userA/userB)
 export const getConversationThreadForAdmin = async (
   req: Request,
   res: Response,
@@ -2134,6 +2532,11 @@ export const getConversationThreadForAdmin = async (
       .json({ success: false, message: "خطا در دریافت مکالمه" });
   }
 };
+
+// ==============================
+// مدیریت نظرات
+// ==============================
+
 export const getAllReviewsForAdmin = async (req: Request, res: Response) => {
   try {
     const {
@@ -2203,7 +2606,6 @@ export const getAllReviewsForAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// حذف واقعی — مدل Review فیلد soft-delete ندارد
 export const deleteReviewByAdmin = async (req: Request, res: Response) => {
   try {
     const review = await prisma.review.findUnique({
@@ -2216,9 +2618,346 @@ export const deleteReviewByAdmin = async (req: Request, res: Response) => {
 
     await prisma.review.delete({ where: { id: review.id } });
 
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "review.delete",
+        targetType: "review",
+        targetId: review.id,
+        description: `ادمین نظر #${review.id} را حذف کرد`,
+        req,
+      });
+    }
+
     return res.json({ success: true, message: "نظر حذف شد" });
   } catch (error) {
     console.error("Delete Review Error:", error);
     return res.status(500).json({ success: false, message: "خطا در حذف نظر" });
+  }
+};
+
+// ==============================
+// مدیریت گزارش‌ها (فاز ۱۳)
+// ==============================
+
+export const getAllReportsForAdmin = async (req: Request, res: Response) => {
+  try {
+    const {
+      search = "",
+      status,
+      targetType,
+      page = "1",
+      limit = "10",
+    } = req.query as Record<string, string>;
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 10);
+
+    const where: any = {};
+
+    if (status) where.status = status;
+    if (targetType) where.targetType = targetType;
+
+    if (search) {
+      where.OR = [
+        { reason: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+        { reporter: { name: { contains: search, mode: "insensitive" } } },
+        { reporter: { phone: { contains: search } } },
+      ];
+    }
+
+    const [reports, total, statusCounts] = await Promise.all([
+      prisma.report.findMany({
+        where,
+        select: {
+          id: true,
+          targetType: true,
+          targetId: true,
+          reason: true,
+          description: true,
+          status: true,
+          adminNote: true,
+          resolvedAt: true,
+          createdAt: true,
+          reporter: {
+            select: { id: true, name: true, phone: true },
+          },
+          resolver: {
+            select: { id: true, name: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (pageNum - 1) * limitNum,
+        take: limitNum,
+      }),
+      prisma.report.count({ where }),
+      prisma.report.groupBy({
+        by: ["status"],
+        _count: { status: true },
+      }),
+    ]);
+
+    const stats = {
+      pending: 0,
+      reviewing: 0,
+      resolved: 0,
+      rejected: 0,
+      dismissed: 0,
+    };
+    statusCounts.forEach((item) => {
+      stats[item.status as keyof typeof stats] = item._count.status;
+    });
+
+    return res.json({
+      success: true,
+      reports,
+      stats,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum) || 1,
+      },
+    });
+  } catch (error) {
+    console.error("Get All Reports Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت لیست گزارش‌ها" });
+  }
+};
+
+export const getReportDetailForAdmin = async (req: Request, res: Response) => {
+  try {
+    const reportId = Number(req.params.id);
+
+    const report = await prisma.report.findUnique({
+      where: { id: reportId },
+      include: {
+        reporter: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+            role: true,
+            isActive: true,
+          },
+        },
+        resolver: {
+          select: { id: true, name: true, phone: true },
+        },
+      },
+    });
+
+    if (!report) {
+      return res
+        .status(404)
+        .json({ success: false, message: "گزارش یافت نشد" });
+    }
+
+    let targetInfo: any = null;
+
+    if (report.targetType === "user") {
+      targetInfo = await prisma.user.findUnique({
+        where: { id: report.targetId },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+          role: true,
+          isActive: true,
+          isVerified: true,
+        },
+      });
+    } else if (report.targetType === "project") {
+      targetInfo = await prisma.project.findUnique({
+        where: { id: report.targetId },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          province: true,
+          employer: { select: { id: true, name: true, phone: true } },
+        },
+      });
+    } else if (report.targetType === "message") {
+      targetInfo = await prisma.message.findUnique({
+        where: { id: report.targetId },
+        select: {
+          id: true,
+          content: true,
+          type: true,
+          createdAt: true,
+          sender: { select: { id: true, name: true, phone: true } },
+          receiver: { select: { id: true, name: true, phone: true } },
+        },
+      });
+    } else if (report.targetType === "review") {
+      targetInfo = await prisma.review.findUnique({
+        where: { id: report.targetId },
+        select: {
+          id: true,
+          rating: true,
+          comment: true,
+          reviewer: { select: { id: true, name: true } },
+          reviewed: { select: { id: true, name: true } },
+        },
+      });
+    } else if (report.targetType === "proposal") {
+      targetInfo = await prisma.proposal.findUnique({
+        where: { id: report.targetId },
+        select: {
+          id: true,
+          amount: true,
+          status: true,
+          freelancer: { select: { id: true, name: true, phone: true } },
+          project: { select: { id: true, title: true } },
+        },
+      });
+    }
+
+    return res.json({
+      success: true,
+      report: { ...report, targetInfo },
+    });
+  } catch (error) {
+    console.error("Get Report Detail Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت جزئیات گزارش" });
+  }
+};
+
+export const updateReportStatusByAdmin = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const reportId = Number(req.params.id);
+    const { status, adminNote } = req.body as {
+      status?: string;
+      adminNote?: string;
+    };
+
+    const allowedStatuses = [
+      "pending",
+      "reviewing",
+      "resolved",
+      "rejected",
+      "dismissed",
+    ];
+
+    if (status && !allowedStatuses.includes(status)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "وضعیت نامعتبر است" });
+    }
+
+    const existing = await prisma.report.findUnique({
+      where: { id: reportId },
+    });
+
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ success: false, message: "گزارش یافت نشد" });
+    }
+
+    const adminId = getAdminId(req);
+
+    const data: any = {};
+    if (status) data.status = status;
+    if (adminNote !== undefined) data.adminNote = adminNote;
+
+    if (
+      status &&
+      ["resolved", "rejected", "dismissed"].includes(status) &&
+      existing.status !== status
+    ) {
+      data.resolvedBy = adminId;
+      data.resolvedAt = new Date();
+    }
+
+    if (status === "pending") {
+      data.resolvedBy = null;
+      data.resolvedAt = null;
+    }
+
+    const report = await prisma.report.update({
+      where: { id: reportId },
+      data,
+      select: {
+        id: true,
+        status: true,
+        adminNote: true,
+        resolvedAt: true,
+        resolvedBy: true,
+      },
+    });
+
+    // لاگ
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "report.update_status",
+        targetType: "report",
+        targetId: reportId,
+        description: `ادمین وضعیت گزارش #${reportId} را به «${status || existing.status}» تغییر داد`,
+        metadata: { newStatus: status, adminNote },
+        req,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "وضعیت گزارش به‌روزرسانی شد",
+      report,
+    });
+  } catch (error) {
+    console.error("Update Report Status Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در به‌روزرسانی گزارش" });
+  }
+};
+
+export const deleteReportByAdmin = async (req: Request, res: Response) => {
+  try {
+    const report = await prisma.report.findUnique({
+      where: { id: Number(req.params.id) },
+    });
+
+    if (!report) {
+      return res
+        .status(404)
+        .json({ success: false, message: "گزارش یافت نشد" });
+    }
+
+    await prisma.report.delete({ where: { id: report.id } });
+
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "report.delete",
+        targetType: "report",
+        targetId: report.id,
+        description: `ادمین گزارش #${report.id} را حذف کرد`,
+        req,
+      });
+    }
+
+    return res.json({ success: true, message: "گزارش حذف شد" });
+  } catch (error) {
+    console.error("Delete Report Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در حذف گزارش" });
   }
 };

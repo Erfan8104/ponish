@@ -284,3 +284,17 @@ export const deleteReportApi = async (id: number) => {
   const response = await api.delete(`/admin/reports/${id}`)
   return response.data
 }
+
+export const getAllActivityLogsApi = async (
+  params: {
+    search?: string
+    action?: string
+    targetType?: string
+    adminId?: number
+    page?: number
+    limit?: number
+  } = {},
+) => {
+  const response = await api.get('/admin/activity-logs', { params })
+  return response.data
+}

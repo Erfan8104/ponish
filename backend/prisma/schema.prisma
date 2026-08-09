@@ -140,9 +140,10 @@ model User {
   receivedMessages      Message[]          @relation("ReceivedMessages")
   reviewsGiven          Review[]           @relation("ReviewsGiven")
   reviewsReceived       Review[]           @relation("ReviewsReceived")
+  activityLogs          ActivityLog[]      @relation("AdminActivityLogs")
   otps                  OTP[]
-  reportsCreated  Report[] @relation("ReportsCreated")
-  reportsResolved Report[] @relation("ReportsResolved")
+  reportsCreated        Report[] @relation("ReportsCreated")
+  reportsResolvedc      Report[] @relation("ReportsResolved")
   // 🌟 روابط جدید برای سیستم Permission
   adminRoles            UserAdminRole[]
 
@@ -182,6 +183,29 @@ model Report {
   @@index([createdAt])
 }
 
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  adminId     Int
+  admin       User     @relation("AdminActivityLogs", fields: [adminId], references: [id], onDelete: Cascade)
+
+  action      String   // مثلاً: "user.deactivate", "project.delete", "contract.cancel"
+  targetType  String?  // "user" | "project" | "contract" | "proposal" | "payment" | "review" | "report" | ...
+  targetId    Int?
+
+  description String   // متن خوانا: "ادمین پروژه «نقشه‌برداری X» را حذف کرد"
+  metadata    Json?    // اطلاعات اضافی (اختیاری)
+
+  ipAddress   String?
+  userAgent   String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([adminId])
+  @@index([action])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
 // ======================
 // مدل‌های جدید Permission System
 // ======================

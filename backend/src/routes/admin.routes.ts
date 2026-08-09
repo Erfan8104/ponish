@@ -47,6 +47,7 @@ import {
   createSkillByAdmin,
   updateSkillByAdmin,
   deleteSkillByAdmin,
+  getAllActivityLogsForAdmin,
   mergeSkillsByAdmin,
   deleteCategoryByAdmin,
 } from "../controllers/admin.controller";
@@ -360,6 +361,13 @@ router.patch(
   authMiddleware,
   requirePermission("reports.view"), // یا reports.manage اگر بعداً اضافه کردی
   updateReportStatusByAdmin,
+);
+
+router.get(
+  "/activity-logs",
+  authMiddleware,
+  requirePermission("settings.view"), // یا permission مناسب
+  getAllActivityLogsForAdmin,
 );
 
 router.delete(
