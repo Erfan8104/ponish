@@ -112,3 +112,36 @@ export const deleteProposalApi = async (id: number) => {
   const response = await api.delete(`/admin/proposals/${id}`)
   return response.data
 }
+
+export const getAllContractsApi = async (params: Record<string, any> = {}) => {
+  const response = await api.get('/admin/contracts', { params })
+  return response.data
+}
+
+export const getContractDetailApi = async (id: number) => {
+  const response = await api.get(`/admin/contracts/${id}`)
+  return response.data
+}
+
+export const cancelContractApi = async (id: number) => {
+  const response = await api.patch(`/admin/contracts/${id}/cancel`)
+  return response.data
+}
+
+export const completeContractApi = async (id: number) => {
+  const response = await api.patch(`/admin/contracts/${id}/complete`)
+  return response.data
+}
+
+export const resolveContractDisputeApi = async (
+  id: number,
+  resolution: 'active' | 'completed' | 'cancelled',
+) => {
+  const response = await api.patch(`/admin/contracts/${id}/resolve-dispute`, { resolution })
+  return response.data
+}
+
+export const getAllPaymentsApi = async (params: Record<string, any> = {}) => {
+  const response = await api.get('/admin/payments', { params })
+  return response.data
+}

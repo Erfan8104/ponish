@@ -1001,3 +1001,370 @@ export const deleteProposalForAdmin = async (req: Request, res: Response) => {
       .json({ success: false, message: "خطا در حذف پیشنهاد" });
   }
 };
+
+// لیست قراردادها با search/filter/pagination
+export const getAllContractsForAdmin = async (req: Request, res: Response) => {
+  try {
+    const {
+      search = "",
+      status,
+      sortBy = "newest",
+      page = "1",
+      limit = "10",
+    } = req.query as Record<string, string>;
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 10);
+
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { employer: { name: { contains: search, mode: "insensitive" } } },
+        { employer: { phone: { contains: search } } },
+        { freelancer: { name: { contains: search, mode: "insensitive" } } },
+        { freelancer: { phone: { contains: search } } },
+        { project: { title: { contains: search, mode: "insensitive" } } },
+      ];
+    }
+
+    if (status) where.status = status;
+
+    let orderBy: any = { createdAt: "desc" };
+    if (sortBy === "oldest") orderBy = { createdAt: "asc" };
+    if (sortBy === "amount") orderBy = { totalAmount: "desc" };
+
+    const [contracts, total] = await Promise.all([
+      prisma.contract.findMany({
+        where,
+        select: {
+          id: true,
+          totalAmount: true,
+          status: true,
+          startedAt: true,
+          completedAt: true,
+          cancelledAt: true,
+          project: { select: { id: true, title: true } },
+          employer: { select: { id: true, name: true, phone: true } },
+          freelancer: { select: { id: true, name: true, phone: true } },
+        },
+        orderBy,
+        skip: (pageNum - 1) * limitNum,
+        take: limitNum,
+      }),
+      prisma.contract.count({ where }),
+    ]);
+
+    return res.json({
+      success: true,
+      contracts,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum) || 1,
+      },
+    });
+  } catch (error) {
+    console.error("Get All Contracts Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت لیست قراردادها" });
+  }
+};
+
+// جزئیات کامل یک قرارداد
+export const getContractDetailForAdmin = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const contractId = Number(req.params.id);
+
+    const contract = await prisma.contract.findUnique({
+      where: { id: contractId },
+      include: {
+        project: {
+          select: { id: true, title: true, status: true, description: true },
+        },
+        employer: {
+          select: { id: true, name: true, phone: true, email: true },
+        },
+        freelancer: {
+          select: { id: true, name: true, phone: true, email: true },
+        },
+        milestones: { orderBy: { createdAt: "asc" } },
+        payments: { orderBy: { createdAt: "desc" } },
+        reviews: {
+          include: {
+            reviewer: { select: { id: true, name: true } },
+            reviewed: { select: { id: true, name: true } },
+          },
+        },
+        amendments: { orderBy: { createdAt: "desc" } },
+        messages: {
+          orderBy: { createdAt: "desc" },
+          take: 30,
+          select: {
+            id: true,
+            content: true,
+            type: true,
+            fileUrl: true,
+            createdAt: true,
+            senderId: true,
+            receiverId: true,
+          },
+        },
+      },
+    });
+
+    if (!contract) {
+      return res
+        .status(404)
+        .json({ success: false, message: "قرارداد یافت نشد" });
+    }
+
+    return res.json({ success: true, contract });
+  } catch (error) {
+    console.error("Get Contract Detail Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت جزئیات قرارداد" });
+  }
+};
+
+// لغو قرارداد — فقط از حالت active
+export const cancelContractByAdmin = async (req: Request, res: Response) => {
+  try {
+    const contract = await prisma.contract.findUnique({
+      where: { id: Number(req.params.id) },
+    });
+
+    if (!contract) {
+      return res
+        .status(404)
+        .json({ success: false, message: "قرارداد یافت نشد" });
+    }
+
+    if (contract.status !== "active") {
+      return res.status(400).json({
+        success: false,
+        message: "فقط قرارداد فعال قابل لغو است",
+      });
+    }
+
+    const [updatedContract] = await prisma.$transaction([
+      prisma.contract.update({
+        where: { id: contract.id },
+        data: { status: "cancelled", cancelledAt: new Date() },
+        select: { id: true, status: true, cancelledAt: true },
+      }),
+      prisma.project.update({
+        where: { id: contract.projectId },
+        data: { status: "cancelled", closedAt: new Date() },
+      }),
+    ]);
+
+    return res.json({
+      success: true,
+      message: "قرارداد لغو شد",
+      contract: updatedContract,
+    });
+  } catch (error) {
+    console.error("Cancel Contract Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در لغو قرارداد" });
+  }
+};
+
+// تکمیل قرارداد — فقط از حالت active
+export const completeContractByAdmin = async (req: Request, res: Response) => {
+  try {
+    const contract = await prisma.contract.findUnique({
+      where: { id: Number(req.params.id) },
+    });
+
+    if (!contract) {
+      return res
+        .status(404)
+        .json({ success: false, message: "قرارداد یافت نشد" });
+    }
+
+    if (contract.status !== "active") {
+      return res.status(400).json({
+        success: false,
+        message: "فقط قرارداد فعال قابل تکمیل است",
+      });
+    }
+
+    const [updatedContract] = await prisma.$transaction([
+      prisma.contract.update({
+        where: { id: contract.id },
+        data: { status: "completed", completedAt: new Date() },
+        select: { id: true, status: true, completedAt: true },
+      }),
+      prisma.project.update({
+        where: { id: contract.projectId },
+        data: { status: "completed", closedAt: new Date() },
+      }),
+    ]);
+
+    return res.json({
+      success: true,
+      message: "قرارداد تکمیل شد",
+      contract: updatedContract,
+    });
+  } catch (error) {
+    console.error("Complete Contract Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در تکمیل قرارداد" });
+  }
+};
+
+// رفع اختلاف — فقط از حالت disputed، ادمین تصمیم نهایی رو مشخص می‌کند
+export const resolveContractDisputeByAdmin = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const { resolution } = req.body as {
+      resolution: "active" | "completed" | "cancelled";
+    };
+    const allowedResolutions = ["active", "completed", "cancelled"];
+
+    if (!allowedResolutions.includes(resolution)) {
+      return res.status(400).json({
+        success: false,
+        message: "نتیجه رفع اختلاف نامعتبر است",
+      });
+    }
+
+    const contract = await prisma.contract.findUnique({
+      where: { id: Number(req.params.id) },
+    });
+
+    if (!contract) {
+      return res
+        .status(404)
+        .json({ success: false, message: "قرارداد یافت نشد" });
+    }
+
+    if (contract.status !== "disputed") {
+      return res.status(400).json({
+        success: false,
+        message: "فقط قرارداد در وضعیت اختلاف قابل رفع است",
+      });
+    }
+
+    const contractData: any = { status: resolution };
+    const projectData: any = {};
+
+    if (resolution === "completed") {
+      contractData.completedAt = new Date();
+      projectData.status = "completed";
+      projectData.closedAt = new Date();
+    } else if (resolution === "cancelled") {
+      contractData.cancelledAt = new Date();
+      projectData.status = "cancelled";
+      projectData.closedAt = new Date();
+    } else {
+      // بازگشت به حالت عادی، پروژه در حال انجام باقی می‌ماند
+      projectData.status = "in_progress";
+    }
+
+    const [updatedContract] = await prisma.$transaction([
+      prisma.contract.update({
+        where: { id: contract.id },
+        data: contractData,
+        select: {
+          id: true,
+          status: true,
+          completedAt: true,
+          cancelledAt: true,
+        },
+      }),
+      prisma.project.update({
+        where: { id: contract.projectId },
+        data: projectData,
+      }),
+    ]);
+
+    return res.json({
+      success: true,
+      message: "اختلاف قرارداد رفع شد",
+      contract: updatedContract,
+    });
+  } catch (error) {
+    console.error("Resolve Contract Dispute Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در رفع اختلاف قرارداد" });
+  }
+};
+
+export const getAllPaymentsForAdmin = async (req: Request, res: Response) => {
+  try {
+    const {
+      status,
+      sortBy = "newest",
+      page = "1",
+      limit = "10",
+    } = req.query as Record<string, string>;
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 10);
+
+    const where: any = {};
+    if (status) where.status = status;
+
+    let orderBy: any = { createdAt: "desc" };
+    if (sortBy === "oldest") orderBy = { createdAt: "asc" };
+    if (sortBy === "amount") orderBy = { amount: "desc" };
+
+    const [payments, total] = await Promise.all([
+      prisma.payment.findMany({
+        where,
+        select: {
+          id: true,
+          amount: true,
+          gateway: true,
+          trackingCode: true,
+          status: true,
+          paidAt: true,
+          createdAt: true,
+          contractId: true,
+          contract: {
+            select: {
+              id: true,
+              project: { select: { id: true, title: true } },
+              employer: { select: { id: true, name: true, phone: true } },
+              freelancer: { select: { id: true, name: true, phone: true } },
+            },
+          },
+        },
+        orderBy,
+        skip: (pageNum - 1) * limitNum,
+        take: limitNum,
+      }),
+      prisma.payment.count({ where }),
+    ]);
+
+    return res.json({
+      success: true,
+      payments,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum) || 1,
+      },
+    });
+  } catch (error) {
+    console.error("Get All Payments Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت لیست پرداخت‌ها" });
+  }
+};

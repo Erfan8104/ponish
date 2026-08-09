@@ -24,6 +24,12 @@ import {
   acceptProposalForAdmin,
   rejectProposalForAdmin,
   deleteProposalForAdmin,
+  getAllContractsForAdmin,
+  getContractDetailForAdmin,
+  cancelContractByAdmin,
+  completeContractByAdmin,
+  resolveContractDisputeByAdmin,
+  getAllPaymentsForAdmin,
 } from "../controllers/admin.controller";
 
 const router = Router();
@@ -166,6 +172,48 @@ router.delete(
   authMiddleware,
   requirePermission("proposals.manage"),
   deleteProposalForAdmin,
+);
+
+router.get(
+  "/contracts",
+  authMiddleware,
+  requirePermission("contracts.view"),
+  getAllContractsForAdmin,
+);
+
+router.get(
+  "/contracts/:id",
+  authMiddleware,
+  requirePermission("contracts.view"),
+  getContractDetailForAdmin,
+);
+
+router.patch(
+  "/contracts/:id/cancel",
+  authMiddleware,
+  requirePermission("contracts.cancel"),
+  cancelContractByAdmin,
+);
+
+router.patch(
+  "/contracts/:id/complete",
+  authMiddleware,
+  requirePermission("contracts.edit"),
+  completeContractByAdmin,
+);
+
+router.patch(
+  "/contracts/:id/resolve-dispute",
+  authMiddleware,
+  requirePermission("contracts.edit"),
+  resolveContractDisputeByAdmin,
+);
+
+router.get(
+  "/payments",
+  authMiddleware,
+  requirePermission("payments.view"),
+  getAllPaymentsForAdmin,
 );
 
 export default router;

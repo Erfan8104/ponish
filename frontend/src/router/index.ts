@@ -24,6 +24,9 @@ import AdminUserDetailPage from '../pages/AdminUserDetailPage.vue'
 import AdminProjectPage from '../pages/AdminProjectPage.vue'
 import AdminProjectDetailPage from '../pages/AdminProjectDetailPage.vue'
 import AdminProposalPage from '../pages/AdminProposalPage.vue'
+import AdminContractPage from '@/pages/AdminContractPage.vue'
+import AdminContractDetailPage from '../pages/AdminContractDetailPage.vue'
+import AdminPaymentPage from '../pages/AdminPaymentPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -72,10 +75,19 @@ const router = createRouter({
           path: 'dashboard',
           component: AdminDashboardPage,
         },
+
         {
           path: 'proposals',
           component: AdminProposalPage,
           meta: { permission: 'projects.view' },
+        },
+        {
+          path: 'contracts',
+          component: AdminContractPage,
+        },
+        {
+          path: 'contracts/:id',
+          component: AdminContractDetailPage,
         },
         {
           path: 'users',
@@ -86,6 +98,10 @@ const router = createRouter({
           path: 'users/:id',
           component: AdminUserDetailPage,
           meta: { permission: 'users.view' },
+        },
+        {
+          path: 'payments',
+          component: AdminPaymentPage,
         },
         {
           path: 'projects/:id',
