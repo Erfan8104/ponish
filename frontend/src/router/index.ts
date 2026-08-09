@@ -31,6 +31,7 @@ import AdminCategoryPage from '../pages/AdminCategoryPage.vue'
 import AdminSkillPage from '../pages/AdminSkillPage.vue'
 import AdminMessagePage from '../pages/AdminMessagePage.vue'
 import AdminReviewPage from '../pages/AdminReviewPage.vue'
+import AdminFilePage from '../pages/AdminFilePage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -87,6 +88,11 @@ const router = createRouter({
           path: 'reviews',
           component: AdminReviewPage,
           meta: { permission: 'reviews.view' },
+        },
+        {
+          path: 'files',
+          component: AdminFilePage,
+          meta: { permission: 'settings.view' },
         },
         {
           path: 'categories',

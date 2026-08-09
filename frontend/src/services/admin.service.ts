@@ -236,3 +236,20 @@ export const deleteReviewApi = async (id: number) => {
   const response = await api.delete(`/admin/reviews/${id}`)
   return response.data
 }
+
+export const getAllFilesApi = async (
+  params: {
+    search?: string
+    type?: 'avatar' | 'attachment'
+    page?: number
+    limit?: number
+  } = {},
+) => {
+  const response = await api.get('/admin/files', { params })
+  return response.data
+}
+
+export const deleteFileApi = async (type: 'avatar' | 'attachment', id: number) => {
+  const response = await api.delete(`/admin/files/${type}/${id}`)
+  return response.data
+}

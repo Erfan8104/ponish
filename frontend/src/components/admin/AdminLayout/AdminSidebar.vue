@@ -18,6 +18,7 @@ const menuItems: MenuItem[] = [
   { label: 'مهارت‌ها', path: '/admin/skills', icon: '🛠️' },
   { label: 'نظرات', path: '/admin/reviews', icon: '⭐' },
   { label: 'پیام‌ها', path: '/admin/messages', icon: '💬' },
+  { label: 'فایل‌ها', path: '/admin/files', icon: '📎' },
   { label: 'گزارش‌ها', path: '/admin/reports', icon: '📈' },
   { label: 'تنظیمات', path: '/admin/settings', icon: '⚙️' },
 ]

@@ -13,6 +13,8 @@ import {
   deleteUser,
   resetUserPassword,
   changeUserRole,
+  getAllFilesForAdmin,
+  deleteFileByAdmin,
   getDashboardStats,
   getAllProjectsForAdmin,
   publishProject,
@@ -317,5 +319,20 @@ router.delete(
   authMiddleware,
   requirePermission("reviews.delete"),
   deleteReviewByAdmin,
+);
+
+// داخل router:
+router.get(
+  "/files",
+  authMiddleware,
+  requirePermission("settings.view"), // یا هر permission مناسب
+  getAllFilesForAdmin,
+);
+
+router.delete(
+  "/files/:type/:id",
+  authMiddleware,
+  requirePermission("settings.manage"),
+  deleteFileByAdmin,
 );
 export default router;

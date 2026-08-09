@@ -1,9 +1,213 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import { prisma } from "../lib/prisma";
+import fs from "fs";
+import path from "path";
 import jwt from "jsonwebtoken";
 
 import crypto from "crypto";
+
+// ---------- مدیریت فایل‌ها (فاز ۱۲) ----------
+
+/** مسیر پایه uploads (نسبت به ریشه backend) */
+const UPLOADS_ROOT = path.join(process.cwd(), "uploads");
+
+function tryDeletePhysicalFile(fileUrlOrPath: string | null | undefined) {
+  if (!fileUrlOrPath) return;
+  try {
+    // پشتیبانی از حالت‌های مختلف ذخیره:
+    // "/uploads/avatars/xxx.jpg"  یا  "avatars/xxx.jpg"  یا  فقط نام فایل
+    let relative = fileUrlOrPath.replace(/^\/+/, "");
+    if (relative.startsWith("uploads/")) {
+      relative = relative.slice("uploads/".length);
+    }
+    const fullPath = path.join(UPLOADS_ROOT, relative);
+    if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+      fs.unlinkSync(fullPath);
+    }
+  } catch (err) {
+    console.warn("Could not delete physical file:", fileUrlOrPath, err);
+  }
+}
+
+export const getAllFilesForAdmin = async (req: Request, res: Response) => {
+  try {
+    const {
+      search = "",
+      type, // 'avatar' | 'attachment' | undefined
+      page = "1",
+      limit = "20",
+    } = req.query as Record<string, string>;
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 20));
+
+    const results: any[] = [];
+
+    // ---- ۱. آواتارها ----
+    if (!type || type === "avatar") {
+      const whereUser: any = {
+        avatar: { not: null },
+        deletedAt: null,
+      };
+      if (search) {
+        whereUser.OR = [
+          { name: { contains: search, mode: "insensitive" } },
+          { phone: { contains: search } },
+          { email: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      const users = await prisma.user.findMany({
+        where: whereUser,
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          avatar: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      for (const u of users) {
+        results.push({
+          id: u.id,
+          type: "avatar",
+          fileName: u.avatar?.split("/").pop() || "avatar",
+          fileUrl: u.avatar,
+          fileType: null,
+          fileSize: null,
+          relatedId: u.id,
+          relatedTitle: u.name || u.phone || `User #${u.id}`,
+          relatedType: "user",
+          createdAt: u.createdAt,
+        });
+      }
+    }
+
+    // ---- ۲. پیوست‌های پروژه ----
+    if (!type || type === "attachment") {
+      const whereAtt: any = {};
+      if (search) {
+        whereAtt.OR = [
+          { fileName: { contains: search, mode: "insensitive" } },
+          { project: { title: { contains: search, mode: "insensitive" } } },
+        ];
+      }
+
+      const attachments = await prisma.projectAttachment.findMany({
+        where: whereAtt,
+        select: {
+          id: true,
+          fileName: true,
+          fileUrl: true,
+          fileType: true,
+          fileSize: true,
+          createdAt: true,
+          project: {
+            select: { id: true, title: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      for (const a of attachments) {
+        results.push({
+          id: a.id,
+          type: "attachment",
+          fileName: a.fileName,
+          fileUrl: a.fileUrl,
+          fileType: a.fileType,
+          fileSize: a.fileSize,
+          relatedId: a.project?.id,
+          relatedTitle: a.project?.title || `Project #${a.project?.id}`,
+          relatedType: "project",
+          createdAt: a.createdAt,
+        });
+      }
+    }
+
+    // مرتب‌سازی نهایی بر اساس تاریخ (جدیدترین اول)
+    results.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+
+    const total = results.length;
+    const start = (pageNum - 1) * limitNum;
+    const paged = results.slice(start, start + limitNum);
+
+    return res.json({
+      success: true,
+      files: paged,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum) || 1,
+      },
+    });
+  } catch (error) {
+    console.error("Get All Files Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت لیست فایل‌ها" });
+  }
+};
+
+export const deleteFileByAdmin = async (req: Request, res: Response) => {
+  try {
+    const { type, id } = req.params; // type = 'avatar' | 'attachment'
+    const numId = Number(id);
+
+    if (!["avatar", "attachment"].includes(type) || isNaN(numId)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "پارامترهای نامعتبر" });
+    }
+
+    if (type === "avatar") {
+      const user = await prisma.user.findUnique({
+        where: { id: numId },
+        select: { id: true, avatar: true },
+      });
+      if (!user || !user.avatar) {
+        return res
+          .status(404)
+          .json({ success: false, message: "آواتار یافت نشد" });
+      }
+
+      tryDeletePhysicalFile(user.avatar);
+
+      await prisma.user.update({
+        where: { id: numId },
+        data: { avatar: null },
+      });
+
+      return res.json({ success: true, message: "آواتار حذف شد" });
+    }
+
+    // attachment
+    const attachment = await prisma.projectAttachment.findUnique({
+      where: { id: numId },
+    });
+    if (!attachment) {
+      return res
+        .status(404)
+        .json({ success: false, message: "فایل پیوست یافت نشد" });
+    }
+
+    tryDeletePhysicalFile(attachment.fileUrl);
+
+    await prisma.projectAttachment.delete({ where: { id: numId } });
+
+    return res.json({ success: true, message: "فایل پیوست حذف شد" });
+  } catch (error) {
+    console.error("Delete File Error:", error);
+    return res.status(500).json({ success: false, message: "خطا در حذف فایل" });
+  }
+};
 
 // جایگزین getAllUsersForAdmin فعلی بشه
 export const getAllUsersForAdmin = async (req: Request, res: Response) => {
