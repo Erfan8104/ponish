@@ -1807,3 +1807,214 @@ export const mergeSkillsByAdmin = async (req: Request, res: Response) => {
       .json({ success: false, message: "خطا در ادغام مهارت‌ها" });
   }
 };
+
+// لیست مکالمات (هر مکالمه = یک قرارداد یا یک جفت کاربر بدون قرارداد)
+export const getAllConversationsForAdmin = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    // برای جلوگیری از فشار زیاد روی دیتابیس، آخرین چند هزار پیام را می‌گیریم
+    // (برای پروژه‌های خیلی بزرگ بعداً باید با raw query/pagination بهینه شود)
+    const messages = await prisma.message.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 5000,
+      select: {
+        id: true,
+        contractId: true,
+        senderId: true,
+        receiverId: true,
+        content: true,
+        type: true,
+        createdAt: true,
+        sender: { select: { id: true, name: true, phone: true } },
+        receiver: { select: { id: true, name: true, phone: true } },
+        contract: {
+          select: {
+            id: true,
+            project: { select: { id: true, title: true } },
+          },
+        },
+      },
+    });
+
+    const seen = new Map<string, any>();
+
+    for (const m of messages) {
+      const key = m.contractId
+        ? `contract-${m.contractId}`
+        : `direct-${Math.min(m.senderId, m.receiverId)}-${Math.max(m.senderId, m.receiverId)}`;
+
+      // چون پیام‌ها از جدید به قدیم مرتب شدند، اولین باری که هر کلید دیده می‌شود همان آخرین پیام است
+      if (!seen.has(key)) {
+        seen.set(key, {
+          key,
+          contractId: m.contractId,
+          projectTitle: m.contract?.project?.title || null,
+          userA: m.sender,
+          userB: m.receiver,
+          lastMessagePreview:
+            m.type === "text"
+              ? m.content
+              : m.type === "file"
+                ? "📎 فایل پیوست"
+                : "پیام سیستمی",
+          lastMessageAt: m.createdAt,
+        });
+      }
+    }
+
+    const conversations = Array.from(seen.values());
+
+    return res.json({ success: true, conversations });
+  } catch (error) {
+    console.error("Get All Conversations Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت لیست مکالمات" });
+  }
+};
+
+// دریافت کل پیام‌های یک مکالمه (یا با contractId، یا با جفت userA/userB)
+export const getConversationThreadForAdmin = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const { contractId, userAId, userBId } = req.query as Record<
+      string,
+      string
+    >;
+
+    let where: any;
+
+    if (contractId) {
+      where = { contractId: Number(contractId) };
+    } else if (userAId && userBId) {
+      where = {
+        contractId: null,
+        OR: [
+          { senderId: Number(userAId), receiverId: Number(userBId) },
+          { senderId: Number(userBId), receiverId: Number(userAId) },
+        ],
+      };
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "شناسه مکالمه نامعتبر است",
+      });
+    }
+
+    const messages = await prisma.message.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        content: true,
+        type: true,
+        fileUrl: true,
+        readAt: true,
+        createdAt: true,
+        senderId: true,
+        receiverId: true,
+        sender: { select: { id: true, name: true, phone: true } },
+        receiver: { select: { id: true, name: true, phone: true } },
+      },
+    });
+
+    return res.json({ success: true, messages });
+  } catch (error) {
+    console.error("Get Conversation Thread Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت مکالمه" });
+  }
+};
+export const getAllReviewsForAdmin = async (req: Request, res: Response) => {
+  try {
+    const {
+      search = "",
+      rating,
+      page = "1",
+      limit = "10",
+    } = req.query as Record<string, string>;
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 10);
+
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { comment: { contains: search, mode: "insensitive" } },
+        { reviewer: { name: { contains: search, mode: "insensitive" } } },
+        { reviewed: { name: { contains: search, mode: "insensitive" } } },
+      ];
+    }
+
+    if (rating) {
+      where.rating = Number(rating);
+    }
+
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where,
+        select: {
+          id: true,
+          rating: true,
+          comment: true,
+          target: true,
+          createdAt: true,
+          reviewer: { select: { id: true, name: true, phone: true } },
+          reviewed: { select: { id: true, name: true, phone: true } },
+          contract: {
+            select: {
+              id: true,
+              project: { select: { id: true, title: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (pageNum - 1) * limitNum,
+        take: limitNum,
+      }),
+      prisma.review.count({ where }),
+    ]);
+
+    return res.json({
+      success: true,
+      reviews,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum) || 1,
+      },
+    });
+  } catch (error) {
+    console.error("Get All Reviews Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت لیست نظرات" });
+  }
+};
+
+// حذف واقعی — مدل Review فیلد soft-delete ندارد
+export const deleteReviewByAdmin = async (req: Request, res: Response) => {
+  try {
+    const review = await prisma.review.findUnique({
+      where: { id: Number(req.params.id) },
+    });
+
+    if (!review) {
+      return res.status(404).json({ success: false, message: "نظر یافت نشد" });
+    }
+
+    await prisma.review.delete({ where: { id: review.id } });
+
+    return res.json({ success: true, message: "نظر حذف شد" });
+  } catch (error) {
+    console.error("Delete Review Error:", error);
+    return res.status(500).json({ success: false, message: "خطا در حذف نظر" });
+  }
+};

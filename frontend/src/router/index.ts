@@ -29,6 +29,8 @@ import AdminContractDetailPage from '../pages/AdminContractDetailPage.vue'
 import AdminPaymentPage from '../pages/AdminPaymentPage.vue'
 import AdminCategoryPage from '../pages/AdminCategoryPage.vue'
 import AdminSkillPage from '../pages/AdminSkillPage.vue'
+import AdminMessagePage from '../pages/AdminMessagePage.vue'
+import AdminReviewPage from '../pages/AdminReviewPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -82,6 +84,11 @@ const router = createRouter({
           component: AdminDashboardPage,
         },
         {
+          path: 'reviews',
+          component: AdminReviewPage,
+          meta: { permission: 'reviews.view' },
+        },
+        {
           path: 'categories',
           component: AdminCategoryPage,
         },
@@ -89,7 +96,7 @@ const router = createRouter({
         {
           path: 'proposals',
           component: AdminProposalPage,
-          meta: { permission: 'projects.view' },
+          meta: { permission: 'proposals.view' },
         },
         {
           path: 'contracts',
@@ -122,6 +129,11 @@ const router = createRouter({
           path: 'projects',
           component: AdminProjectPage,
           meta: { permission: 'projects.view' },
+        },
+        {
+          path: 'messages',
+          component: AdminMessagePage,
+          meta: { permission: 'messages.view' },
         },
         // مسیرهای بعدی را اینجا اضافه کن:
         // { path: 'projects', component: ..., meta: { permission: 'projects.view' } },

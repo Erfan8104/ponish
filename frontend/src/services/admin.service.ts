@@ -206,3 +206,33 @@ export const mergeSkillsApi = async (payload: {
   const response = await api.post('/admin/skills/merge', payload)
   return response.data
 }
+
+export const getAllConversationsApi = async () => {
+  const response = await api.get('/admin/messages')
+  return response.data
+}
+
+export const getConversationThreadApi = async (params: {
+  contractId?: number
+  userAId?: number
+  userBId?: number
+}) => {
+  const response = await api.get('/admin/messages/thread', { params })
+  return response.data
+}
+export const getAllReviewsApi = async (
+  params: {
+    search?: string
+    rating?: number
+    page?: number
+    limit?: number
+  } = {},
+) => {
+  const response = await api.get('/admin/reviews', { params })
+  return response.data
+}
+
+export const deleteReviewApi = async (id: number) => {
+  const response = await api.delete(`/admin/reviews/${id}`)
+  return response.data
+}

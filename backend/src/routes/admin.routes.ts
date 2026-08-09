@@ -18,7 +18,11 @@ import {
   publishProject,
   closeProject,
   toggleFeatureProject,
+  getAllReviewsForAdmin,
+  deleteReviewByAdmin,
   deleteProjectByAdmin,
+  getAllConversationsForAdmin,
+  getConversationThreadForAdmin,
   getProjectDetailForAdmin,
   getAllProposalsForAdmin,
   acceptProposalForAdmin,
@@ -96,6 +100,19 @@ router.get(
   getAllProposalsForAdmin,
 );
 
+router.get(
+  "/messages",
+  authMiddleware,
+  requirePermission("messages.view"),
+  getAllConversationsForAdmin,
+);
+
+router.get(
+  "/messages/thread",
+  authMiddleware,
+  requirePermission("messages.view"),
+  getConversationThreadForAdmin,
+);
 // مسدود/فعال‌سازی — فقط SUPER_ADMIN, ADMIN, MODERATOR
 router.patch(
   "/users/:id/toggle-status",
@@ -286,5 +303,19 @@ router.post(
   authMiddleware,
   requirePermission("skills.manage"),
   mergeSkillsByAdmin,
+);
+
+router.get(
+  "/reviews",
+  authMiddleware,
+  requirePermission("reviews.view"),
+  getAllReviewsForAdmin,
+);
+
+router.delete(
+  "/reviews/:id",
+  authMiddleware,
+  requirePermission("reviews.delete"),
+  deleteReviewByAdmin,
 );
 export default router;
