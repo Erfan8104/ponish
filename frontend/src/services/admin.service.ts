@@ -145,3 +145,36 @@ export const getAllPaymentsApi = async (params: Record<string, any> = {}) => {
   const response = await api.get('/admin/payments', { params })
   return response.data
 }
+
+export const getAllCategoriesApi = async () => {
+  const response = await api.get('/admin/categories')
+  return response.data
+}
+
+export const createCategoryApi = async (payload: {
+  name: string
+  slug: string
+  description?: string
+  parentId?: number | null
+}) => {
+  const response = await api.post('/admin/categories', payload)
+  return response.data
+}
+
+export const updateCategoryApi = async (
+  id: number,
+  payload: {
+    name?: string
+    slug?: string
+    description?: string
+    parentId?: number | null
+  },
+) => {
+  const response = await api.patch(`/admin/categories/${id}`, payload)
+  return response.data
+}
+
+export const deleteCategoryApi = async (id: number) => {
+  const response = await api.delete(`/admin/categories/${id}`)
+  return response.data
+}

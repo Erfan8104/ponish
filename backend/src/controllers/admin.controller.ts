@@ -1368,3 +1368,214 @@ export const getAllPaymentsForAdmin = async (req: Request, res: Response) => {
       .json({ success: false, message: "خطا در دریافت لیست پرداخت‌ها" });
   }
 };
+
+// ---------- کمکی: پیدا کردن همه‌ی فرزندان یک دسته (برای جلوگیری از حلقه) ----------
+async function getDescendantCategoryIds(categoryId: number): Promise<number[]> {
+  const directChildren = await prisma.category.findMany({
+    where: { parentId: categoryId },
+    select: { id: true },
+  });
+
+  let result: number[] = directChildren.map((c) => c.id);
+
+  for (const child of directChildren) {
+    const nested = await getDescendantCategoryIds(child.id);
+    result = result.concat(nested);
+  }
+
+  return result;
+}
+
+// لیست دسته‌بندی‌ها (فلت، همراه با نام والد و تعداد پروژه/فرزند)
+export const getAllCategoriesForAdmin = async (req: Request, res: Response) => {
+  try {
+    const categories = await prisma.category.findMany({
+      include: {
+        parent: { select: { id: true, name: true } },
+        _count: { select: { children: true, projects: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    return res.json({ success: true, categories });
+  } catch (error) {
+    console.error("Get All Categories Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت لیست دسته‌بندی‌ها" });
+  }
+};
+
+// ایجاد دسته‌بندی
+export const createCategoryByAdmin = async (req: Request, res: Response) => {
+  try {
+    const { name, slug, description, parentId } = req.body as {
+      name?: string;
+      slug?: string;
+      description?: string;
+      parentId?: number | null;
+    };
+
+    if (!name || !slug) {
+      return res.status(400).json({
+        success: false,
+        message: "نام و اسلاگ الزامی هستند",
+      });
+    }
+
+    if (parentId) {
+      const parentExists = await prisma.category.findUnique({
+        where: { id: Number(parentId) },
+        select: { id: true },
+      });
+      if (!parentExists) {
+        return res.status(400).json({
+          success: false,
+          message: "دسته‌بندی والد یافت نشد",
+        });
+      }
+    }
+
+    const category = await prisma.category.create({
+      data: {
+        name,
+        slug,
+        description: description || null,
+        parentId: parentId ? Number(parentId) : null,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: "دسته‌بندی ایجاد شد",
+      category,
+    });
+  } catch (error: any) {
+    if (error?.code === "P2002") {
+      return res.status(400).json({
+        success: false,
+        message: "این اسلاگ قبلاً استفاده شده است",
+      });
+    }
+    console.error("Create Category Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در ایجاد دسته‌بندی" });
+  }
+};
+
+// ویرایش دسته‌بندی
+export const updateCategoryByAdmin = async (req: Request, res: Response) => {
+  try {
+    const categoryId = Number(req.params.id);
+    const { name, slug, description, parentId } = req.body as {
+      name?: string;
+      slug?: string;
+      description?: string;
+      parentId?: number | null;
+    };
+
+    const existing = await prisma.category.findUnique({
+      where: { id: categoryId },
+    });
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ success: false, message: "دسته‌بندی یافت نشد" });
+    }
+
+    // جلوگیری از حلقه: دسته نمی‌تواند والد خودش یا یکی از نوادگانش باشد
+    if (parentId) {
+      const newParentId = Number(parentId);
+
+      if (newParentId === categoryId) {
+        return res.status(400).json({
+          success: false,
+          message: "دسته‌بندی نمی‌تواند والد خودش باشد",
+        });
+      }
+
+      const descendantIds = await getDescendantCategoryIds(categoryId);
+      if (descendantIds.includes(newParentId)) {
+        return res.status(400).json({
+          success: false,
+          message: "دسته‌بندی نمی‌تواند زیرمجموعه‌ی خودش قرار بگیرد",
+        });
+      }
+
+      const parentExists = await prisma.category.findUnique({
+        where: { id: newParentId },
+        select: { id: true },
+      });
+      if (!parentExists) {
+        return res.status(400).json({
+          success: false,
+          message: "دسته‌بندی والد یافت نشد",
+        });
+      }
+    }
+
+    const category = await prisma.category.update({
+      where: { id: categoryId },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(slug !== undefined && { slug }),
+        ...(description !== undefined && { description }),
+        parentId: parentId ? Number(parentId) : null,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: "دسته‌بندی ویرایش شد",
+      category,
+    });
+  } catch (error: any) {
+    if (error?.code === "P2002") {
+      return res.status(400).json({
+        success: false,
+        message: "این اسلاگ قبلاً استفاده شده است",
+      });
+    }
+    console.error("Update Category Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در ویرایش دسته‌بندی" });
+  }
+};
+
+// حذف دسته‌بندی — اگر زیرمجموعه دارد، حذف مسدود می‌شود
+export const deleteCategoryByAdmin = async (req: Request, res: Response) => {
+  try {
+    const categoryId = Number(req.params.id);
+
+    const existing = await prisma.category.findUnique({
+      where: { id: categoryId },
+      include: { _count: { select: { children: true } } },
+    });
+
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ success: false, message: "دسته‌بندی یافت نشد" });
+    }
+
+    if (existing._count.children > 0) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "این دسته‌بندی دارای زیرمجموعه است. ابتدا زیرمجموعه‌ها را حذف یا جابه‌جا کنید",
+      });
+    }
+
+    // پروژه‌های مرتبط با این دسته به‌خاطر onDelete: SetNull خودکار categoryId=null می‌شوند
+    await prisma.category.delete({ where: { id: categoryId } });
+
+    return res.json({ success: true, message: "دسته‌بندی حذف شد" });
+  } catch (error) {
+    console.error("Delete Category Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در حذف دسته‌بندی" });
+  }
+};

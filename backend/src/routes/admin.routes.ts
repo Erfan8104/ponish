@@ -30,6 +30,10 @@ import {
   completeContractByAdmin,
   resolveContractDisputeByAdmin,
   getAllPaymentsForAdmin,
+  getAllCategoriesForAdmin,
+  createCategoryByAdmin,
+  updateCategoryByAdmin,
+  deleteCategoryByAdmin,
 } from "../controllers/admin.controller";
 
 const router = Router();
@@ -216,4 +220,31 @@ router.get(
   getAllPaymentsForAdmin,
 );
 
+router.get(
+  "/categories",
+  authMiddleware,
+  requirePermission("categories.manage"),
+  getAllCategoriesForAdmin,
+);
+
+router.post(
+  "/categories",
+  authMiddleware,
+  requirePermission("categories.manage"),
+  createCategoryByAdmin,
+);
+
+router.patch(
+  "/categories/:id",
+  authMiddleware,
+  requirePermission("categories.manage"),
+  updateCategoryByAdmin,
+);
+
+router.delete(
+  "/categories/:id",
+  authMiddleware,
+  requirePermission("categories.manage"),
+  deleteCategoryByAdmin,
+);
 export default router;

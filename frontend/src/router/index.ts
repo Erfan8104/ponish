@@ -27,6 +27,7 @@ import AdminProposalPage from '../pages/AdminProposalPage.vue'
 import AdminContractPage from '@/pages/AdminContractPage.vue'
 import AdminContractDetailPage from '../pages/AdminContractDetailPage.vue'
 import AdminPaymentPage from '../pages/AdminPaymentPage.vue'
+import AdminCategoryPage from '../pages/AdminCategoryPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -74,6 +75,10 @@ const router = createRouter({
         {
           path: 'dashboard',
           component: AdminDashboardPage,
+        },
+        {
+          path: 'categories',
+          component: AdminCategoryPage,
         },
 
         {
