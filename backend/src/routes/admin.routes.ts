@@ -33,6 +33,11 @@ import {
   getAllCategoriesForAdmin,
   createCategoryByAdmin,
   updateCategoryByAdmin,
+  getAllSkillsForAdmin,
+  createSkillByAdmin,
+  updateSkillByAdmin,
+  deleteSkillByAdmin,
+  mergeSkillsByAdmin,
   deleteCategoryByAdmin,
 } from "../controllers/admin.controller";
 
@@ -246,5 +251,40 @@ router.delete(
   authMiddleware,
   requirePermission("categories.manage"),
   deleteCategoryByAdmin,
+);
+
+router.get(
+  "/skills",
+  authMiddleware,
+  requirePermission("skills.manage"),
+  getAllSkillsForAdmin,
+);
+
+router.post(
+  "/skills",
+  authMiddleware,
+  requirePermission("skills.manage"),
+  createSkillByAdmin,
+);
+
+router.patch(
+  "/skills/:id",
+  authMiddleware,
+  requirePermission("skills.manage"),
+  updateSkillByAdmin,
+);
+
+router.delete(
+  "/skills/:id",
+  authMiddleware,
+  requirePermission("skills.manage"),
+  deleteSkillByAdmin,
+);
+
+router.post(
+  "/skills/merge",
+  authMiddleware,
+  requirePermission("skills.manage"),
+  mergeSkillsByAdmin,
 );
 export default router;

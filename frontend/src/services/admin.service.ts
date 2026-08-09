@@ -178,3 +178,31 @@ export const deleteCategoryApi = async (id: number) => {
   const response = await api.delete(`/admin/categories/${id}`)
   return response.data
 }
+
+export const getAllSkillsApi = async (params: Record<string, any> = {}) => {
+  const response = await api.get('/admin/skills', { params })
+  return response.data
+}
+
+export const createSkillApi = async (payload: { name: string; slug: string }) => {
+  const response = await api.post('/admin/skills', payload)
+  return response.data
+}
+
+export const updateSkillApi = async (id: number, payload: { name?: string; slug?: string }) => {
+  const response = await api.patch(`/admin/skills/${id}`, payload)
+  return response.data
+}
+
+export const deleteSkillApi = async (id: number) => {
+  const response = await api.delete(`/admin/skills/${id}`)
+  return response.data
+}
+
+export const mergeSkillsApi = async (payload: {
+  sourceSkillIds: number[]
+  targetSkillId: number
+}) => {
+  const response = await api.post('/admin/skills/merge', payload)
+  return response.data
+}

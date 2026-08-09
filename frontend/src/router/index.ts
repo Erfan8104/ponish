@@ -28,6 +28,7 @@ import AdminContractPage from '@/pages/AdminContractPage.vue'
 import AdminContractDetailPage from '../pages/AdminContractDetailPage.vue'
 import AdminPaymentPage from '../pages/AdminPaymentPage.vue'
 import AdminCategoryPage from '../pages/AdminCategoryPage.vue'
+import AdminSkillPage from '../pages/AdminSkillPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -71,6 +72,10 @@ const router = createRouter({
         {
           path: '',
           redirect: '/admin/dashboard',
+        },
+        {
+          path: 'skills',
+          component: AdminSkillPage,
         },
         {
           path: 'dashboard',

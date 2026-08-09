@@ -1579,3 +1579,231 @@ export const deleteCategoryByAdmin = async (req: Request, res: Response) => {
       .json({ success: false, message: "خطا در حذف دسته‌بندی" });
   }
 };
+
+// لیست مهارت‌ها همراه با تعداد استفاده
+export const getAllSkillsForAdmin = async (req: Request, res: Response) => {
+  try {
+    const { search = "" } = req.query as Record<string, string>;
+
+    const where: any = {};
+    if (search) {
+      where.name = { contains: search, mode: "insensitive" };
+    }
+
+    const skills = await prisma.skill.findMany({
+      where,
+      include: {
+        _count: { select: { freelancers: true, projects: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    return res.json({ success: true, skills });
+  } catch (error) {
+    console.error("Get All Skills Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت لیست مهارت‌ها" });
+  }
+};
+
+// ایجاد مهارت
+export const createSkillByAdmin = async (req: Request, res: Response) => {
+  try {
+    const { name, slug } = req.body as { name?: string; slug?: string };
+
+    if (!name || !slug) {
+      return res.status(400).json({
+        success: false,
+        message: "نام و اسلاگ الزامی هستند",
+      });
+    }
+
+    const skill = await prisma.skill.create({ data: { name, slug } });
+
+    return res.json({ success: true, message: "مهارت ایجاد شد", skill });
+  } catch (error: any) {
+    if (error?.code === "P2002") {
+      return res.status(400).json({
+        success: false,
+        message: "این اسلاگ قبلاً استفاده شده است",
+      });
+    }
+    console.error("Create Skill Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در ایجاد مهارت" });
+  }
+};
+
+// ویرایش مهارت
+export const updateSkillByAdmin = async (req: Request, res: Response) => {
+  try {
+    const skillId = Number(req.params.id);
+    const { name, slug } = req.body as { name?: string; slug?: string };
+
+    const existing = await prisma.skill.findUnique({ where: { id: skillId } });
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ success: false, message: "مهارت یافت نشد" });
+    }
+
+    const skill = await prisma.skill.update({
+      where: { id: skillId },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(slug !== undefined && { slug }),
+      },
+    });
+
+    return res.json({ success: true, message: "مهارت ویرایش شد", skill });
+  } catch (error: any) {
+    if (error?.code === "P2002") {
+      return res.status(400).json({
+        success: false,
+        message: "این اسلاگ قبلاً استفاده شده است",
+      });
+    }
+    console.error("Update Skill Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در ویرایش مهارت" });
+  }
+};
+
+// حذف مهارت — روابط FreelancerSkill/ProjectSkill به‌خاطر onDelete: Cascade خودکار حذف می‌شوند
+export const deleteSkillByAdmin = async (req: Request, res: Response) => {
+  try {
+    const skillId = Number(req.params.id);
+
+    const existing = await prisma.skill.findUnique({ where: { id: skillId } });
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ success: false, message: "مهارت یافت نشد" });
+    }
+
+    await prisma.skill.delete({ where: { id: skillId } });
+
+    return res.json({ success: true, message: "مهارت حذف شد" });
+  } catch (error) {
+    console.error("Delete Skill Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در حذف مهارت" });
+  }
+};
+
+// ادغام چند مهارت در یک مهارت مقصد
+export const mergeSkillsByAdmin = async (req: Request, res: Response) => {
+  try {
+    const { sourceSkillIds, targetSkillId } = req.body as {
+      sourceSkillIds?: number[];
+      targetSkillId?: number;
+    };
+
+    if (
+      !Array.isArray(sourceSkillIds) ||
+      sourceSkillIds.length === 0 ||
+      !targetSkillId
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "لیست مهارت‌های مبدأ و مهارت مقصد الزامی هستند",
+      });
+    }
+
+    const cleanSourceIds = sourceSkillIds
+      .map((id) => Number(id))
+      .filter((id) => id !== Number(targetSkillId));
+
+    if (cleanSourceIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "مهارت مقصد نمی‌تواند در لیست مبدأها باشد",
+      });
+    }
+
+    const allIds = [...cleanSourceIds, Number(targetSkillId)];
+    const foundSkills = await prisma.skill.findMany({
+      where: { id: { in: allIds } },
+      select: { id: true },
+    });
+
+    if (foundSkills.length !== allIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: "یک یا چند مهارت انتخاب‌شده یافت نشد",
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const sourceId of cleanSourceIds) {
+        // ---- انتقال FreelancerSkill ----
+        const freelancerLinks = await tx.freelancerSkill.findMany({
+          where: { skillId: sourceId },
+        });
+
+        for (const link of freelancerLinks) {
+          const alreadyHasTarget = await tx.freelancerSkill.findUnique({
+            where: {
+              freelancerProfileId_skillId: {
+                freelancerProfileId: link.freelancerProfileId,
+                skillId: Number(targetSkillId),
+              },
+            },
+          });
+
+          if (alreadyHasTarget) {
+            // فریلنسر از قبل مهارت مقصد را دارد → رکورد تکراری مبدأ حذف می‌شود
+            await tx.freelancerSkill.delete({ where: { id: link.id } });
+          } else {
+            await tx.freelancerSkill.update({
+              where: { id: link.id },
+              data: { skillId: Number(targetSkillId) },
+            });
+          }
+        }
+
+        // ---- انتقال ProjectSkill ----
+        const projectLinks = await tx.projectSkill.findMany({
+          where: { skillId: sourceId },
+        });
+
+        for (const link of projectLinks) {
+          const alreadyHasTarget = await tx.projectSkill.findUnique({
+            where: {
+              projectId_skillId: {
+                projectId: link.projectId,
+                skillId: Number(targetSkillId),
+              },
+            },
+          });
+
+          if (alreadyHasTarget) {
+            await tx.projectSkill.delete({ where: { id: link.id } });
+          } else {
+            await tx.projectSkill.update({
+              where: { id: link.id },
+              data: { skillId: Number(targetSkillId) },
+            });
+          }
+        }
+
+        // ---- حذف مهارت مبدأ ----
+        await tx.skill.delete({ where: { id: sourceId } });
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: "مهارت‌ها با موفقیت ادغام شدند",
+    });
+  } catch (error) {
+    console.error("Merge Skills Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در ادغام مهارت‌ها" });
+  }
+};
