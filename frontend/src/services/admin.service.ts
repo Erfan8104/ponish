@@ -253,3 +253,34 @@ export const deleteFileApi = async (type: 'avatar' | 'attachment', id: number) =
   const response = await api.delete(`/admin/files/${type}/${id}`)
   return response.data
 }
+
+export const getAllReportsApi = async (
+  params: {
+    search?: string
+    status?: string
+    targetType?: string
+    page?: number
+    limit?: number
+  } = {},
+) => {
+  const response = await api.get('/admin/reports', { params })
+  return response.data
+}
+
+export const getReportDetailApi = async (id: number) => {
+  const response = await api.get(`/admin/reports/${id}`)
+  return response.data
+}
+
+export const updateReportStatusApi = async (
+  id: number,
+  data: { status?: string; adminNote?: string },
+) => {
+  const response = await api.patch(`/admin/reports/${id}`, data)
+  return response.data
+}
+
+export const deleteReportApi = async (id: number) => {
+  const response = await api.delete(`/admin/reports/${id}`)
+  return response.data
+}

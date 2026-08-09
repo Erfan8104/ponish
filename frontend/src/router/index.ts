@@ -32,6 +32,7 @@ import AdminSkillPage from '../pages/AdminSkillPage.vue'
 import AdminMessagePage from '../pages/AdminMessagePage.vue'
 import AdminReviewPage from '../pages/AdminReviewPage.vue'
 import AdminFilePage from '../pages/AdminFilePage.vue'
+import AdminReportPage from '../pages/AdminReportPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -83,6 +84,11 @@ const router = createRouter({
         {
           path: 'dashboard',
           component: AdminDashboardPage,
+        },
+        {
+          path: 'reports',
+          component: AdminReportPage,
+          meta: { permission: 'reports.view' },
         },
         {
           path: 'reviews',

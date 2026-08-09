@@ -31,6 +31,10 @@ import {
   rejectProposalForAdmin,
   deleteProposalForAdmin,
   getAllContractsForAdmin,
+  getAllReportsForAdmin,
+  getReportDetailForAdmin,
+  updateReportStatusByAdmin,
+  deleteReportByAdmin,
   getContractDetailForAdmin,
   cancelContractByAdmin,
   completeContractByAdmin,
@@ -334,5 +338,34 @@ router.delete(
   authMiddleware,
   requirePermission("settings.manage"),
   deleteFileByAdmin,
+);
+
+// داخل router:
+router.get(
+  "/reports",
+  authMiddleware,
+  requirePermission("reports.view"),
+  getAllReportsForAdmin,
+);
+
+router.get(
+  "/reports/:id",
+  authMiddleware,
+  requirePermission("reports.view"),
+  getReportDetailForAdmin,
+);
+
+router.patch(
+  "/reports/:id",
+  authMiddleware,
+  requirePermission("reports.view"), // یا reports.manage اگر بعداً اضافه کردی
+  updateReportStatusByAdmin,
+);
+
+router.delete(
+  "/reports/:id",
+  authMiddleware,
+  requirePermission("reports.view"),
+  deleteReportByAdmin,
 );
 export default router;

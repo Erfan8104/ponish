@@ -16,6 +16,23 @@ enum UserRole {
   admin          // ← این را نگه می‌داریم برای سازگاری با کد فعلی
 }
 
+
+enum ReportTargetType {
+  user
+  project
+  message
+  review
+  proposal
+}
+
+enum ReportStatus {
+  pending
+  reviewing
+  resolved
+  rejected
+  dismissed
+}
+
 enum ProjectStatus {
   draft
   open
@@ -124,7 +141,8 @@ model User {
   reviewsGiven          Review[]           @relation("ReviewsGiven")
   reviewsReceived       Review[]           @relation("ReviewsReceived")
   otps                  OTP[]
-
+  reportsCreated  Report[] @relation("ReportsCreated")
+  reportsResolved Report[] @relation("ReportsResolved")
   // 🌟 روابط جدید برای سیستم Permission
   adminRoles            UserAdminRole[]
 
@@ -133,6 +151,35 @@ model User {
   @@index([role])
   @@index([province, city])
   @@index([isActive])
+}
+
+
+model Report {
+  id          Int              @id @default(autoincrement())
+  reporterId  Int
+  reporter    User             @relation("ReportsCreated", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  // هدف گزارش (یکی از این‌ها پر می‌شود)
+  targetType  ReportTargetType
+  targetId    Int              // id کاربر / پروژه / پیام و ...
+
+  reason      String           // دلیل کوتاه (مثلاً "محتوای نامناسب")
+  description String?          // توضیح بیشتر
+  status      ReportStatus     @default(pending)
+
+  // ادمینی که رسیدگی کرده
+  resolvedBy  Int?
+  resolver    User?            @relation("ReportsResolved", fields: [resolvedBy], references: [id], onDelete: SetNull)
+  resolvedAt  DateTime?
+  adminNote   String?          // یادداشت ادمین
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([targetType, targetId])
+  @@index([status])
+  @@index([reporterId])
+  @@index([createdAt])
 }
 
 // ======================
