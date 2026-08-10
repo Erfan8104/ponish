@@ -4,12 +4,12 @@ import { useRouter } from 'vue-router'
 import { useAdminStore } from '@/stores/admin.store'
 import { useRoleStore } from '@/stores/role.store'
 import NotificationBell from '@/components/admin/ui/NotificationBell.vue'
+import GlobalSearch from '@/components/admin/ui/GlobalSearch.vue'
 
 const router = useRouter()
 const adminStore = useAdminStore()
 const roleStore = useRoleStore()
 
-const searchQuery = ref('')
 const showMenu = ref(false)
 
 const handleLogout = () => {
@@ -25,12 +25,7 @@ const handleLogout = () => {
     style="direction: rtl"
   >
     <div class="flex-1 max-w-md">
-      <input
-        v-model="searchQuery"
-        type="text"
-        placeholder="جستجو..."
-        class="w-full h-10 px-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#008f55] focus:ring-4 focus:ring-emerald-50 transition-all"
-      />
+      <GlobalSearch />
     </div>
 
     <div class="flex items-center gap-4">

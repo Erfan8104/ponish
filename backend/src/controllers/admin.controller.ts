@@ -3399,3 +3399,156 @@ export const getAnalyticsForAdmin = async (req: Request, res: Response) => {
       .json({ success: false, message: "خطا در دریافت آنالیتیکس" });
   }
 };
+
+export const globalSearchForAdmin = async (req: Request, res: Response) => {
+  try {
+    const q = ((req.query.q as string) || "").trim();
+
+    if (!q || q.length < 2) {
+      return res.json({
+        success: true,
+        results: {
+          users: null,
+          projects: null,
+          contracts: null,
+          payments: null,
+        },
+      });
+    }
+
+    const permissions: string[] = (req as any).user?.permissions || [];
+    const isSuper = permissions.includes("*");
+    const can = (key: string) => isSuper || permissions.includes(key);
+
+    const results: Record<string, any> = {
+      users: null,
+      projects: null,
+      contracts: null,
+      payments: null,
+    };
+
+    const tasks: Promise<void>[] = [];
+
+    if (can("users.view")) {
+      tasks.push(
+        prisma.user
+          .findMany({
+            where: {
+              deletedAt: null,
+              OR: [
+                { name: { contains: q, mode: "insensitive" } },
+                { phone: { contains: q } },
+                { email: { contains: q, mode: "insensitive" } },
+              ],
+            },
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              email: true,
+              role: true,
+            },
+            take: 5,
+          })
+          .then((data) => {
+            results.users = data;
+          }),
+      );
+    }
+
+    if (can("projects.view")) {
+      tasks.push(
+        prisma.project
+          .findMany({
+            where: {
+              deletedAt: null,
+              OR: [
+                { title: { contains: q, mode: "insensitive" } },
+                { employer: { name: { contains: q, mode: "insensitive" } } },
+                { employer: { phone: { contains: q } } },
+              ],
+            },
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              employer: { select: { name: true, phone: true } },
+            },
+            take: 5,
+          })
+          .then((data) => {
+            results.projects = data;
+          }),
+      );
+    }
+
+    if (can("contracts.view")) {
+      tasks.push(
+        prisma.contract
+          .findMany({
+            where: {
+              OR: [
+                { employer: { name: { contains: q, mode: "insensitive" } } },
+                { employer: { phone: { contains: q } } },
+                { freelancer: { name: { contains: q, mode: "insensitive" } } },
+                { freelancer: { phone: { contains: q } } },
+                { project: { title: { contains: q, mode: "insensitive" } } },
+              ],
+            },
+            select: {
+              id: true,
+              status: true,
+              totalAmount: true,
+              project: { select: { title: true } },
+              employer: { select: { name: true, phone: true } },
+              freelancer: { select: { name: true, phone: true } },
+            },
+            take: 5,
+          })
+          .then((data) => {
+            results.contracts = data;
+          }),
+      );
+    }
+
+    if (can("payments.view")) {
+      const isNumeric = /^\d+$/.test(q);
+      tasks.push(
+        prisma.payment
+          .findMany({
+            where: {
+              OR: [
+                { trackingCode: { contains: q, mode: "insensitive" } },
+                { gateway: { contains: q, mode: "insensitive" } },
+                ...(isNumeric ? [{ amount: Number(q) }] : []),
+                {
+                  contract: {
+                    project: { title: { contains: q, mode: "insensitive" } },
+                  },
+                },
+              ],
+            },
+            select: {
+              id: true,
+              amount: true,
+              status: true,
+              trackingCode: true,
+              contractId: true,
+              contract: { select: { project: { select: { title: true } } } },
+            },
+            take: 5,
+          })
+          .then((data) => {
+            results.payments = data;
+          }),
+      );
+    }
+
+    await Promise.all(tasks);
+
+    return res.json({ success: true, results });
+  } catch (error) {
+    console.error("Global Search Error:", error);
+    return res.status(500).json({ success: false, message: "خطا در جستجو" });
+  }
+};

@@ -340,3 +340,8 @@ export const getAnalyticsApi = async (range: '7d' | '30d' | '90d' | '365d' = '30
   const response = await api.get('/admin/analytics', { params: { range } })
   return response.data
 }
+
+export const globalSearchApi = async (q: string) => {
+  const response = await api.get('/admin/search', { params: { q } })
+  return response.data
+}

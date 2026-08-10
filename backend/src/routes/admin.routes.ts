@@ -20,6 +20,7 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
   deleteNotificationByAdmin,
+  globalSearchForAdmin,
   getAnalyticsForAdmin,
   deleteFileByAdmin,
   getDashboardStats,
@@ -432,4 +433,6 @@ router.get(
   requirePermission("reports.view"),
   getAnalyticsForAdmin,
 );
+
+router.get("/search", authMiddleware, adminMiddleware, globalSearchForAdmin);
 export default router;
