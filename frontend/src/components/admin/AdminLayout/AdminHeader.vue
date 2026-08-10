@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAdminStore } from '@/stores/admin.store'
 import { useRoleStore } from '@/stores/role.store'
+import NotificationBell from '@/components/admin/ui/NotificationBell.vue'
 
 const router = useRouter()
 const adminStore = useAdminStore()
@@ -33,14 +34,7 @@ const handleLogout = () => {
     </div>
 
     <div class="flex items-center gap-4">
-      <button
-        type="button"
-        class="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-50 transition-colors relative"
-        aria-label="اعلان‌ها"
-      >
-        🔔
-      </button>
-
+      <NotificationBell />
       <div class="relative">
         <button type="button" class="flex items-center gap-2" @click="showMenu = !showMenu">
           <div

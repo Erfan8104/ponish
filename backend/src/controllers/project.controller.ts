@@ -4,6 +4,7 @@ import { AuthRequest } from "../middleware/auth.middleware";
 import { Prisma } from "@prisma/client";
 import { createProjectSchema } from "../validators/project.validator";
 import { updateProjectSchema } from "../validators/project.validator";
+import { createNotification } from "../utils/notification";
 
 /**
  * =========================
@@ -285,6 +286,14 @@ export const createProject = async (req: AuthRequest, res: Response) => {
       }
 
       return newProject;
+    });
+
+    await createNotification({
+      type: "new_project",
+      title: "پروژه جدید ایجاد شد",
+      message: `پروژه «${result.title || "بدون عنوان"}» ثبت شد`,
+      link: `/admin/projects/${result.id}`,
+      metadata: { projectId: result.id, employerId },
     });
 
     return res.status(201).json({

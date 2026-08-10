@@ -298,3 +298,40 @@ export const getAllActivityLogsApi = async (
   const response = await api.get('/admin/activity-logs', { params })
   return response.data
 }
+
+export const getAllSettingsApi = async () => {
+  const response = await api.get('/admin/settings')
+  return response.data
+}
+
+export const updateSettingsApi = async (settings: { key: string; value: string }[]) => {
+  const response = await api.put('/admin/settings', { settings })
+  return response.data
+}
+
+export const getAllNotificationsApi = async (
+  params: {
+    isRead?: boolean
+    type?: string
+    page?: number
+    limit?: number
+  } = {},
+) => {
+  const response = await api.get('/admin/notifications', { params })
+  return response.data
+}
+
+export const markNotificationReadApi = async (id: number) => {
+  const response = await api.patch(`/admin/notifications/${id}/read`)
+  return response.data
+}
+
+export const markAllNotificationsReadApi = async () => {
+  const response = await api.patch('/admin/notifications/mark-all-read')
+  return response.data
+}
+
+export const deleteNotificationApi = async (id: number) => {
+  const response = await api.delete(`/admin/notifications/${id}`)
+  return response.data
+}

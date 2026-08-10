@@ -34,6 +34,8 @@ import AdminReviewPage from '../pages/AdminReviewPage.vue'
 import AdminFilePage from '../pages/AdminFilePage.vue'
 import AdminReportPage from '../pages/AdminReportPage.vue'
 import AdminActivityLogPage from '@/pages/AdminActivityLogPage.vue'
+import AdminSettingPage from '@/pages/AdminSettingPage.vue'
+import AdminNotificationPage from '../pages/AdminNotificationPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -86,6 +88,16 @@ const router = createRouter({
           path: 'dashboard',
           component: AdminDashboardPage,
         },
+        {
+          path: 'settings',
+          component: AdminSettingPage,
+          meta: { permission: 'settings.view' },
+        },
+        {
+          path: 'notifications',
+          component: AdminNotificationPage,
+        },
+
         {
           path: 'activity-logs',
           component: AdminActivityLogPage,

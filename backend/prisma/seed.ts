@@ -358,6 +358,63 @@ async function main() {
     );
   }
 
+  // ============================================================
+  // ۶. تنظیمات سایت (Settings)
+  // ============================================================
+  const defaultSettings = [
+    {
+      key: "site_name",
+      value: "ژئوکار",
+      label: "نام سایت",
+      type: "text",
+      group: "general",
+    },
+    {
+      key: "support_phone",
+      value: "021-12345678",
+      label: "تلفن پشتیبانی",
+      type: "phone",
+      group: "general",
+    },
+    {
+      key: "support_email",
+      value: "support@geokar.ir",
+      label: "ایمیل پشتیبانی",
+      type: "email",
+      group: "general",
+    },
+    {
+      key: "default_commission",
+      value: "10",
+      label: "کمیسیون پیش‌فرض (درصد)",
+      type: "number",
+      group: "financial",
+    },
+    {
+      key: "min_withdrawal",
+      value: "100000",
+      label: "حداقل مبلغ برداشت (تومان)",
+      type: "number",
+      group: "financial",
+    },
+    {
+      key: "maintenance_mode",
+      value: "false",
+      label: "حالت تعمیر و نگهداری",
+      type: "boolean",
+      group: "system",
+    },
+  ];
+
+  for (const s of defaultSettings) {
+    await prisma.setting.upsert({
+      where: { key: s.key },
+      update: {},
+      create: s,
+    });
+  }
+  console.log("✅ تنظیمات پیش‌فرض اضافه شدند.");
+
   console.log("🎉 Seed با موفقیت کامل شد.");
 }
 

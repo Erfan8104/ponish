@@ -14,6 +14,12 @@ import {
   resetUserPassword,
   changeUserRole,
   getAllFilesForAdmin,
+  getAllSettingsForAdmin,
+  updateSettingsByAdmin,
+  getAllNotificationsForAdmin,
+  markNotificationRead,
+  markAllNotificationsRead,
+  deleteNotificationByAdmin,
   deleteFileByAdmin,
   getDashboardStats,
   getAllProjectsForAdmin,
@@ -375,5 +381,47 @@ router.delete(
   authMiddleware,
   requirePermission("reports.view"),
   deleteReportByAdmin,
+);
+
+router.get(
+  "/settings",
+  authMiddleware,
+  requirePermission("settings.view"),
+  getAllSettingsForAdmin,
+);
+
+router.put(
+  "/settings",
+  authMiddleware,
+  requirePermission("settings.manage"),
+  updateSettingsByAdmin,
+);
+
+router.get(
+  "/notifications",
+  authMiddleware,
+  adminMiddleware,
+  getAllNotificationsForAdmin,
+);
+
+router.patch(
+  "/notifications/:id/read",
+  authMiddleware,
+  adminMiddleware,
+  markNotificationRead,
+);
+
+router.patch(
+  "/notifications/mark-all-read",
+  authMiddleware,
+  adminMiddleware,
+  markAllNotificationsRead,
+);
+
+router.delete(
+  "/notifications/:id",
+  authMiddleware,
+  requirePermission("settings.manage"),
+  deleteNotificationByAdmin,
 );
 export default router;

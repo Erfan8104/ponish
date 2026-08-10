@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { prisma } from "../lib/prisma"; // ⚡ مسیر فایل کانفیگ پریسما شما
 import { AuthRequest } from "../middleware/auth.middleware";
+import { createNotification } from "../utils/notification";
 
 export const contractController = {
   // ۱. ثبت پیشنهاد الحاقیه توسط کارفرما (پشتیبانی از مساحت یا طول کریدور)
@@ -70,6 +71,14 @@ export const contractController = {
           notes: notes || null,
           status: "pending",
         },
+      });
+
+      await createNotification({
+        type: "contract_amendment",
+        title: "درخواست اصلاح قرارداد",
+        message: `درخواست اصلاح برای قرارداد #${contract.id} (پروژه «${contract.project.title || "بدون عنوان"}») ثبت شد`,
+        link: `/admin/contracts/${contract.id}`,
+        metadata: { contractId: contract.id, amendmentId: amendment.id },
       });
 
       return res.status(201).json({

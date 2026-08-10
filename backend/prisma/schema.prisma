@@ -55,6 +55,17 @@ enum ProposalStatus {
   withdrawn
 }
 
+enum NotificationType {
+  new_user
+  new_project
+  new_proposal
+  payment_received
+  contract_amendment
+  contract_dispute
+  new_report
+  system
+}
+
 enum ContractStatus {
   active
   completed
@@ -152,6 +163,42 @@ model User {
   @@index([role])
   @@index([province, city])
   @@index([isActive])
+}
+
+
+model Notification {
+  id          Int              @id @default(autoincrement())
+  type        NotificationType
+  title       String           // عنوان کوتاه
+  message     String           // متن اعلان
+  link        String?          // لینک به صفحه مرتبط (مثلاً /admin/users/12)
+  isRead      Boolean          @default(false)
+  metadata    Json?            // اطلاعات اضافی (userId, projectId و ...)
+
+  // اگر بخواهی اعلان فقط برای نقش خاصی باشد (اختیاری)
+  // targetRole  AdminRoleName?
+
+  createdAt   DateTime         @default(now())
+
+  @@index([isRead])
+  @@index([type])
+  @@index([createdAt])
+}
+
+
+
+model Setting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  label     String?
+  type      String   @default("text") // text | number | boolean | email | phone
+  group     String?  @default("general")
+  updatedAt DateTime @updatedAt
+  updatedBy Int?
+
+  @@index([group])
+  @@index([key])
 }
 
 

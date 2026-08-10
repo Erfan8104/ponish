@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import { prisma } from "../lib/prisma";
 import jwt from "jsonwebtoken";
 import { AuthRequest } from "../middleware/auth.middleware";
+import { createNotification } from "../utils/notification";
 
 /**
  * ارسال رمز یکبار مصرف (OTP)
@@ -87,8 +88,15 @@ export const verifyOtp = async (req: Request, res: Response) => {
         },
       });
       isNewUser = true;
-    }
 
+      await createNotification({
+        type: "new_user",
+        title: "کاربر جدید ثبت‌نام کرد",
+        message: `کاربری با شماره ${user.phone} در پلتفرم ثبت‌نام کرد`,
+        link: `/admin/users/${user.id}`,
+        metadata: { userId: user.id },
+      });
+    }
     // تولید توکن JWT
     const token = jwt.sign(
       {

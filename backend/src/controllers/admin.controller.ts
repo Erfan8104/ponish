@@ -2961,3 +2961,205 @@ export const deleteReportByAdmin = async (req: Request, res: Response) => {
       .json({ success: false, message: "خطا در حذف گزارش" });
   }
 };
+
+// ==============================
+// تنظیمات سایت (فاز ۱۵)
+// ==============================
+
+export const getAllSettingsForAdmin = async (req: Request, res: Response) => {
+  try {
+    const settings = await prisma.setting.findMany({
+      orderBy: [{ group: "asc" }, { id: "asc" }],
+    });
+
+    // گروه‌بندی برای فرانت
+    const grouped: Record<string, any[]> = {};
+    for (const s of settings) {
+      const g = s.group || "general";
+      if (!grouped[g]) grouped[g] = [];
+      grouped[g].push(s);
+    }
+
+    return res.json({
+      success: true,
+      settings,
+      grouped,
+    });
+  } catch (error) {
+    console.error("Get Settings Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت تنظیمات" });
+  }
+};
+
+export const updateSettingsByAdmin = async (req: Request, res: Response) => {
+  try {
+    const { settings } = req.body as {
+      settings?: { key: string; value: string }[];
+    };
+
+    if (!Array.isArray(settings) || settings.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "لیست تنظیمات الزامی است",
+      });
+    }
+
+    const adminId = getAdminId(req);
+    const updatedKeys: string[] = [];
+
+    await prisma.$transaction(async (tx) => {
+      for (const item of settings) {
+        if (!item.key) continue;
+
+        await tx.setting.upsert({
+          where: { key: item.key },
+          update: {
+            value: String(item.value ?? ""),
+            updatedBy: adminId,
+          },
+          create: {
+            key: item.key,
+            value: String(item.value ?? ""),
+            updatedBy: adminId,
+          },
+        });
+
+        updatedKeys.push(item.key);
+      }
+    });
+
+    // لاگ
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "settings.update",
+        targetType: "settings",
+        description: `ادمین تنظیمات سایت را به‌روزرسانی کرد (${updatedKeys.join(", ")})`,
+        metadata: { keys: updatedKeys },
+        req,
+      });
+    }
+
+    // برگرداندن تنظیمات جدید
+    const allSettings = await prisma.setting.findMany({
+      orderBy: [{ group: "asc" }, { id: "asc" }],
+    });
+
+    return res.json({
+      success: true,
+      message: "تنظیمات با موفقیت ذخیره شد",
+      settings: allSettings,
+    });
+  } catch (error) {
+    console.error("Update Settings Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در ذخیره تنظیمات" });
+  }
+};
+
+// ==============================
+// اعلان‌ها (فاز ۱۶)
+// ==============================
+
+export const getAllNotificationsForAdmin = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const {
+      isRead,
+      type,
+      page = "1",
+      limit = "20",
+    } = req.query as Record<string, string>;
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 20));
+
+    const where: any = {};
+    if (isRead === "true") where.isRead = true;
+    if (isRead === "false") where.isRead = false;
+    if (type) where.type = type;
+
+    const [notifications, total, unreadCount] = await Promise.all([
+      prisma.notification.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (pageNum - 1) * limitNum,
+        take: limitNum,
+      }),
+      prisma.notification.count({ where }),
+      prisma.notification.count({ where: { isRead: false } }),
+    ]);
+
+    return res.json({
+      success: true,
+      notifications,
+      unreadCount,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum) || 1,
+      },
+    });
+  } catch (error) {
+    console.error("Get Notifications Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت اعلان‌ها" });
+  }
+};
+
+export const markNotificationRead = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+
+    const notification = await prisma.notification.update({
+      where: { id },
+      data: { isRead: true },
+      select: { id: true, isRead: true },
+    });
+
+    return res.json({ success: true, notification });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در علامت‌گذاری اعلان" });
+  }
+};
+
+export const markAllNotificationsRead = async (req: Request, res: Response) => {
+  try {
+    await prisma.notification.updateMany({
+      where: { isRead: false },
+      data: { isRead: true },
+    });
+
+    return res.json({ success: true, message: "همه اعلان‌ها خوانده شدند" });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در علامت‌گذاری همه اعلان‌ها" });
+  }
+};
+
+export const deleteNotificationByAdmin = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    await prisma.notification.delete({
+      where: { id: Number(req.params.id) },
+    });
+
+    return res.json({ success: true, message: "اعلان حذف شد" });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در حذف اعلان" });
+  }
+};
