@@ -20,6 +20,7 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
   deleteNotificationByAdmin,
+  getAnalyticsForAdmin,
   deleteFileByAdmin,
   getDashboardStats,
   getAllProjectsForAdmin,
@@ -423,5 +424,12 @@ router.delete(
   authMiddleware,
   requirePermission("settings.manage"),
   deleteNotificationByAdmin,
+);
+
+router.get(
+  "/analytics",
+  authMiddleware,
+  requirePermission("reports.view"),
+  getAnalyticsForAdmin,
 );
 export default router;

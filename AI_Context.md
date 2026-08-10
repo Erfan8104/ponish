@@ -4271,2414 +4271,6 @@ return res
 }
 };
 
-import { Request, Response } from "express";
-import bcrypt from "bcrypt";
-import { prisma } from "../lib/prisma";
-import jwt from "jsonwebtoken";
-import { AuthRequest } from "../middleware/auth.middleware";
-
-/\*\*
-
-- ارسال رمز یکبار مصرف (OTP)
-  \*/
-  export const sendOtp = async (req: Request, res: Response) => {
-  try {
-  const { phone } = req.body;
-
-      // 🌟 1. پاکسازی کدهای قبلی این شماره برای جلوگیری از انباشتگی در دیتابیس
-      await prisma.oTP.deleteMany({
-        where: { phone },
-      });
-
-      // تولید کد ۶ رقمی فرضی (در آینده با پنل پیامکی جایگزین شود)
-      const otp = "123456";
-
-      // 🌟 2. ایجاد کد جدید
-      await prisma.oTP.create({
-        data: {
-          phone,
-          code: otp,
-          expiresAt: new Date(Date.now() + 2 * 60 * 1000), // اعتبار ۲ دقیقه
-        },
-      });
-
-      return res.json({
-        success: true,
-        message: "کد تایید ارسال شد",
-      });
-
-  } catch (error) {
-  console.error("Send OTP Error:", error);
-  return res.status(500).json({ success: false, message: "خطای سرور" });
-  }
-  };
-
-/\*\*
-
-- تایید رمز یکبار مصرف و ورود/ثبت‌نام کاربر
-  \*/
-  export const verifyOtp = async (req: Request, res: Response) => {
-  try {
-  const { phone, code } = req.body;
-
-      if (!phone || !code) {
-        return res.status(400).json({
-          success: false,
-          message: "شماره تلفن و کد تایید الزامی هستند",
-        });
-      }
-
-      const otpRecord = await prisma.oTP.findFirst({
-        where: { phone, code },
-        orderBy: { createdAt: "desc" },
-      });
-
-      if (!otpRecord) {
-        return res.status(400).json({
-          success: false,
-          message: "کد تایید نامعتبر است",
-        });
-      }
-
-      if (otpRecord.expiresAt < new Date()) {
-        return res.status(400).json({
-          success: false,
-          message: "کد تایید منقضی شده است",
-        });
-      }
-
-      // بررسی وجود کاربر یا ایجاد کاربر جدید
-      let user = await prisma.user.findUnique({
-        where: { phone },
-      });
-
-      let isNewUser = false;
-
-      if (!user) {
-        user = await prisma.user.create({
-          data: {
-            phone,
-            role: "employer", // نقش پیش‌فرض مطابق با استور فرانت
-            profileCompleted: false,
-          },
-        });
-        isNewUser = true;
-      }
-
-      // تولید توکن JWT
-      const token = jwt.sign(
-        {
-          userId: user.id,
-          phone: user.phone,
-        },
-        process.env.JWT_SECRET || "supersecretkey",
-        { expiresIn: "7d" },
-      );
-
-      // حذف کدهای OTP مصرف شده برای این شماره
-      await prisma.oTP.deleteMany({
-        where: { phone },
-      });
-
-      // 🌟 خروجی منطبق با ساختار متد setToken در استور فرانت‌اند (auth.store.ts)
-      return res.json({
-        success: true,
-        token,
-        isNewUser,
-        user: {
-          id: user.id,
-          phone: user.phone,
-          name: user.name || "",
-          email: user.email || "",
-          profileCompleted: user.profileCompleted,
-        },
-      });
-
-  } catch (error) {
-  console.error("Verify OTP Error:", error);
-  return res.status(500).json({
-  success: false,
-  message: "خطای داخلی سرور",
-  });
-  }
-  };
-
-export const completeRegistration = async (req: AuthRequest, res: Response) => {
-try {
-const { username, role } = req.body;
-const userId = req.user!.userId; // دریافت آیدی از روی توکن لاگین شده
-
-    if (!role || !["employer", "freelancer", "both"].includes(role)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "نقش ارسالی نامعتبر است" });
-    }
-
-    // آپدیت نقش، نام و تغییر وضعیت تکمیل پروفایل به true
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        role: role,
-        name: username,
-        profileCompleted: true, // 🌟 این خط کلیدی اضافه شد
-      },
-    });
-
-    return res.json({
-      success: true,
-      message: "مشخصات کاربری با موفقیت آپدیت شد",
-      user: updatedUser,
-    });
-
-} catch (error) {
-console.error("Complete Registration Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطای سرور در تکمیل ثبت‌نام" });
-}
-};
-
-/\*\*
-
-- تغییر یا ارتقای نقش کاربر (کارفرما / فریلنسر / هر دو)
-  \*/
-  export const updateUserRole = async (req: AuthRequest, res: Response) => {
-  try {
-  const userId = Number(req.user!.userId);
-  const { role } = req.body;
-
-      if (!role || !["employer", "freelancer", "both"].includes(role)) {
-        return res.status(400).json({
-          success: false,
-          message: "نقش ارسالی نامعتبر است",
-        });
-      }
-
-      // ۱. آپدیت نقش در دیتابیس
-      const updatedUser = await prisma.user.update({
-        where: { id: userId },
-        data: { role },
-      });
-
-      // مدیریت پروفایل‌ها (مثل کدهای قبلی...)
-      if (role === "freelancer" || role === "both") {
-        const existing = await prisma.freelancerProfile.findUnique({
-          where: { userId },
-        });
-        if (!existing)
-          await prisma.freelancerProfile.create({ data: { userId } });
-      }
-      if (role === "employer" || role === "both") {
-        const existing = await prisma.employerProfile.findUnique({
-          where: { userId },
-        });
-        if (!existing) await prisma.employerProfile.create({ data: { userId } });
-      }
-
-      // 🌟 ۲. تولید توکن جدید با اطلاعات به‌روز شده
-      const secret = process.env.JWT_SECRET || "supersecretkey";
-      const newToken = jwt.sign(
-        {
-          userId: updatedUser.id,
-          phone: updatedUser.phone,
-          role: updatedUser.role, // اگر نقش را هم در توکن نگه می‌دارید
-        },
-        secret,
-        { expiresIn: "7d" }, // یا مدت زمان دلخواه شما
-      );
-
-      return res.json({
-        success: true,
-        message: "نقش با موفقیت به‌روزرسانی شد",
-        token: newToken, // 👈 ارسال توکن جدید به فرانت‌اند
-        role: updatedUser.role,
-      });
-
-  } catch (error) {
-  console.error("Update Role Error:", error);
-  return res.status(500).json({
-  success: false,
-  message: "خطای سرور در تغییر نقش",
-  });
-  }
-  };
-  /\*\*
-
-- دریافت اطلاعات کاربر لاگین شده
-  \*/
-  export const getMe = async (req: AuthRequest, res: Response) => {
-  try {
-  const user = await prisma.user.findUnique({
-  where: { id: req.user!.userId },
-  include: {
-  employerProfile: true,
-  freelancerProfile: {
-  include: {
-  skills: {
-  include: { skill: true },
-  },
-  },
-  },
-  },
-  });
-
-      if (!user) {
-        return res
-          .status(404)
-          .json({ success: false, message: "کاربر یافت نشد" });
-      }
-
-      // 🌟 جدا کردن پسورد و ارسال بقیه اطلاعات کاربر به امن‌ترین شکل ممکن
-      const { password, ...userWithoutPassword } = user;
-
-      return res.json({
-        success: true,
-        user: userWithoutPassword,
-      });
-
-  } catch (error) {
-  console.error("Get Me Error:", error);
-  return res.status(500).json({ success: false, message: "خطای سرور" });
-  }
-  };
-
-/\*\*
-
-- ورود با ایمیل/شماره همراه و رمز عبور
-  \*/
-  export const loginWithPassword = async (req: Request, res: Response) => {
-  try {
-  const { identifier, password } = req.body;
-
-      if (!identifier || !password) {
-        return res.status(400).json({
-          success: false,
-          message: "ایمیل/شماره همراه و رمز عبور الزامی هستند",
-        });
-      }
-
-      const normalizedIdentifier = String(identifier).trim();
-      const isPhone = /^09\d{9}$/.test(normalizedIdentifier);
-      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedIdentifier);
-
-      const user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            ...(isPhone ? [{ phone: normalizedIdentifier }] : []),
-            ...(isEmail ? [{ email: normalizedIdentifier }] : []),
-            { phone: normalizedIdentifier },
-            { email: normalizedIdentifier },
-          ],
-        },
-      });
-
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: "کاربری با این اطلاعات یافت نشد",
-        });
-      }
-
-      if (!user.password) {
-        return res.status(401).json({
-          success: false,
-          message:
-            "برای این حساب هنوز رمز عبور تنظیم نشده است. لطفاً با شماره همراه وارد شوید",
-        });
-      }
-
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-
-      if (!isPasswordValid) {
-        return res.status(401).json({
-          success: false,
-          message: "ایمیل/شماره همراه یا رمز عبور اشتباه است",
-        });
-      }
-
-      const token = jwt.sign(
-        {
-          userId: user.id,
-          phone: user.phone,
-        },
-        process.env.JWT_SECRET || "supersecretkey",
-        { expiresIn: "7d" },
-      );
-
-      return res.json({
-        success: true,
-        token,
-        isNewUser: false,
-        user: {
-          id: user.id,
-          phone: user.phone,
-          name: user.name || "",
-          email: user.email || "",
-          profileCompleted: user.profileCompleted,
-        },
-      });
-
-  } catch (error) {
-  console.error("Password Login Error:", error);
-  return res.status(500).json({
-  success: false,
-  message: "خطای داخلی سرور",
-  });
-  }
-  };
-
-/\*\*
-
-- بررسی روش ورود (بر اساس ایمیل یا شماره همراه)
-  \*/
-  export const checkLoginMethod = async (req: Request, res: Response) => {
-  try {
-  const { identifier } = req.body;
-
-      if (!identifier) {
-        return res
-          .status(400)
-          .json({ success: false, message: "ورودی الزامی است" });
-      }
-
-      const normalizedIdentifier = String(identifier).trim();
-      const isPhone = /^09\d{9}$/.test(normalizedIdentifier);
-      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedIdentifier);
-
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          OR: [
-            ...(isPhone ? [{ phone: normalizedIdentifier }] : []),
-            ...(isEmail ? [{ email: normalizedIdentifier }] : []),
-            { phone: normalizedIdentifier },
-            { email: normalizedIdentifier },
-          ],
-        },
-        select: { password: true },
-      });
-
-      if (existingUser?.password) {
-        return res.json({ success: true, method: "password" });
-      }
-
-      if (isPhone) {
-        return res.json({ success: true, method: "otp" });
-      }
-
-      if (isEmail) {
-        return res.json({ success: true, method: "password" });
-      }
-
-      return res.status(400).json({
-        success: false,
-        message: "فرمت ورودی نامعتبر است (باید شماره همراه یا ایمیل باشد)",
-      });
-
-  } catch (error) {
-  console.error("Check Login Method Error:", error);
-  return res.status(500).json({
-  success: false,
-  message: "خطای داخلی سرور",
-  });
-  }
-  };
-
-import { Response } from "express";
-import { prisma } from "../lib/prisma"; // ⚡ مسیر فایل کانفیگ پریسما شما
-import { AuthRequest } from "../middleware/auth.middleware";
-
-export const contractController = {
-// ۱. ثبت پیشنهاد الحاقیه توسط کارفرما (پشتیبانی از مساحت یا طول کریدور)
-async createAmendment(req: AuthRequest, res: Response): Promise<Response> {
-try {
-const { contractId } = req.params;
-const {
-proposed_area,
-proposed_length, // 🌟 دریافت طول پیشنهادی برای پروژه‌های کریدوری
-proposed_amount,
-proposed_delivery_time,
-notes,
-} = req.body;
-const loggedInUserId = req.user?.userId;
-
-      if (!loggedInUserId) {
-        return res
-          .status(401)
-          .json({ success: false, message: "کاربر احراز هویت نشده است." });
-      }
-
-      // پیدا کردن قرارداد به همراه اطلاعات پروژه متصل به آن با پریسما
-      const contract = await prisma.contract.findUnique({
-        where: { id: Number(contractId) },
-        include: { project: true },
-      });
-
-      if (!contract) {
-        return res
-          .status(404)
-          .json({ success: false, message: "قرارداد مورد نظر یافت نشد." });
-      }
-
-      // بررسی سطح دسترسی: کارفرمای پروژه باید با کاربر لاگین شده برابر باشد
-      if (contract.employerId !== loggedInUserId) {
-        return res.status(403).json({
-          success: false,
-          message: "شما دسترسی لازم برای تغییر این قرارداد را ندارید.",
-        });
-      }
-
-      // بررسی عدم وجود الحاقیه فعال یا منتظر تایید (pending) برای این قرارداد
-      const existingPending = await prisma.contractAmendment.findFirst({
-        where: {
-          contractId: Number(contractId),
-          status: "pending",
-        },
-      });
-
-      if (existingPending) {
-        return res.status(400).json({
-          success: false,
-          message: "یک الحاقیه منتظر تایید برای این قرارداد وجود دارد.",
-        });
-      }
-
-      // ایجاد الحاقیه جدید در دیتابیس (پشتیبانی از مساحت و طول)
-      const amendment = await prisma.contractAmendment.create({
-        data: {
-          contractId: Number(contractId),
-          proposed_area: proposed_area ? Number(proposed_area) : null,
-          proposed_length: proposed_length ? Number(proposed_length) : null, // 🌟 ذخیره طول اگر ارسال شده باشد
-          proposed_amount: Number(proposed_amount),
-          proposed_delivery_time: proposed_delivery_time
-            ? Number(proposed_delivery_time)
-            : null,
-          notes: notes || null,
-          status: "pending",
-        },
-      });
-
-      return res.status(201).json({
-        success: true,
-        message: "پیشنهاد الحاقیه با موفقیت ثبت و برای فریلنسر ارسال شد.",
-        amendment,
-      });
-    } catch (error) {
-      console.error(error);
-      return res
-        .status(500)
-        .json({ success: false, message: "خطا در سرور هنگام ثبت الحاقیه" });
-    }
-
-},
-
-// ۲. پاسخ فریلنسر (تایید یا رد الحاقیه)
-async respondToAmendment(req: AuthRequest, res: Response): Promise<Response> {
-try {
-const { amendmentId } = req.params;
-const { status } = req.body; // 'accepted' یا 'rejected'
-const loggedInUserId = req.user?.userId;
-
-      if (!loggedInUserId) {
-        return res
-          .status(401)
-          .json({ success: false, message: "کاربر احراز هویت نشده است." });
-      }
-
-      if (!["accepted", "rejected"].includes(status)) {
-        return res
-          .status(400)
-          .json({ success: false, message: "وضعیت ارسالی نامعتبر است." });
-      }
-
-      // پیدا کردن الحاقیه به همراه قرارداد و پروژه مربوطه
-      const amendment = await prisma.contractAmendment.findUnique({
-        where: { id: Number(amendmentId) },
-        include: {
-          contract: {
-            include: { project: true },
-          },
-        },
-      });
-
-      if (!amendment) {
-        return res
-          .status(404)
-          .json({ success: false, message: "اصلاحیه مورد نظر یافت نشد." });
-      }
-
-      // بررسی سطح دسترسی: فقط فریلنسرِ قرارداد می‌تواند تایید یا رد کند
-      if (amendment.contract.freelancerId !== loggedInUserId) {
-        return res.status(403).json({
-          success: false,
-          message: "تنها فریلنسر پروژه امکان تایید یا رد این اصلاحیه را دارد.",
-        });
-      }
-
-      // استفاده از Transaction برای ثبت همزمان تغییرات در دیتابیس
-      const updatedAmendment = await prisma.$transaction(async (tx) => {
-        // ۱. آپدیت وضعیت الحاقیه
-        const updated = await tx.contractAmendment.update({
-          where: { id: Number(amendmentId) },
-          data: { status: status as "accepted" | "rejected" },
-        });
-
-        // ۲. اگر فریلنسر تایید کرد، مقادیر جدید روی پروژه و قرارداد اصلی می‌نشینند
-        if (status === "accepted") {
-          // آپدیت totalAmount قرارداد
-          await tx.contract.update({
-            where: {
-              id: amendment.contractId,
-            },
-            data: {
-              totalAmount: amendment.proposed_amount,
-              status: "completed",
-              completedAt: new Date(),
-            },
-          });
-
-          // آپدیت مقادیر پروژه بر اساس اینکه مساحتی است یا کریدوری (طولی)
-          // آپدیت مقادیر پروژه بر اساس اینکه مساحتی است یا کریدوری (طولی)
-          await tx.project.update({
-            where: { id: amendment.contract.projectId },
-            data: {
-              status: "completed",
-              // اگر مساحت در الحاقیه ثبت شده بود، روی پروژه بنشیند
-              ...((amendment as any).proposed_area !== null && {
-                calculatedArea: (amendment as any).proposed_area,
-              }),
-              // اگر طول مسیر کریدور در الحاقیه ثبت شده بود، روی پروژه بنشیند
-              ...((amendment as any).proposed_length !== null && {
-                corridorLength: (amendment as any).proposed_length,
-              }),
-              // 🌟 رفع خطا با استفاده از کست کردن به any برای فیلد جدید
-              ...((amendment as any).proposed_delivery_time !== null && {
-                deliveryTime: String((amendment as any).proposed_delivery_time),
-              }),
-            },
-          });
-        }
-
-        return updated;
-      });
-
-      return res.json({
-        success: true,
-        message:
-          status === "accepted"
-            ? "اصلاحیه تایید، قرارداد بروزرسانی و پروژه خاتمه یافت (Completed)."
-            : "اصلاحیه توسط شما رد شد.",
-        amendment: updatedAmendment,
-      });
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({
-        success: false,
-        message: "خطا در سرور هنگام ثبت پاسخ الحاقیه",
-      });
-    }
-
-},
-
-// ۳. دریافت لیست اصلاحیه‌های یک قرارداد خاص
-async getAmendments(req: AuthRequest, res: Response): Promise<Response> {
-try {
-const { contractId } = req.params;
-const loggedInUserId = req.user?.userId;
-
-      if (!loggedInUserId) {
-        return res
-          .status(401)
-          .json({ success: false, message: "کاربر احراز هویت نشده است." });
-      }
-
-      // بررسی اینکه آیا کاربر لاگین شده اصلاً کارفرما یا فریلنسرِ این قرارداد هست یا خیر
-      const contract = await prisma.contract.findUnique({
-        where: { id: Number(contractId) },
-      });
-
-      if (!contract) {
-        return res
-          .status(404)
-          .json({ success: false, message: "قرارداد مورد نظر یافت نشد." });
-      }
-
-      if (
-        contract.employerId !== loggedInUserId &&
-        contract.freelancerId !== loggedInUserId
-      ) {
-        return res.status(403).json({
-          success: false,
-          message: "شما دسترسی لازم برای مشاهده اطلاعات این قرارداد را ندارید.",
-        });
-      }
-
-      // دریافت تمام اصلاحیه‌ها به ترتیب جدیدترین
-      const amendments = await prisma.contractAmendment.findMany({
-        where: { contractId: Number(contractId) },
-        orderBy: { createdAt: "desc" },
-      });
-
-      return res.json({
-        success: true,
-        amendments,
-      });
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({
-        success: false,
-        message: "خطا در سرور هنگام دریافت اصلاحیه‌ها",
-      });
-    }
-
-},
-};
-
-import { Request, Response } from "express";
-import { prisma } from "../lib/prisma";
-import { AuthRequest } from "../middleware/auth.middleware";
-import { Prisma } from "@prisma/client";
-import { createProjectSchema } from "../validators/project.validator";
-import { updateProjectSchema } from "../validators/project.validator";
-
-/\*\*
-
-- =========================
-- Helper: normalize multipart body
-- =========================
-  \*/
-  const preprocessMultipartData = (body: any) => {
-  const processed = { ...body };
-
-Object.keys(processed).forEach((key) => {
-if (
-processed[key] === "" ||
-processed[key] === "null" ||
-processed[key] === "undefined"
-) {
-processed[key] = undefined; // تبدیل به undefined تا Zod فیلدهای optional را رد کند
-}
-});
-
-if (
-processed.calculatedArea !== undefined &&
-processed.calculatedArea !== "" &&
-processed.calculatedArea !== "null" &&
-!isNaN(Number(processed.calculatedArea))
-) {
-processed.calculatedArea = Number(processed.calculatedArea);
-} else {
-processed.calculatedArea = undefined;
-}
-
-// 🌟 پردازش فاصله منحنی میزان
-if (typeof processed.contourInterval === "string") {
-if (
-processed.contourInterval === "" ||
-processed.contourInterval === "null" ||
-processed.contourInterval === "undefined"
-) {
-processed.contourInterval = null;
-}
-}
-
-// اصلاح CorridorLength
-if (
-processed.corridorLength !== undefined &&
-processed.corridorLength !== "" &&
-processed.corridorLength !== "null" &&
-!isNaN(Number(processed.corridorLength))
-) {
-processed.corridorLength = Number(processed.corridorLength);
-} else {
-processed.corridorLength = undefined;
-}
-
-if (typeof processed.techType === "string") {
-try {
-processed.techType = JSON.parse(processed.techType);
-} catch {}
-}
-if (typeof processed.terrainTypes === "string") {
-try {
-processed.terrainTypes = JSON.parse(processed.terrainTypes);
-} catch {
-processed.terrainTypes = [];
-}
-}
-
-if (typeof processed.outputFormats === "string") {
-try {
-processed.outputFormats = JSON.parse(processed.outputFormats);
-} catch {}
-}
-
-if (typeof processed.polygonCoordinates === "string") {
-try {
-processed.polygonCoordinates = JSON.parse(processed.polygonCoordinates);
-} catch {}
-}
-
-if (typeof processed.geoJson === "string") {
-try {
-processed.geoJson = JSON.parse(processed.geoJson);
-} catch {}
-}
-
-// 🌟 پردازش روش اصلی اجرا
-if (typeof processed.surveyMethod === "string") {
-if (
-processed.surveyMethod === "" ||
-processed.surveyMethod === "null" ||
-processed.surveyMethod === "undefined"
-) {
-processed.surveyMethod = null;
-}
-}
-
-if (typeof processed.specificSurveys === "string") {
-try {
-processed.specificSurveys = JSON.parse(processed.specificSurveys);
-} catch {
-processed.specificSurveys = [];
-}
-}
-
-if (typeof processed.requiredEquipment === "string") {
-try {
-processed.requiredEquipment = JSON.parse(processed.requiredEquipment);
-} catch {
-processed.requiredEquipment = [];
-}
-}
-
-// 🌟 پارس کردن مشخصات فنی مجزا برای هر روش (که به صورت رشته‌ی JSON ارسال می‌شوند)
-if (typeof processed.groundTechnicalSpecs === "string") {
-try {
-processed.groundTechnicalSpecs = JSON.parse(
-processed.groundTechnicalSpecs,
-);
-} catch {
-processed.groundTechnicalSpecs = [];
-}
-}
-
-if (typeof processed.aerialTechnicalSpecs === "string") {
-try {
-processed.aerialTechnicalSpecs = JSON.parse(
-processed.aerialTechnicalSpecs,
-);
-} catch {
-processed.aerialTechnicalSpecs = [];
-}
-}
-
-if (typeof processed.gisTechnicalSpecs === "string") {
-try {
-processed.gisTechnicalSpecs = JSON.parse(processed.gisTechnicalSpecs);
-} catch {
-processed.gisTechnicalSpecs = [];
-}
-}
-
-// اصلاح بخش تبدیل بودجه‌ها
-if (
-processed.minBudget !== undefined &&
-processed.minBudget !== "" &&
-processed.minBudget !== "null"
-) {
-processed.minBudget = Number(processed.minBudget);
-} else {
-processed.minBudget = undefined;
-}
-
-if (
-processed.maxBudget !== undefined &&
-processed.maxBudget !== "" &&
-processed.maxBudget !== "null"
-) {
-processed.maxBudget = Number(processed.maxBudget);
-} else {
-processed.maxBudget = undefined;
-}
-
-if (processed.projectId !== undefined) {
-processed.projectId = Number(processed.projectId);
-}
-
-return processed;
-};
-
-/\*\*
-
-- =========================
-- 1.  Create Project (WITH FILES)
-- =========================
-  \*/
-  export const createProject = async (req: AuthRequest, res: Response) => {
-  let processedBody: any = null; // تعریف متغیر بیرون از try برای دسترسی در catch در صورت خطا
-
-try {
-const employerId = Number(req.user!.userId);
-
-    processedBody = preprocessMultipartData(req.body);
-
-    const validation = createProjectSchema.safeParse(processedBody);
-
-    if (!validation.success) {
-      console.log("❌ Zod Validation Error Details:");
-      console.log(
-        JSON.stringify(validation.error.flatten().fieldErrors, null, 2),
-      );
-
-      return res.status(400).json({
-        success: false,
-        message: "خطای اعتبارسنجی داده‌ها",
-        errors: validation.error.issues,
-      });
-    }
-    const data = validation.data;
-
-    let categoryId: number | null = null;
-
-    if (data.category) {
-      const foundCategory = await prisma.category.findUnique({
-        where: { slug: data.category },
-      });
-
-      if (foundCategory) {
-        categoryId = foundCategory.id;
-      }
-    }
-
-    /**
-     * =========================
-     * Transaction (Project + Files)
-     * =========================
-     */
-    const result = await prisma.$transaction(async (tx) => {
-      const newProject = await tx.project.create({
-        data: {
-          employerId,
-          categoryId,
-          title: data.title ?? "",
-          description: data.description ?? "",
-          status: "open",
-          province: data.province ?? null,
-          city: data.city ?? null,
-          address: data.address ?? null,
-          areaSelectionMethod: data.areaSelectionMethod ?? "map",
-          mappingType: data.mappingType ?? null,
-
-          // 🌟 ذخیره مشخصات روش‌ها، مقیاس پرواز و فیلدهای توضیحات مجزا در دیتابیس
-          surveyMethod: (data as any).surveyMethod ?? null,
-          specificSurveys: (data as any).specificSurveys ?? [],
-          requiredEquipment: (data as any).requiredEquipment ?? [],
-
-          groundTechnicalSpecs: (data as any).groundTechnicalSpecs ?? [],
-          aerialTechnicalSpecs: (data as any).aerialTechnicalSpecs ?? [],
-          aerialScaleOption: (data as any).aerialScaleOption ?? null,
-          gisTechnicalSpecs: (data as any).gisTechnicalSpecs ?? [],
-
-          groundDescription: (data as any).groundDescription ?? null,
-          aerialDescription: (data as any).aerialDescription ?? null,
-          gisDescription: (data as any).gisDescription ?? null,
-          contourInterval: (data as any).contourInterval ?? null,
-          calculatedArea: data.calculatedArea ?? null,
-          corridorLength: data.corridorLength ?? null,
-          utmZone: data.utmZone ?? null,
-          terrainTypes: data.terrainTypes ?? [],
-          requiredAccuracy: data.requiredAccuracy ?? null,
-          mapScale: data.mapScale ?? null,
-          deliveryTime: data.deliveryTime ?? null,
-          budgetType: data.budgetType ?? "fixed",
-          minBudget: data.minBudget ? new Prisma.Decimal(data.minBudget) : null,
-          maxBudget: data.maxBudget ? new Prisma.Decimal(data.maxBudget) : null,
-          polygonCoordinates: data.polygonCoordinates ?? "",
-          geoJson: data.geoJson ?? null,
-          techType: data.techType ?? "",
-          outputFormats: data.outputFormats ?? "",
-        },
-      });
-
-      /**
-       * =========================
-       * Save attachments (FILES)
-       * =========================
-       */
-      const files = req.files as Express.Multer.File[] | undefined;
-
-      if (files && files.length > 0) {
-        for (const file of files) {
-          await tx.projectAttachment.create({
-            data: {
-              projectId: newProject.id,
-              fileName: file.originalname,
-              fileUrl: `/uploads/projects/${file.filename}`,
-              fileType: file.mimetype,
-              fileSize: file.size,
-            },
-          });
-        }
-      }
-
-      return newProject;
-    });
-
-    return res.status(201).json({
-      success: true,
-      project: result,
-    });
-
-} catch (error) {
-console.error("❌ createProject error:", error);
-
-    if (processedBody) {
-      const validation = createProjectSchema.safeParse(processedBody);
-      if (!validation.success) {
-        console.log(
-          "Validation Errors:",
-          validation.error.flatten().fieldErrors,
-        );
-      }
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: "خطا در ثبت پروژه",
-    });
-
-}
-};
-
-/\*\*
-
-- =========================
-- 2.  Get Projects (public feed)
-- =========================
-  \*/
-  export const getProjects = async (req: Request, res: Response) => {
-  try {
-  const {
-  category,
-  search,
-  province,
-  city,
-  budgetType,
-  page = 1,
-  limit = 10,
-  } = req.query;
-
-      const skip = (Number(page) - 1) * Number(limit);
-
-      const whereClause: any = {
-        deletedAt: null,
-        status: "open",
-      };
-
-      if (category) {
-        whereClause.category = { slug: String(category) };
-      }
-
-      if (province) whereClause.province = String(province);
-      if (city) whereClause.city = String(city);
-      if (budgetType) whereClause.budgetType = budgetType;
-
-      if (search) {
-        whereClause.OR = [
-          {
-            title: {
-              contains: String(search),
-              mode: "insensitive",
-            },
-          },
-          {
-            description: {
-              contains: String(search),
-              mode: "insensitive",
-            },
-          },
-        ];
-      }
-
-      const [projects, total] = await prisma.$transaction([
-        prisma.project.findMany({
-          where: whereClause,
-          skip,
-          take: Number(limit),
-          orderBy: { createdAt: "desc" },
-          include: {
-            category: true,
-            employer: {
-              select: { name: true, avatar: true },
-            },
-            attachments: true,
-          },
-        }),
-
-        prisma.project.count({ where: whereClause }),
-      ]);
-
-      return res.json({
-        success: true,
-        meta: {
-          total,
-          page: Number(page),
-          limit: Number(limit),
-          totalPages: Math.ceil(total / Number(limit)),
-        },
-        projects,
-      });
-
-  } catch (error) {
-  return res.status(500).json({
-  success: false,
-  message: "خطا در دریافت لیست پروژه‌ها",
-  });
-  }
-  };
-
-/\*\*
-
-- =========================
-- 3.  Get Project By ID
-- =========================
-  \*/
-  export const getProjectById = async (req: Request, res: Response) => {
-  try {
-  const id = Number(req.params.id);
-
-      console.log("Project ID:", id);
-
-      const project = await prisma.project.findUnique({
-        where: { id },
-        include: {
-          category: true,
-
-          employer: {
-            select: {
-              id: true,
-              name: true,
-              avatar: true,
-            },
-          },
-
-          attachments: true,
-
-          contract: {
-            select: {
-              id: true,
-              status: true,
-
-              employer: {
-                select: {
-                  id: true,
-                  name: true,
-                  avatar: true,
-                  role: true,
-                },
-              },
-
-              freelancer: {
-                select: {
-                  id: true,
-                  name: true,
-                  avatar: true,
-                  role: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      console.log("Project Found:", project);
-
-      if (!project || project.deletedAt) {
-        return res.status(404).json({
-          success: false,
-          message: "پروژه یافت نشد",
-        });
-      }
-
-      const proposalCount = await prisma.proposal.count({
-        where: {
-          projectId: id,
-        },
-      });
-
-      await prisma.project.update({
-        where: { id },
-        data: {
-          viewCount: {
-            increment: 1,
-          },
-        },
-      });
-
-      return res.status(200).json({
-        success: true,
-        project: {
-          ...project,
-          canEdit: !project.contract,
-          canDelete: !project.contract,
-          proposalCount,
-          attachmentCount: project.attachments.length,
-        },
-      });
-
-  } catch (error) {
-  console.error("getProjectById error:", error);
-
-      return res.status(500).json({
-        success: false,
-        message: "خطا در دریافت جزئیات پروژه",
-      });
-
-  }
-  };
-
-/\*\*
-
-- =========================
-- 4.  Update Project
-- =========================
-  \*/
-  export const updateProject = async (req: AuthRequest, res: Response) => {
-  try {
-  const { id } = req.params;
-  const employerId = Number(req.user!.userId);
-
-      const processedBody = { ...req.body };
-
-      const validation = updateProjectSchema.safeParse(processedBody);
-
-      if (!validation.success) {
-        return res.status(400).json({
-          success: false,
-          errors: validation.error.issues,
-        });
-      }
-
-      const project = await prisma.project.findUnique({
-        where: { id: Number(id) },
-      });
-
-      if (!project || project.deletedAt) {
-        return res.status(404).json({
-          success: false,
-          message: "پروژه یافت نشد",
-        });
-      }
-
-      if (project.employerId !== employerId) {
-        return res.status(403).json({
-          success: false,
-          message: "دسترسی ندارید",
-        });
-      }
-
-      if (project.status !== "draft" && project.status !== "open") {
-        return res.status(400).json({
-          success: false,
-          message: "این پروژه قابل ویرایش نیست",
-        });
-      }
-
-      const updated = await prisma.$transaction(async (tx) => {
-        const updatedProject = await tx.project.update({
-          where: { id: Number(id) },
-          data: {
-            ...validation.data,
-            mappingType: validation.data.mappingType,
-            calculatedArea:
-              validation.data.mappingType === "area"
-                ? validation.data.calculatedArea
-                : null,
-            corridorLength:
-              validation.data.mappingType === "corridor"
-                ? validation.data.corridorLength
-                : null,
-
-            terrainTypes: validation.data.terrainTypes ?? undefined,
-            minBudget: validation.data.minBudget
-              ? new Prisma.Decimal(validation.data.minBudget)
-              : undefined,
-            maxBudget: validation.data.maxBudget
-              ? new Prisma.Decimal(validation.data.maxBudget)
-              : undefined,
-          } as any,
-        });
-
-        /**
-         * =========================
-         * ADD NEW FILES (NOT REPLACE)
-         * =========================
-         */
-        const files = req.files as Express.Multer.File[] | undefined;
-
-        if (files && files.length > 0) {
-          for (const file of files) {
-            await tx.projectAttachment.create({
-              data: {
-                projectId: updatedProject.id,
-                fileName: file.originalname,
-                fileUrl: `/uploads/projects/${file.filename}`,
-                fileType: file.mimetype,
-                fileSize: file.size,
-              },
-            });
-          }
-        }
-
-        return updatedProject;
-      });
-
-      return res.json({
-        success: true,
-        message: "پروژه بروزرسانی شد",
-        project: updated,
-      });
-
-  } catch (error) {
-  console.error(error);
-
-      return res.status(500).json({
-        success: false,
-        message: "خطا در بروزرسانی پروژه",
-      });
-
-  }
-  };
-
-/\*\*
-
-- =========================
-- 5.  DELETE PROJECT (SOFT DELETE)
-- =========================
-  \*/
-  export const deleteProject = async (req: AuthRequest, res: Response) => {
-  try {
-  const { id } = req.params;
-  const employerId = Number(req.user!.userId);
-
-      const project = await prisma.project.findUnique({
-        where: { id: Number(id) },
-      });
-
-      if (!project || project.deletedAt) {
-        return res.status(404).json({
-          success: false,
-          message: "پروژه یافت نشد",
-        });
-      }
-
-      if (project.employerId !== employerId) {
-        return res.status(403).json({
-          success: false,
-          message: "دسترسی ندارید",
-        });
-      }
-
-      if (project.status !== "draft" && project.status !== "open") {
-        return res.status(400).json({
-          success: false,
-          message: "امکان حذف این پروژه وجود ندارد",
-        });
-      }
-
-      await prisma.project.update({
-        where: { id: Number(id) },
-        data: {
-          deletedAt: new Date(),
-          status: "cancelled",
-        },
-      });
-
-      return res.json({
-        success: true,
-        message: "پروژه حذف شد",
-      });
-
-  } catch (error) {
-  return res.status(500).json({
-  success: false,
-  message: "خطا در حذف پروژه",
-  });
-  }
-  };
-
-/\*\*
-
-- =========================
-- 6.  SUBMIT PROPOSAL
-- =========================
-  \*/
-  export const submitProposal = async (req: AuthRequest, res: Response) => {
-  try {
-  const freelancerId = Number(req.user!.userId);
-
-      const { projectId, amount, deliveryDays, coverLetter } = req.body;
-
-      if (!projectId || !amount || !deliveryDays || !coverLetter) {
-        return res.status(400).json({
-          success: false,
-          message: "تمام فیلدها الزامی است",
-        });
-      }
-
-      const targetProjectId = Number(projectId);
-
-      console.log("Logged User:", req.user);
-      console.log("FreelancerId:", freelancerId);
-
-      const project = await prisma.project.findUnique({
-        where: {
-          id: targetProjectId,
-        },
-        select: {
-          employerId: true,
-          deletedAt: true,
-          status: true,
-        },
-      });
-
-      if (!project || project.deletedAt || project.status !== "open") {
-        return res.status(404).json({
-          success: false,
-          message: "پروژه در دسترس نیست",
-        });
-      }
-
-      if (project.employerId === freelancerId) {
-        return res.status(400).json({
-          success: false,
-          message: "نمی‌توانید برای پروژه خودتان پیشنهاد ثبت کنید.",
-        });
-      }
-
-      const user = await prisma.user.findUnique({
-        where: {
-          id: freelancerId,
-        },
-        select: {
-          role: true,
-        },
-      });
-      console.log("User From DB:", user);
-
-      if (!user || (user.role !== "freelancer" && user.role !== "both")) {
-        return res.status(403).json({
-          success: false,
-          message: "فقط فریلنسرها می‌توانند پیشنهاد ثبت کنند.",
-        });
-      }
-
-      const existing = await prisma.proposal.findUnique({
-        where: {
-          projectId_freelancerId: {
-            projectId: targetProjectId,
-            freelancerId,
-          },
-        },
-      });
-
-      if (existing) {
-        return res.status(400).json({
-          success: false,
-          message: "قبلاً پیشنهاد ثبت کرده‌اید",
-        });
-      }
-
-      const proposal = await prisma.proposal.create({
-        data: {
-          projectId: targetProjectId,
-          freelancerId,
-          amount: new Prisma.Decimal(amount),
-          deliveryDays: Number(deliveryDays),
-          coverLetter: String(coverLetter).trim(),
-          status: "pending",
-        },
-      });
-
-      return res.status(201).json({
-        success: true,
-        message: "پیشنهاد ثبت شد",
-        proposal,
-      });
-
-  } catch (error) {
-  console.error("submitProposal error:", error);
-
-      return res.status(500).json({
-        success: false,
-        message: "خطا در ثبت پیشنهاد",
-      });
-
-  }
-  };
-
-/\*\*
-
-- =========================
-- 7.  GET MY PROJECTS
-- =========================
-  \*/
-  export const getMyProjects = async (req: AuthRequest, res: Response) => {
-  try {
-  const userId = Number(req.user?.userId);
-
-      const projects = await prisma.project.findMany({
-        where: {
-          employerId: userId,
-          deletedAt: null,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        include: {
-          category: true,
-          attachments: true,
-
-          _count: {
-            select: {
-              proposals: true,
-            },
-          },
-        },
-      });
-
-      return res.status(200).json({
-        success: true,
-        projects,
-        count: projects.length,
-      });
-
-  } catch (error) {
-  return res.status(500).json({
-  success: false,
-  message: "خطا در دریافت پروژه‌ها",
-  });
-  }
-  };
-
-export const getProjectProposals = async (req: AuthRequest, res: Response) => {
-try {
-const projectId = Number(req.params.id);
-const employerId = Number(req.user!.userId);
-const project = await prisma.project.findUnique({
-where: {
-id: projectId,
-},
-select: {
-id: true,
-employerId: true,
-deletedAt: true,
-},
-});
-if (!project || project.deletedAt) {
-return res.status(404).json({
-success: false,
-message: "پروژه پیدا نشد",
-});
-}
-if (project.employerId !== employerId) {
-return res.status(403).json({
-success: false,
-message: "دسترسی ندارید",
-});
-}
-
-    const proposals = await prisma.proposal.findMany({
-      where: {
-        projectId,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      include: {
-        freelancer: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true,
-            city: true,
-            province: true,
-          },
-        },
-      },
-    });
-    return res.status(200).json({
-      success: true,
-      proposals,
-      count: proposals.length,
-    });
-
-} catch (error) {
-console.error(error);
-
-    return res.status(500).json({
-      success: false,
-      message: "خطا در دریافت پیشنهادها",
-    });
-
-}
-};
-
-/\*\*
-
-- =========================
-- 8.  ACCEPT PROPOSAL & CREATE CONTRACT (SUPPORTING CHAT AGREEMENTS)
-- =========================
-  \*/
-  export const acceptProposal = async (req: AuthRequest, res: Response) => {
-  try {
-  const proposalId = Number(req.params.id);
-  const employerId = Number(req.user!.userId);
-  const { finalAmount } = req.body;
-
-      const proposal = await prisma.proposal.findUnique({
-        where: { id: proposalId },
-        include: { project: true },
-      });
-
-      if (!proposal) {
-        return res
-          .status(404)
-          .json({ success: false, message: "پیشنهاد مورد نظر یافت نشد." });
-      }
-
-      if (proposal.project.employerId !== employerId) {
-        return res
-          .status(403)
-          .json({ success: false, message: "شما دسترسی لازم را ندارید." });
-      }
-
-      // شرط پروژه را منعطف‌تر می‌کنیم تا اگر پروژه دوباره باز شد (وضعیت open)، قابل قبول باشد
-      if (proposal.project.status !== "open") {
-        return res.status(400).json({
-          success: false,
-          message: "پروژه در وضعیت مناسبی برای تایید پیشنهاد نیست.",
-        });
-      }
-
-      const result = await prisma.$transaction(async (tx) => {
-        // ۱. آپدیت وضعیت پیشنهاد فعلی
-        const updatedProposal = await tx.proposal.update({
-          where: { id: proposalId },
-          data: { status: "accepted" },
-        });
-
-        // ۲. آپدیت وضعیت پروژه
-        await tx.project.update({
-          where: { id: proposal.projectId },
-          data: { status: "in_progress" },
-        });
-
-        // ۳. رد کردن سایر پیشنهادها
-        await tx.proposal.updateMany({
-          where: {
-            projectId: proposal.projectId,
-            id: { not: proposalId },
-            status: "pending",
-          },
-          data: { status: "rejected" },
-        });
-
-        const contractAmount = finalAmount
-          ? new Prisma.Decimal(finalAmount)
-          : proposal.amount;
-
-        // ۴. 🌟 استفاده از upsert به جای create برای جلوگیری از خطای Unique constraint
-        // ۴. استفاده از upsert هوشمند برای پیشگیری از هرگونه خطای تکرار کلید
-        const contract = await tx.contract.upsert({
-          where: {
-            projectId: proposal.projectId, // بررسی یکتا بودن بر اساس کلید projectId
-          },
-          update: {
-            proposalId: proposal.id,
-            freelancerId: proposal.freelancerId,
-            totalAmount: contractAmount,
-            status: "active",
-            cancelledAt: null, // پاک کردن تاریخ لغو قبلی در صورت فعال‌سازی مجدد
-          },
-          create: {
-            projectId: proposal.projectId,
-            proposalId: proposal.id,
-            employerId: employerId,
-            freelancerId: proposal.freelancerId,
-            totalAmount: contractAmount,
-            status: "active",
-          },
-        });
-        return { updatedProposal, contract };
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: "پیشنهاد با موفقیت تایید شد.",
-        data: result,
-      });
-
-  } catch (error) {
-  console.error("❌ acceptProposal error:", error);
-  return res
-  .status(500)
-  .json({ success: false, message: "خطا در تایید پیشنهاد" });
-  }
-  };
-  /\*\*
-
-- =========================
-- 9.  GET FREELANCER CONTRACTS (MY PROJECTS AS FREELANCER)
-- =========================
-  \*/
-  export const getFreelancerContracts = async (
-  req: AuthRequest,
-  res: Response,
-  ) => {
-  try {
-  const freelancerId = Number(req.user!.userId);
-
-      if (!freelancerId) {
-        return res.status(401).json({
-          success: false,
-          message: "کاربر احراز هویت نشده است.",
-        });
-      }
-
-      const contracts = await prisma.contract.findMany({
-        where: {
-          freelancerId: freelancerId,
-          status: "active",
-        },
-        include: {
-          project: {
-            include: {
-              category: true,
-              attachments: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-      return res.status(200).json({
-        success: true,
-        contracts,
-        count: contracts.length,
-      });
-
-  } catch (error) {
-  console.error("❌ getFreelancerContracts error:", error);
-  return res.status(500).json({
-  success: false,
-  message: "خطا در دریافت پروژه‌های فریلنسر",
-  });
-  }
-  };
-
-/\*\*
-
-- =========================
-- 10. GET ACCEPTED PROJECTS FOR FREELANCER
-- =========================
-  \*/
-  export const getAcceptedProjects = async (req: AuthRequest, res: Response) => {
-  try {
-  const freelancerId = Number(req.user!.userId);
-
-      const status = String(req.query.status || "all");
-
-      let contractWhere: any = {
-        freelancerId,
-      };
-
-      if (status === "active") {
-        contractWhere.status = "active";
-      } else if (status === "completed") {
-        contractWhere.status = "completed";
-      } else {
-        contractWhere.status = {
-          in: ["active", "completed"],
-        };
-      }
-
-      const contracts = await prisma.contract.findMany({
-        where: contractWhere,
-        include: {
-          project: {
-            include: {
-              employer: {
-                select: {
-                  id: true,
-                  name: true,
-                  avatar: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-      const projects = contracts.map((contract) => ({
-        ...contract.project,
-        contractId: contract.id,
-        contractStatus: contract.status,
-        totalAmount: contract.totalAmount,
-        startedAt: contract.startedAt,
-        completedAt: contract.completedAt,
-      }));
-
-      return res.status(200).json({
-        success: true,
-        projects,
-        count: projects.length,
-      });
-
-  } catch (error) {
-  console.error("getAcceptedProjects error:", error);
-
-      return res.status(500).json({
-        success: false,
-        message: "خطا در دریافت پروژه‌ها",
-      });
-
-  }
-  };
-
-export const rejectAcceptedProposal = async (
-req: AuthRequest,
-res: Response,
-) => {
-try {
-// ۱. اطمینان از دریافت پارامترها از req.params یا req.body
-// طبق روت شما که :contractId داشت، باید از params بگیرید:
-const contractId = Number(req.params.contractId);
-const { projectId } = req.body;
-const employerId = Number(req.user!.userId);
-
-    // بررسی اینکه آیا IDها معتبر هستند
-    if (isNaN(contractId) || isNaN(Number(projectId))) {
-      return res
-        .status(400)
-        .json({ success: false, message: "شناسه نامعتبر است" });
-    }
-
-    // ... (بقیه کدهای بررسی مالکیت پروژه)
-
-    await prisma.$transaction(async (tx) => {
-      // الف) لغو قرارداد - حتما از متغیری که عدد شده استفاده کنید
-      await tx.contract.update({
-        where: { id: contractId }, // 👈 اینجا باید عدد باشد
-        data: {
-          status: "cancelled",
-          cancelledAt: new Date(),
-        },
-      });
-
-      // ب) بازگرداندن پروژه به وضعیت open
-      await tx.project.update({
-        where: { id: Number(projectId) },
-        data: { status: "open" },
-      });
-
-      // ج) تغییر وضعیت پیشنهاد قبلی به rejected
-      await tx.proposal.updateMany({
-        where: { projectId: Number(projectId), status: "accepted" },
-        data: { status: "rejected" },
-      });
-    });
-
-    return res.status(200).json({ success: true, message: "توافق لغو شد" });
-
-} catch (error) {
-console.error(error); // برای دیدن جزئیات خطا در کنسول سرور
-return res
-.status(500)
-.json({ success: false, message: "خطا در لغو توافق" });
-}
-};
-
-xmart@xmart-HP-255-G8-Notebook-PC:~/Desktop/ponisha-clone$ tree -I node_modules
-.
-├── AI_Context.md
-├── backend
-│ ├── Dockerfile
-│ ├── package.json
-│ ├── package-lock.json
-│ ├── prisma
-│ │ ├── migrations
-│ │ │ ├── 20260608095647_firstinit
-│ │ │ │ └── migration.sql
-│ │ │ ├── 20260608102118_add_otp
-│ │ │ │ └── migration.sql
-│ │ │ ├── 20260614080826_add_model_project
-│ │ │ │ └── migration.sql
-│ │ │ ├── 20260616062659_add_user_project_relation
-│ │ │ │ └── migration.sql
-│ │ │ ├── 20260620063443_add_profile_fields_to_user
-│ │ │ │ └── migration.sql
-│ │ │ ├── 20260627092621_init_real_schema
-│ │ │ │ └── migration.sql
-│ │ │ ├── 20260629081215_fixed_problem
-│ │ │ │ └── migration.sql
-│ │ │ ├── 20260629085034_make_project_field_optional
-│ │ │ │ └── migration.sql
-│ │ │ ├── 20260714070009_add_contract_amendment
-│ │ │ │ └── migration.sql
-│ │ │ ├── 20260718090039_add_mapping_fields_and_amendments
-│ │ │ │ └── migration.sql
-│ │ │ ├── 20260720072845_remove_coordinate_system_field
-│ │ │ │ └── migration.sql
-│ │ │ ├── 20260721114436_add_map_scale
-│ │ │ │ └── migration.sql
-│ │ │ ├── 20260805084041_add_permission_system
-│ │ │ │ └── migration.sql
-│ │ │ ├── 20260809090834_add_report_model
-│ │ │ │ └── migration.sql
-│ │ │ ├── 20260809093240_add_activity_log
-│ │ │ │ └── migration.sql
-│ │ │ ├── 20260810071030_add_settings
-│ │ │ │ └── migration.sql
-│ │ │ ├── 20260810075020_add_notifications
-│ │ │ │ └── migration.sql
-│ │ │ └── migration_lock.toml
-│ │ ├── schema.prisma
-│ │ └── seed.ts
-│ ├── prisma.config.ts
-│ ├── src
-│ │ ├── controllers
-│ │ │ ├── admin.controller.ts
-│ │ │ ├── auth.controller.ts
-│ │ │ ├── contract.controller.ts
-│ │ │ ├── message.controller.ts
-│ │ │ ├── profile.controller.ts
-│ │ │ └── project.controller.ts
-│ │ ├── lib
-│ │ │ └── prisma.ts
-│ │ ├── middleware
-│ │ │ ├── admin.middleware.ts
-│ │ │ ├── auth.middleware.ts
-│ │ │ ├── avatarUpload.middleware.ts
-│ │ │ ├── upload.middleware.ts
-│ │ │ └── validation.middleware.ts
-│ │ ├── routes
-│ │ │ ├── admin.routes.ts
-│ │ │ ├── auth.routes.ts
-│ │ │ ├── contract.routes.ts
-│ │ │ ├── message.routes.ts
-│ │ │ ├── profile.routes.ts
-│ │ │ └── project.routes.ts
-│ │ ├── server.ts
-│ │ ├── services
-│ │ │ └── socket.service.ts
-│ │ ├── types
-│ │ │ ├── contract.types.ts
-│ │ │ └── project.interface.ts
-│ │ ├── utils
-│ │ │ ├── activityLog.ts
-│ │ │ └── notification.ts
-│ │ └── validators
-│ │ ├── auth.validator.ts
-│ │ ├── profile.validator.ts
-│ │ └── project.validator.ts
-│ ├── tsconfig.json
-│ └── uploads
-│ ├── avatars
-│ └── projects
-│ ├── 1784456941251-38929b022ce77c57.jpeg
-│ ├── 1784532988998-2c29c3d0b8f5dc64.jpeg
-│ └── 1784538209348-d967c5d3b331db24.jpeg
-├── docker-compose.yml
-└── frontend
-├── env.d.ts
-├── eslint.config.ts
-├── index.html
-├── package.json
-├── package-lock.json
-├── public
-│ ├── favicon.ico
-│ ├── favicon.svg
-│ └── images
-│ ├── default-avatarl.png
-│ └── default-avatar.png
-├── README.md
-├── src
-│ ├── App.vue
-│ ├── assets
-│ │ ├── cta-bg-map.png
-│ │ ├── geokar-logo-horizontal.svg
-│ │ ├── homepage.mp4
-│ │ ├── logo
-│ │ │ └── geokar-logo-mark.svg
-│ │ └── main.css
-│ ├── components
-│ │ ├── admin
-│ │ │ ├── AdminLayout
-│ │ │ │ ├── AdminHeader.vue
-│ │ │ │ ├── AdminLayout.vue
-│ │ │ │ └── AdminSidebar.vue
-│ │ │ └── ui
-│ │ │ ├── AdminBoundaryMapView.vue
-│ │ │ ├── AdminCard.vue
-│ │ │ ├── AdminFilter.vue
-│ │ │ ├── AdminProjectPdfExporter.vue
-│ │ │ ├── AdminSearch.vue
-│ │ │ ├── AdminStatCard.vue
-│ │ │ ├── AdminTable.vue
-│ │ │ ├── CategoryFormModal.vue
-│ │ │ ├── ConfirmModal.vue
-│ │ │ ├── ConversationDrawer.vue
-│ │ │ ├── DatePicker.vue
-│ │ │ ├── DeleteModal.vue
-│ │ │ ├── MergeSkillsModal.vue
-│ │ │ ├── Pagination.vue
-│ │ │ ├── SkillFormModal.vue
-│ │ │ └── StatusBadge.vue
-│ │ ├── common
-│ │ │ └── ProjectTriggerButton.vue
-│ │ ├── dashboard
-│ │ │ ├── ActiveFreelancerProject.vue
-│ │ │ ├── ProfileCard.vue
-│ │ │ ├── ProjectCard.vue
-│ │ │ ├── ProjectList.vue
-│ │ │ └── UserEmployerProject.vue
-│ │ ├── home
-│ │ │ ├── EmployerCard.vue
-│ │ │ ├── ExpertCard.vue
-│ │ │ ├── FeaturesSection.vue
-│ │ │ ├── HomeHero.vue
-│ │ │ ├── HomeStats.vue
-│ │ │ ├── PlatformSection.vue
-│ │ │ └── ServicesGrid.vue
-│ │ ├── layouts
-│ │ │ ├── footer.vue
-│ │ │ └── header.vue
-│ │ ├── map
-│ │ │ ├── LeafletBoundaryMap.vue
-│ │ │ └── mapTab
-│ │ │ ├── index.ts
-│ │ │ ├── LeafletBoundaryMap.vue
-│ │ │ ├── LeafletGeoJson.vue
-│ │ │ ├── LeafletMap.vue
-│ │ │ └── LeafletMarkerMap.vue
-│ │ ├── modal
-│ │ │ ├── ProfileImage.vue
-│ │ │ ├── ProfileModal.vue
-│ │ │ ├── ProjectDetailModal
-│ │ │ │ ├── componentcontract
-│ │ │ │ │ ├── AmendmentDetailModal.vue
-│ │ │ │ │ ├── AmendmentFreelancerActions.vue
-│ │ │ │ │ └── AmendmentStatusBanner.vue
-│ │ │ │ ├── ContractUpdateWizard.vue
-│ │ │ │ ├── ProjectChatTab.vue
-│ │ │ │ ├── ProjectContractTab.vue
-│ │ │ │ ├── ProjectFooter.vue
-│ │ │ │ ├── ProjectHeader.vue
-│ │ │ │ ├── ProjectInfoTab.vue
-│ │ │ │ ├── ProjectMapTab.vue
-│ │ │ │ ├── ProjectPdfExporter.vue
-│ │ │ │ ├── ProjectProposalTab.vue
-│ │ │ │ └── ProjectTabs.vue
-│ │ │ ├── ProjectDetailModal.vue
-│ │ │ ├── ProjectOptionsModal.vue
-│ │ │ ├── ProposalModal.vue
-│ │ │ ├── QuickProjectModal.vue
-│ │ │ └── SearchModal.vue
-│ │ └── stepProjectForm
-│ │ ├── FileUploader.vue
-│ │ ├── StepBasicInfo.vue
-│ │ ├── StepInvoice.vue
-│ │ ├── StepMapBoundary.vue
-│ │ ├── StepTechnicalSpecs.vue
-│ │ ├── StepTimingBudget.vue
-│ │ └── SuccessCreateProject.vue
-│ ├── main.ts
-│ ├── pages
-│ │ ├── AdminActivityLogPage.vue
-│ │ ├── AdminCategoryPage.vue
-│ │ ├── AdminContractDetailPage.vue
-│ │ ├── AdminContractPage.vue
-│ │ ├── AdminDashboardPage.vue
-│ │ ├── AdminFilePage.vue
-│ │ ├── AdminLoginPage.vue
-│ │ ├── AdminMessagePage.vue
-│ │ ├── AdminPaymentPage.vue
-│ │ ├── AdminProjectDetailPage.vue
-│ │ ├── AdminProjectPage.vue
-│ │ ├── AdminProposalPage.vue
-│ │ ├── AdminReportPage.vue
-│ │ ├── AdminReviewPage.vue
-│ │ ├── AdminSettingPage.vue
-│ │ ├── AdminSkillPage.vue
-│ │ ├── AdminUserDetailPage.vue
-│ │ ├── AdminUserPage.vue
-│ │ ├── consultationPage.vue
-│ │ ├── CreateProjectPage.vue
-│ │ ├── CreateUsername.vue
-│ │ ├── DashboardPage.vue
-│ │ ├── HomePage.vue
-│ │ ├── LoginPage.vue
-│ │ ├── OtpPage.vue
-│ │ ├── PasswordPage.vue
-│ │ ├── profilePage.vue
-│ │ ├── SignupPage.vue
-│ │ └── WelcomePage.vue
-│ ├── router
-│ │ └── index.ts
-│ ├── schemas
-│ │ ├── login.schema.ts
-│ │ └── signup.schemas.ts
-│ ├── services
-│ │ ├── admin.service.ts
-│ │ ├── api.ts
-│ │ ├── auth.service.ts
-│ │ ├── contract.service.ts
-│ │ ├── message.service.ts
-│ │ ├── profile.service.ts
-│ │ └── project.service.ts
-│ ├── stores
-│ │ ├── admin.store.ts
-│ │ ├── auth.store.ts
-│ │ ├── buttoncreateproject.store.ts
-│ │ ├── chat.store.ts
-│ │ ├── contract.store.ts
-│ │ ├── profile.modal.store.ts
-│ │ ├── project.store.ts
-│ │ ├── proposal.store.ts
-│ │ ├── QuickProject.modal.store.ts
-│ │ ├── role.store.ts
-│ │ └── ui.store.ts
-│ └── types
-│ ├── auth.ts
-│ ├── leaflet.d.ts
-│ ├── project.ts
-│ └── RoleUser.ts
-├── text.ts
-├── tsconfig.app.json
-├── tsconfig.json
-├── tsconfig.node.json
-└── vite.config.ts
-
-59 directories, 200 files
-xmart@xmart-HP-255-G8-Notebook-PC:~/Desktop/ponisha-clone$
-
-import { api } from './api'
-
-// درخواست لاگین ادمین
-export const adminLoginApi = async (phone: string, password: string) => {
-const response = await api.post('/admin/login', { phone, password })
-return response.data
-}
-
-// 🌟 تغییر وضعیت (فعال/غیرفعال) کاربر توسط ادمین
-export const toggleUserStatusApi = async (userId: number) => {
-const response = await api.patch(`/admin/users/${userId}/toggle-status`)
-return response.data
-}
-
-export const getDashboardStatsApi = async () => {
-const response = await api.get('/admin/dashboard/stats')
-return response.data
-}
-export const getAllUsersApi = async (
-params: {
-search?: string
-role?: string
-status?: string
-verified?: string
-sortBy?: string
-page?: number
-limit?: number
-} = {},
-) => {
-const response = await api.get('/admin/users', { params })
-return response.data
-}
-
-export const getUserDetailApi = async (id: number) => {
-const response = await api.get(`/admin/users/${id}`)
-return response.data
-}
-
-export const verifyUserApi = async (id: number) => {
-const response = await api.patch(`/admin/users/${id}/verify`)
-return response.data
-}
-
-export const deleteUserApi = async (id: number) => {
-const response = await api.delete(`/admin/users/${id}`)
-return response.data
-}
-
-export const resetUserPasswordApi = async (id: number) => {
-const response = await api.post(`/admin/users/${id}/reset-password`)
-return response.data
-}
-
-export const changeUserRoleApi = async (id: number, role: string) => {
-const response = await api.patch(`/admin/users/${id}/role`, { role })
-return response.data
-}
-
-export const getAllProjectsApi = async (
-params: {
-search?: string
-status?: string
-sortBy?: string
-page?: number
-limit?: number
-} = {},
-) => {
-const response = await api.get('/admin/projects', { params })
-return response.data
-}
-
-export const publishProjectApi = async (id: number) => {
-const response = await api.patch(`/admin/projects/${id}/publish`)
-return response.data
-}
-
-export const closeProjectApi = async (id: number) => {
-const response = await api.patch(`/admin/projects/${id}/close`)
-return response.data
-}
-
-export const toggleFeatureProjectApi = async (id: number) => {
-const response = await api.patch(`/admin/projects/${id}/feature`)
-return response.data
-}
-
-export const deleteProjectApi = async (id: number) => {
-const response = await api.delete(`/admin/projects/${id}`)
-return response.data
-}
-
-export const getProjectDetailApi = async (id: number) => {
-const response = await api.get(`/admin/projects/${id}`)
-return response.data
-}
-
-export const getAllProposalsApi = async () => {
-const response = await api.get('/admin/proposals')
-return response.data
-}
-export const acceptProposalApi = async (id: number) => {
-const response = await api.patch(`/admin/proposals/${id}/accept`)
-return response.data
-}
-
-export const rejectProposalApi = async (id: number) => {
-const response = await api.patch(`/admin/proposals/${id}/reject`)
-return response.data
-}
-
-export const deleteProposalApi = async (id: number) => {
-const response = await api.delete(`/admin/proposals/${id}`)
-return response.data
-}
-
-export const getAllContractsApi = async (params: Record<string, any> = {}) => {
-const response = await api.get('/admin/contracts', { params })
-return response.data
-}
-
-export const getContractDetailApi = async (id: number) => {
-const response = await api.get(`/admin/contracts/${id}`)
-return response.data
-}
-
-export const cancelContractApi = async (id: number) => {
-const response = await api.patch(`/admin/contracts/${id}/cancel`)
-return response.data
-}
-
-export const completeContractApi = async (id: number) => {
-const response = await api.patch(`/admin/contracts/${id}/complete`)
-return response.data
-}
-
-export const resolveContractDisputeApi = async (
-id: number,
-resolution: 'active' | 'completed' | 'cancelled',
-) => {
-const response = await api.patch(`/admin/contracts/${id}/resolve-dispute`, { resolution })
-return response.data
-}
-
-export const getAllPaymentsApi = async (params: Record<string, any> = {}) => {
-const response = await api.get('/admin/payments', { params })
-return response.data
-}
-
-export const getAllCategoriesApi = async () => {
-const response = await api.get('/admin/categories')
-return response.data
-}
-
-export const createCategoryApi = async (payload: {
-name: string
-slug: string
-description?: string
-parentId?: number | null
-}) => {
-const response = await api.post('/admin/categories', payload)
-return response.data
-}
-
-export const updateCategoryApi = async (
-id: number,
-payload: {
-name?: string
-slug?: string
-description?: string
-parentId?: number | null
-},
-) => {
-const response = await api.patch(`/admin/categories/${id}`, payload)
-return response.data
-}
-
-export const deleteCategoryApi = async (id: number) => {
-const response = await api.delete(`/admin/categories/${id}`)
-return response.data
-}
-
-export const getAllSkillsApi = async (params: Record<string, any> = {}) => {
-const response = await api.get('/admin/skills', { params })
-return response.data
-}
-
-export const createSkillApi = async (payload: { name: string; slug: string }) => {
-const response = await api.post('/admin/skills', payload)
-return response.data
-}
-
-export const updateSkillApi = async (id: number, payload: { name?: string; slug?: string }) => {
-const response = await api.patch(`/admin/skills/${id}`, payload)
-return response.data
-}
-
-export const deleteSkillApi = async (id: number) => {
-const response = await api.delete(`/admin/skills/${id}`)
-return response.data
-}
-
-export const mergeSkillsApi = async (payload: {
-sourceSkillIds: number[]
-targetSkillId: number
-}) => {
-const response = await api.post('/admin/skills/merge', payload)
-return response.data
-}
-
-export const getAllConversationsApi = async () => {
-const response = await api.get('/admin/messages')
-return response.data
-}
-
-export const getConversationThreadApi = async (params: {
-contractId?: number
-userAId?: number
-userBId?: number
-}) => {
-const response = await api.get('/admin/messages/thread', { params })
-return response.data
-}
-export const getAllReviewsApi = async (
-params: {
-search?: string
-rating?: number
-page?: number
-limit?: number
-} = {},
-) => {
-const response = await api.get('/admin/reviews', { params })
-return response.data
-}
-
-export const deleteReviewApi = async (id: number) => {
-const response = await api.delete(`/admin/reviews/${id}`)
-return response.data
-}
-
-export const getAllFilesApi = async (
-params: {
-search?: string
-type?: 'avatar' | 'attachment'
-page?: number
-limit?: number
-} = {},
-) => {
-const response = await api.get('/admin/files', { params })
-return response.data
-}
-
-export const deleteFileApi = async (type: 'avatar' | 'attachment', id: number) => {
-const response = await api.delete(`/admin/files/${type}/${id}`)
-return response.data
-}
-
-export const getAllReportsApi = async (
-params: {
-search?: string
-status?: string
-targetType?: string
-page?: number
-limit?: number
-} = {},
-) => {
-const response = await api.get('/admin/reports', { params })
-return response.data
-}
-
-export const getReportDetailApi = async (id: number) => {
-const response = await api.get(`/admin/reports/${id}`)
-return response.data
-}
-
-export const updateReportStatusApi = async (
-id: number,
-data: { status?: string; adminNote?: string },
-) => {
-const response = await api.patch(`/admin/reports/${id}`, data)
-return response.data
-}
-
-export const deleteReportApi = async (id: number) => {
-const response = await api.delete(`/admin/reports/${id}`)
-return response.data
-}
-
-export const getAllActivityLogsApi = async (
-params: {
-search?: string
-action?: string
-targetType?: string
-adminId?: number
-page?: number
-limit?: number
-} = {},
-) => {
-const response = await api.get('/admin/activity-logs', { params })
-return response.data
-}
-
-export const getAllSettingsApi = async () => {
-const response = await api.get('/admin/settings')
-return response.data
-}
-
-export const updateSettingsApi = async (settings: { key: string; value: string }[]) => {
-const response = await api.put('/admin/settings', { settings })
-return response.data
-}
-
 import { Router } from "express";
 import { authMiddleware } from "../middleware/auth.middleware";
 import {
@@ -6697,6 +4289,10 @@ changeUserRole,
 getAllFilesForAdmin,
 getAllSettingsForAdmin,
 updateSettingsByAdmin,
+getAllNotificationsForAdmin,
+markNotificationRead,
+markAllNotificationsRead,
+deleteNotificationByAdmin,
 deleteFileByAdmin,
 getDashboardStats,
 getAllProjectsForAdmin,
@@ -7073,4 +4669,299 @@ authMiddleware,
 requirePermission("settings.manage"),
 updateSettingsByAdmin,
 );
+
+router.get(
+"/notifications",
+authMiddleware,
+adminMiddleware,
+getAllNotificationsForAdmin,
+);
+
+router.patch(
+"/notifications/:id/read",
+authMiddleware,
+adminMiddleware,
+markNotificationRead,
+);
+
+router.patch(
+"/notifications/mark-all-read",
+authMiddleware,
+adminMiddleware,
+markAllNotificationsRead,
+);
+
+router.delete(
+"/notifications/:id",
+authMiddleware,
+requirePermission("settings.manage"),
+deleteNotificationByAdmin,
+);
 export default router;
+
+import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth.store'
+import { useAdminStore } from '@/stores/admin.store'
+
+// صفحات عمومی و کاربر
+import HomePage from '../pages/HomePage.vue'
+import LoginPage from '../pages/LoginPage.vue'
+import SignupPage from '../pages/SignupPage.vue'
+import OtpView from '../pages/OtpPage.vue'
+import PasswordView from '../pages/PasswordPage.vue'
+import DashboardPage from '../pages/DashboardPage.vue'
+import CreateUsername from '../pages/CreateUsername.vue'
+import WelcomePage from '../pages/WelcomePage.vue'
+import NewprojectPage from '../pages/CreateProjectPage.vue'
+import ProfilePage from '../pages/profilePage.vue'
+import ConsultationPage from '@/pages/consultationPage.vue'
+
+// صفحات و لایوت مدیریت
+import AdminLoginPage from '../pages/AdminLoginPage.vue'
+import AdminLayout from '../components/admin/AdminLayout/AdminLayout.vue'
+import AdminDashboardPage from '../pages/AdminDashboardPage.vue'
+import AdminUsersPage from '../pages/AdminUserPage.vue'
+import AdminUserDetailPage from '../pages/AdminUserDetailPage.vue'
+import AdminProjectPage from '../pages/AdminProjectPage.vue'
+import AdminProjectDetailPage from '../pages/AdminProjectDetailPage.vue'
+import AdminProposalPage from '../pages/AdminProposalPage.vue'
+import AdminContractPage from '@/pages/AdminContractPage.vue'
+import AdminContractDetailPage from '../pages/AdminContractDetailPage.vue'
+import AdminPaymentPage from '../pages/AdminPaymentPage.vue'
+import AdminCategoryPage from '../pages/AdminCategoryPage.vue'
+import AdminSkillPage from '../pages/AdminSkillPage.vue'
+import AdminMessagePage from '../pages/AdminMessagePage.vue'
+import AdminReviewPage from '../pages/AdminReviewPage.vue'
+import AdminFilePage from '../pages/AdminFilePage.vue'
+import AdminReportPage from '../pages/AdminReportPage.vue'
+import AdminActivityLogPage from '@/pages/AdminActivityLogPage.vue'
+import AdminSettingPage from '@/pages/AdminSettingPage.vue'
+import AdminNotificationPage from '../pages/AdminNotificationPage.vue'
+
+const router = createRouter({
+history: createWebHistory(),
+routes: [
+{
+path: '/',
+component: HomePage,
+},
+{
+path: '/login',
+component: LoginPage,
+meta: { requiresGuest: true },
+},
+{
+path: '/signup',
+component: SignupPage,
+meta: { requiresGuest: true },
+},
+{
+path: '/login/otp',
+component: OtpView,
+meta: { requiresGuest: true },
+},
+{
+path: '/login/password',
+component: PasswordView,
+meta: { requiresGuest: true },
+},
+{
+path: '/admin/login',
+component: AdminLoginPage,
+// ⚠️ دیگر requiresGuest نمی‌گذاریم تا کاربر عادی هم بتواند وارد صفحه لاگین ادمین شود
+},
+
+    // --- مسیرهای پنل مدیریت ---
+    {
+      path: '/admin',
+      component: AdminLayout,
+      meta: { requiresAdmin: true },
+      children: [
+        {
+          path: '',
+          redirect: '/admin/dashboard',
+        },
+        {
+          path: 'skills',
+          component: AdminSkillPage,
+        },
+        {
+          path: 'dashboard',
+          component: AdminDashboardPage,
+        },
+        {
+          path: 'settings',
+          component: AdminSettingPage,
+          meta: { permission: 'settings.view' },
+        },
+        {
+          path: 'notifications',
+          component: AdminNotificationPage,
+        },
+
+        {
+          path: 'activity-logs',
+          component: AdminActivityLogPage,
+          meta: { permission: 'settings.view' },
+        },
+        {
+          path: 'reports',
+          component: AdminReportPage,
+          meta: { permission: 'reports.view' },
+        },
+        {
+          path: 'reviews',
+          component: AdminReviewPage,
+          meta: { permission: 'reviews.view' },
+        },
+        {
+          path: 'files',
+          component: AdminFilePage,
+          meta: { permission: 'settings.view' },
+        },
+        {
+          path: 'categories',
+          component: AdminCategoryPage,
+        },
+
+        {
+          path: 'proposals',
+          component: AdminProposalPage,
+          meta: { permission: 'proposals.view' },
+        },
+        {
+          path: 'contracts',
+          component: AdminContractPage,
+        },
+        {
+          path: 'contracts/:id',
+          component: AdminContractDetailPage,
+        },
+        {
+          path: 'users',
+          component: AdminUsersPage,
+          meta: { permission: 'users.view' }, // 🌟 مثال دسترسی
+        },
+        {
+          path: 'users/:id',
+          component: AdminUserDetailPage,
+          meta: { permission: 'users.view' },
+        },
+        {
+          path: 'payments',
+          component: AdminPaymentPage,
+        },
+        {
+          path: 'projects/:id',
+          component: AdminProjectDetailPage,
+          meta: { permission: 'projects.view' },
+        },
+        {
+          path: 'projects',
+          component: AdminProjectPage,
+          meta: { permission: 'projects.view' },
+        },
+        {
+          path: 'messages',
+          component: AdminMessagePage,
+          meta: { permission: 'messages.view' },
+        },
+        // مسیرهای بعدی را اینجا اضافه کن:
+        // { path: 'projects', component: ..., meta: { permission: 'projects.view' } },
+        // { path: 'payments', component: ..., meta: { permission: 'payments.view' } },
+      ],
+    },
+
+    // --- روت‌های محافظت‌شده کاربری ---
+    {
+      path: '/dashboard',
+      component: DashboardPage,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/consultation',
+      name: 'consultation',
+      component: ConsultationPage,
+    },
+    {
+      path: '/onboarding/create-username',
+      component: CreateUsername,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/onboarding/welcome',
+      component: WelcomePage,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/newproject',
+      component: NewprojectPage,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: ProfilePage,
+      meta: { requiresAuth: true },
+    },
+
+],
+scrollBehavior(to, from, savedPosition) {
+if (savedPosition) {
+return savedPosition
+}
+return { top: 0, behavior: 'smooth' }
+},
+})
+
+router.beforeEach((to, from, next) => {
+const authStore = useAuthStore()
+const adminStore = useAdminStore()
+
+// همیشه هدر ادمین را ست کن اگر توکن دارد
+if (adminStore.token) {
+adminStore.setAuthHeader()
+}
+
+const isAdminRoute = to.path.startsWith('/admin')
+const isAdminLoginPage = to.path === '/admin/login'
+
+// ---------- مسیرهای ادمین ----------
+if (isAdminRoute) {
+// صفحه لاگین ادمین
+if (isAdminLoginPage) {
+if (adminStore.token) {
+return next('/admin/dashboard')
+}
+return next()
+}
+
+    // بقیه مسیرهای /admin/*
+    if (!adminStore.token) {
+      return next('/admin/login')
+    }
+
+    // چک دسترسی خاص (اگر meta.permission تعریف شده باشد)
+    const requiredPermission = to.meta.permission as string | undefined
+    if (requiredPermission && !adminStore.hasPermission(requiredPermission)) {
+      // می‌توانی به صفحه 403 بفرستی یا به داشبورد
+      return next('/admin/dashboard')
+    }
+
+    return next()
+
+}
+
+// ---------- مسیرهای عادی کاربر ----------
+if (to.meta.requiresAuth && !authStore.token) {
+return next('/signup')
+}
+
+if (to.meta.requiresGuest && authStore.token) {
+return next('/dashboard')
+}
+
+return next()
+})
+
+export default router

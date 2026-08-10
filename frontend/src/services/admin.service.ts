@@ -335,3 +335,8 @@ export const deleteNotificationApi = async (id: number) => {
   const response = await api.delete(`/admin/notifications/${id}`)
   return response.data
 }
+
+export const getAnalyticsApi = async (range: '7d' | '30d' | '90d' | '365d' = '30d') => {
+  const response = await api.get('/admin/analytics', { params: { range } })
+  return response.data
+}

@@ -3163,3 +3163,239 @@ export const deleteNotificationByAdmin = async (
       .json({ success: false, message: "خطا در حذف اعلان" });
   }
 };
+
+// ==============================
+// آنالیتیکس
+// ==============================
+
+type AnalyticsRange = "7d" | "30d" | "90d" | "365d";
+
+function getRangeConfig(range: AnalyticsRange) {
+  const now = new Date();
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+
+  const daysMap: Record<AnalyticsRange, number> = {
+    "7d": 7,
+    "30d": 30,
+    "90d": 90,
+    "365d": 365,
+  };
+  const days = daysMap[range] ?? 30;
+
+  const start = new Date(now);
+  start.setDate(start.getDate() - (days - 1));
+  start.setHours(0, 0, 0, 0);
+
+  const prevEnd = new Date(start);
+  prevEnd.setMilliseconds(prevEnd.getMilliseconds() - 1);
+  const prevStart = new Date(prevEnd);
+  prevStart.setDate(prevStart.getDate() - (days - 1));
+  prevStart.setHours(0, 0, 0, 0);
+
+  const bucketUnit: "day" | "week" | "month" =
+    days <= 31 ? "day" : days <= 120 ? "week" : "month";
+
+  return { start, end, prevStart, prevEnd, bucketUnit };
+}
+
+function buildBuckets(start: Date, end: Date, unit: "day" | "week" | "month") {
+  const buckets: { key: string; label: string; from: Date; to: Date }[] = [];
+  const cursor = new Date(start);
+
+  while (cursor <= end) {
+    const from = new Date(cursor);
+    let to: Date;
+
+    if (unit === "day") {
+      to = new Date(cursor);
+      to.setHours(23, 59, 59, 999);
+      cursor.setDate(cursor.getDate() + 1);
+    } else if (unit === "week") {
+      to = new Date(cursor);
+      to.setDate(to.getDate() + 6);
+      to.setHours(23, 59, 59, 999);
+      cursor.setDate(cursor.getDate() + 7);
+    } else {
+      to = new Date(
+        cursor.getFullYear(),
+        cursor.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      );
+      cursor.setMonth(cursor.getMonth() + 1);
+      cursor.setDate(1);
+    }
+
+    const finalTo = to > end ? end : to;
+    const label =
+      unit === "month"
+        ? from.toLocaleDateString("fa-IR", { month: "long" })
+        : from.toLocaleDateString("fa-IR", { month: "short", day: "numeric" });
+
+    buckets.push({
+      key: from.toISOString().slice(0, 10),
+      label,
+      from,
+      to: finalTo,
+    });
+  }
+
+  return buckets;
+}
+
+function aggregateByBucket<T>(
+  items: T[],
+  dateField: (item: T) => Date | null,
+  buckets: { key: string; label: string; from: Date; to: Date }[],
+  valueField?: (item: T) => number,
+) {
+  return buckets.map((bucket) => {
+    const inBucket = items.filter((item) => {
+      const d = dateField(item);
+      return d ? d >= bucket.from && d <= bucket.to : false;
+    });
+
+    const value = valueField
+      ? inBucket.reduce((sum, item) => sum + valueField(item), 0)
+      : inBucket.length;
+
+    return { date: bucket.key, label: bucket.label, value };
+  });
+}
+
+function calcGrowth(current: number, previous: number) {
+  if (previous === 0) return current > 0 ? 100 : 0;
+  return Math.round(((current - previous) / previous) * 1000) / 10;
+}
+
+export const getAnalyticsForAdmin = async (req: Request, res: Response) => {
+  try {
+    const range = ((req.query.range as string) || "30d") as AnalyticsRange;
+    const { start, end, prevStart, prevEnd, bucketUnit } =
+      getRangeConfig(range);
+    const buckets = buildBuckets(start, end, bucketUnit);
+
+    const [
+      usersInRange,
+      usersInPrevCount,
+      projectsInRange,
+      projectsInPrevCount,
+      paymentsInRange,
+      paymentsInPrevAgg,
+      contractsInRange,
+      contractsInPrevCount,
+      contractStatusCounts,
+    ] = await Promise.all([
+      prisma.user.findMany({
+        where: { createdAt: { gte: start, lte: end }, role: { not: "admin" } },
+        select: { createdAt: true },
+      }),
+      prisma.user.count({
+        where: {
+          createdAt: { gte: prevStart, lte: prevEnd },
+          role: { not: "admin" },
+        },
+      }),
+      prisma.project.findMany({
+        where: { createdAt: { gte: start, lte: end }, deletedAt: null },
+        select: { createdAt: true },
+      }),
+      prisma.project.count({
+        where: { createdAt: { gte: prevStart, lte: prevEnd }, deletedAt: null },
+      }),
+      prisma.payment.findMany({
+        where: { status: "paid", paidAt: { gte: start, lte: end } },
+        select: { paidAt: true, amount: true },
+      }),
+      prisma.payment.aggregate({
+        where: { status: "paid", paidAt: { gte: prevStart, lte: prevEnd } },
+        _sum: { amount: true },
+      }),
+      prisma.contract.findMany({
+        where: { createdAt: { gte: start, lte: end } },
+        select: { createdAt: true, status: true, totalAmount: true },
+      }),
+      prisma.contract.count({
+        where: { createdAt: { gte: prevStart, lte: prevEnd } },
+      }),
+      prisma.contract.groupBy({
+        by: ["status"],
+        where: { createdAt: { gte: start, lte: end } },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const totalRegistrations = usersInRange.length;
+    const totalProjects = projectsInRange.length;
+    const totalRevenue = paymentsInRange.reduce(
+      (sum, p) => sum + Number(p.amount),
+      0,
+    );
+    const totalContracts = contractsInRange.length;
+    const totalContractsAmount = contractsInRange.reduce(
+      (sum, c) => sum + Number(c.totalAmount),
+      0,
+    );
+    const prevRevenue = Number(paymentsInPrevAgg._sum.amount || 0);
+
+    return res.json({
+      success: true,
+      range,
+      summary: {
+        registrations: {
+          total: totalRegistrations,
+          growth: calcGrowth(totalRegistrations, usersInPrevCount),
+        },
+        revenue: {
+          total: totalRevenue,
+          growth: calcGrowth(totalRevenue, prevRevenue),
+        },
+        projects: {
+          total: totalProjects,
+          growth: calcGrowth(totalProjects, projectsInPrevCount),
+        },
+        contracts: {
+          total: totalContracts,
+          totalAmount: totalContractsAmount,
+          growth: calcGrowth(totalContracts, contractsInPrevCount),
+        },
+      },
+      charts: {
+        registrations: aggregateByBucket(
+          usersInRange,
+          (u) => u.createdAt,
+          buckets,
+        ),
+        projects: aggregateByBucket(
+          projectsInRange,
+          (p) => p.createdAt,
+          buckets,
+        ),
+        revenue: aggregateByBucket(
+          paymentsInRange,
+          (p) => p.paidAt,
+          buckets,
+          (p) => Number(p.amount),
+        ),
+        contracts: aggregateByBucket(
+          contractsInRange,
+          (c) => c.createdAt,
+          buckets,
+        ),
+      },
+      contractStatusBreakdown: contractStatusCounts.map((s) => ({
+        status: s.status,
+        count: s._count._all,
+      })),
+    });
+  } catch (error) {
+    console.error("Get Analytics Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در دریافت آنالیتیکس" });
+  }
+};

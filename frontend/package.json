@@ -21,6 +21,7 @@
     "@tanstack/vue-table": "^8.21.3",
     "@turf/turf": "^7.3.5",
     "axios": "^1.17.0",
+    "chart.js": "^4.5.1",
     "html2pdf.js": "^0.14.0",
     "leaflet": "^1.9.4",
     "leaflet-draw": "^1.0.4",
