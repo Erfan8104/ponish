@@ -23,6 +23,8 @@ import {
   globalSearchForAdmin,
   getAnalyticsForAdmin,
   deleteFileByAdmin,
+  bulkSetUserStatusForAdmin,
+  bulkDeleteUsersForAdmin,
   getDashboardStats,
   getAllProjectsForAdmin,
   publishProject,
@@ -432,6 +434,20 @@ router.get(
   authMiddleware,
   requirePermission("reports.view"),
   getAnalyticsForAdmin,
+);
+
+router.patch(
+  "/users/bulk-status",
+  authMiddleware,
+  requirePermission("users.ban"),
+  bulkSetUserStatusForAdmin,
+);
+
+router.delete(
+  "/users/bulk",
+  authMiddleware,
+  requirePermission("users.delete"),
+  bulkDeleteUsersForAdmin,
 );
 
 router.get("/search", authMiddleware, adminMiddleware, globalSearchForAdmin);

@@ -345,3 +345,13 @@ export const globalSearchApi = async (q: string) => {
   const response = await api.get('/admin/search', { params: { q } })
   return response.data
 }
+
+export const bulkSetUserStatusApi = async (ids: number[], isActive: boolean) => {
+  const response = await api.patch('/admin/users/bulk-status', { ids, isActive })
+  return response.data
+}
+
+export const bulkDeleteUsersApi = async (ids: number[]) => {
+  const response = await api.delete('/admin/users/bulk', { data: { ids } })
+  return response.data
+}

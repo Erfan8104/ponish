@@ -3552,3 +3552,75 @@ export const globalSearchForAdmin = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: "خطا در جستجو" });
   }
 };
+
+// فعال/غیرفعال‌سازی گروهی کاربران
+export const bulkSetUserStatusForAdmin = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const { ids, isActive } = req.body as {
+      ids?: number[];
+      isActive?: boolean;
+    };
+
+    if (
+      !Array.isArray(ids) ||
+      ids.length === 0 ||
+      typeof isActive !== "boolean"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "لیست شناسه‌ها و وضعیت الزامی هستند",
+      });
+    }
+
+    const result = await prisma.user.updateMany({
+      where: { id: { in: ids.map(Number) } },
+      data: { isActive },
+    });
+
+    return res.json({
+      success: true,
+      message: isActive
+        ? `${result.count} کاربر فعال شدند`
+        : `${result.count} کاربر غیرفعال شدند`,
+      count: result.count,
+    });
+  } catch (error) {
+    console.error("Bulk Set User Status Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در تغییر وضعیت گروهی کاربران" });
+  }
+};
+
+// حذف گروهی کاربران (soft delete)
+export const bulkDeleteUsersForAdmin = async (req: Request, res: Response) => {
+  try {
+    const { ids } = req.body as { ids?: number[] };
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "لیست شناسه‌ها الزامی است",
+      });
+    }
+
+    const result = await prisma.user.updateMany({
+      where: { id: { in: ids.map(Number) } },
+      data: { deletedAt: new Date(), isActive: false },
+    });
+
+    return res.json({
+      success: true,
+      message: `${result.count} کاربر حذف شدند`,
+      count: result.count,
+    });
+  } catch (error) {
+    console.error("Bulk Delete Users Error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "خطا در حذف گروهی کاربران" });
+  }
+};
