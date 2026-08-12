@@ -1,3 +1,5 @@
+میخواهم ابتدا یکسری اطلاعات در مورد پروژم در اختیارت بزارم بعدش به تو میگ که باید چکاری انجام بدی
+
 generator client {
 provider = "prisma-client-js"
 }
@@ -153,7 +155,7 @@ reviewsReceived Review[] @relation("ReviewsReceived")
 activityLogs ActivityLog[] @relation("AdminActivityLogs")
 otps OTP[]
 reportsCreated Report[] @relation("ReportsCreated")
-reportsResolvedc Report[] @relation("ReportsResolved")
+reportsResolved Report[] @relation("ReportsResolved")
 // 🌟 روابط جدید برای سیستم Permission
 adminRoles UserAdminRole[]
 
@@ -621,4757 +623,2928 @@ updatedAt DateTime @updatedAt
 @@index([status])
 }
 
-import { PrismaClient } from "@prisma/client";
-import { Pool } from "pg";
-import { PrismaPg } from "@prisma/adapter-pg";
-import dotenv from "dotenv";
-import bcrypt from "bcrypt";
-
-dotenv.config();
-
-const connectionString = process.env.DATABASE_URL;
-
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
-
-async function main() {
-console.log("🌱 در حال درج اطلاعات اولیه...");
-
-// ============================================================
-// ۱. دسته‌بندی‌های پیش‌فرض
-// ============================================================
-const categories = [
-{
-name: "نقشه‌برداری زمینی",
-slug: "mapping",
-description: "برداشت با توتال استیشن و GPS",
-},
-{
-name: "عکس‌برداری هوایی",
-slug: "drone",
-description: "تصویربرداری هوایی و تهیه ارتوفتو",
-},
-{
-name: "خدمات GIS",
-slug: "gis",
-description: "تحلیل داده، ژئورفرنس و پایگاه داده",
-},
-{
-name: "ترسیم و کارتوگرافی",
-slug: "drafting",
-description: "امور ثبتی، نقشه‌کشی و کارتوگرافی",
-},
-];
-
-for (const cat of categories) {
-await prisma.category.upsert({
-where: { slug: cat.slug },
-update: {},
-create: cat,
-});
-}
-console.log("✅ دسته‌بندی‌ها با موفقیت اضافه شدند.");
-
-// ============================================================
-// ۲. نقش‌های ادمین (Admin Roles)
-// ============================================================
-const adminRoles = [
-{
-name: "SUPER_ADMIN" as const,
-displayName: "سوپر ادمین",
-description: "دسترسی کامل به تمام بخش‌های سیستم",
-isSystem: true,
-},
-{
-name: "ADMIN" as const,
-displayName: "ادمین",
-description: "مدیریت کاربران، پروژه‌ها و تنظیمات عمومی",
-isSystem: true,
-},
-{
-name: "SUPPORT" as const,
-displayName: "پشتیبانی",
-description: "پاسخگویی به تیکت‌ها و مدیریت پیام‌ها",
-isSystem: false,
-},
-{
-name: "FINANCE" as const,
-displayName: "مالی",
-description: "مدیریت پرداخت‌ها، بازگشت وجه و گزارش‌های مالی",
-isSystem: false,
-},
-{
-name: "MODERATOR" as const,
-displayName: "ناظر",
-description: "بررسی و مدیریت محتوای کاربران و نظرات",
-isSystem: false,
-},
-];
-
-for (const role of adminRoles) {
-await prisma.adminRole.upsert({
-where: { name: role.name },
-update: {
-displayName: role.displayName,
-description: role.description,
-isSystem: role.isSystem,
-},
-create: role,
-});
-}
-console.log("✅ نقش‌های ادمین با موفقیت اضافه شدند.");
-
-// ============================================================
-// ۳. دسترسی‌ها (Permissions)
-// ============================================================
-const permissions = [
-// Users
-{ key: "users.view", name: "مشاهده کاربران", group: "users" },
-{ key: "users.create", name: "ایجاد کاربر", group: "users" },
-{ key: "users.edit", name: "ویرایش کاربران", group: "users" },
-{ key: "users.delete", name: "حذف کاربران", group: "users" },
-{ key: "users.ban", name: "مسدود کردن کاربران", group: "users" },
-
-    // Projects
-    { key: "projects.view", name: "مشاهده پروژه‌ها", group: "projects" },
-    { key: "projects.edit", name: "ویرایش پروژه‌ها", group: "projects" },
-    { key: "projects.delete", name: "حذف پروژه‌ها", group: "projects" },
-    { key: "projects.feature", name: "ویژه کردن پروژه", group: "projects" },
-
-    // Proposals
-    { key: "proposals.view", name: "مشاهده پیشنهادها", group: "proposals" },
-    {
-      key: "proposals.manage",
-      name: "مدیریت پیشنهادها (تایید/رد/حذف)",
-      group: "proposals",
-    },
-
-    // Contracts
-    { key: "contracts.view", name: "مشاهده قراردادها", group: "contracts" },
-    { key: "contracts.edit", name: "ویرایش قراردادها", group: "contracts" },
-    { key: "contracts.cancel", name: "لغو قرارداد", group: "contracts" },
-
-    // Payments
-    { key: "payments.view", name: "مشاهده پرداخت‌ها", group: "payments" },
-    { key: "payments.refund", name: "بازگشت وجه", group: "payments" },
-    { key: "payments.export", name: "خروجی گزارش مالی", group: "payments" },
-
-    // Categories & Skills
-    {
-      key: "categories.manage",
-      name: "مدیریت دسته‌بندی‌ها",
-      group: "categories",
-    },
-    { key: "skills.manage", name: "مدیریت مهارت‌ها", group: "skills" },
-
-    // Reviews
-    { key: "reviews.view", name: "مشاهده نظرات", group: "reviews" },
-    { key: "reviews.delete", name: "حذف نظرات", group: "reviews" },
-
-    // Messages
-    { key: "messages.view", name: "مشاهده پیام‌ها", group: "messages" },
-    { key: "messages.delete", name: "حذف پیام‌ها", group: "messages" },
-
-    // Reports
-    { key: "reports.view", name: "مشاهده گزارش‌ها", group: "reports" },
-    { key: "reports.export", name: "خروجی گزارش‌ها", group: "reports" },
-
-    // Settings
-    { key: "settings.view", name: "مشاهده تنظیمات", group: "settings" },
-    { key: "settings.manage", name: "مدیریت تنظیمات", group: "settings" },
-
-    // Roles & Permissions
-    { key: "roles.manage", name: "مدیریت نقش‌ها و دسترسی‌ها", group: "roles" },
-
-];
-
-for (const perm of permissions) {
-await prisma.permission.upsert({
-where: { key: perm.key },
-update: {
-name: perm.name,
-group: perm.group,
-},
-create: perm,
-});
-}
-console.log("✅ دسترسی‌ها با موفقیت اضافه شدند.");
-
-// ============================================================
-// ۴. اختصاص دسترسی‌ها به نقش‌ها (RolePermissions)
-// ============================================================
-const allPermissions = await prisma.permission.findMany();
-const allRoles = await prisma.adminRole.findMany();
-
-const roleMap = Object.fromEntries(allRoles.map((r) => [r.name, r.id]));
-const permMap = Object.fromEntries(allPermissions.map((p) => [p.key, p.id]));
-
-const rolePermissionMap: Record<string, string[]> = {
-SUPER_ADMIN: allPermissions.map((p) => p.key),
-
-    ADMIN: [
-      "users.view",
-      "users.create",
-      "users.edit",
-      "users.ban",
-      "projects.view",
-      "projects.edit",
-      "projects.delete",
-      "projects.feature",
-      "proposals.view",
-      "proposals.manage",
-      "contracts.view",
-      "contracts.edit",
-      "contracts.cancel",
-      "payments.view",
-      "categories.manage",
-      "skills.manage",
-      "reviews.view",
-      "reviews.delete",
-      "messages.view",
-      "reports.view",
-      "reports.export",
-      "settings.view",
-      "settings.manage",
-    ],
-
-    SUPPORT: [
-      "users.view",
-      "users.edit",
-      "projects.view",
-      "proposals.view",
-      "contracts.view",
-      "messages.view",
-      "messages.delete",
-      "reviews.view",
-    ],
-
-    FINANCE: [
-      "users.view",
-      "projects.view",
-      "proposals.view",
-      "contracts.view",
-      "payments.view",
-      "payments.refund",
-      "payments.export",
-      "reports.view",
-      "reports.export",
-    ],
-
-    MODERATOR: [
-      "users.view",
-      "users.ban",
-      "projects.view",
-      "projects.delete",
-      "proposals.view",
-      "reviews.view",
-      "reviews.delete",
-      "messages.view",
-      "messages.delete",
-    ],
-
-};
-
-for (const [roleName, permKeys] of Object.entries(rolePermissionMap)) {
-const roleId = roleMap[roleName];
-if (!roleId) continue;
-
-    for (const key of permKeys) {
-      const permissionId = permMap[key];
-      if (!permissionId) continue;
-
-      await prisma.rolePermission.upsert({
-        where: {
-          roleId_permissionId: {
-            roleId,
-            permissionId,
-          },
-        },
-        update: {},
-        create: {
-          roleId,
-          permissionId,
-        },
-      });
-    }
-
-}
-console.log("✅ دسترسی‌ها به نقش‌ها اختصاص داده شدند.");
-
-// ============================================================
-// ۵. ایجاد کاربران ادمین برای همه نقش‌ها
-// ============================================================
-const adminUsers = [
-{
-phone: "09120000000",
-password: "AdminSecretPassword123",
-name: "مدیر کل سیستم",
-roleName: "SUPER_ADMIN" as const,
-},
-{
-phone: "09121111111",
-password: "AdminPass123",
-name: "ادمین سیستم",
-roleName: "ADMIN" as const,
-},
-{
-phone: "09122222222",
-password: "SupportPass123",
-name: "پشتیبان سیستم",
-roleName: "SUPPORT" as const,
-},
-{
-phone: "09123333333",
-password: "FinancePass123",
-name: "مدیر مالی",
-roleName: "FINANCE" as const,
-},
-{
-phone: "09124444444",
-password: "ModPass123",
-name: "ناظر محتوا",
-roleName: "MODERATOR" as const,
-},
-];
-
-for (const item of adminUsers) {
-const hashedPassword = await bcrypt.hash(item.password, 10);
-
-    const user = await prisma.user.upsert({
-      where: { phone: item.phone },
-      update: {
-        role: "admin",
-        password: hashedPassword,
-        name: item.name,
-        isVerified: true,
-        profileCompleted: true,
-        isActive: true,
-      },
-      create: {
-        phone: item.phone,
-        password: hashedPassword,
-        role: "admin",
-        name: item.name,
-        profileCompleted: true,
-        isVerified: true,
-        isActive: true,
-      },
-    });
-
-    const role = await prisma.adminRole.findUnique({
-      where: { name: item.roleName },
-    });
-
-    if (role) {
-      await prisma.userAdminRole.upsert({
-        where: {
-          userId_roleId: {
-            userId: user.id,
-            roleId: role.id,
-          },
-        },
-        update: {},
-        create: {
-          userId: user.id,
-          roleId: role.id,
-        },
-      });
-    }
-
-    console.log(
-      `✅ کاربر ${item.roleName} → شماره: ${item.phone} | رمز: ${item.password}`,
-    );
-
-}
-
-// ============================================================
-// ۶. تنظیمات سایت (Settings)
-// ============================================================
-const defaultSettings = [
-{
-key: "site_name",
-value: "ژئوکار",
-label: "نام سایت",
-type: "text",
-group: "general",
-},
-{
-key: "support_phone",
-value: "021-12345678",
-label: "تلفن پشتیبانی",
-type: "phone",
-group: "general",
-},
-{
-key: "support_email",
-value: "support@geokar.ir",
-label: "ایمیل پشتیبانی",
-type: "email",
-group: "general",
-},
-{
-key: "default_commission",
-value: "10",
-label: "کمیسیون پیش‌فرض (درصد)",
-type: "number",
-group: "financial",
-},
-{
-key: "min_withdrawal",
-value: "100000",
-label: "حداقل مبلغ برداشت (تومان)",
-type: "number",
-group: "financial",
-},
-{
-key: "maintenance_mode",
-value: "false",
-label: "حالت تعمیر و نگهداری",
-type: "boolean",
-group: "system",
-},
-];
-
-for (const s of defaultSettings) {
-await prisma.setting.upsert({
-where: { key: s.key },
-update: {},
-create: s,
-});
-}
-console.log("✅ تنظیمات پیش‌فرض اضافه شدند.");
-
-console.log("🎉 Seed با موفقیت کامل شد.");
-}
-
-main()
-.catch((e) => {
-console.error(e);
-process.exit(1);
-})
-.finally(async () => {
-await prisma.$disconnect();
-await pool.end();
-});
-
 import { Request, Response } from "express";
-import bcrypt from "bcrypt";
 import { prisma } from "../lib/prisma";
-import fs from "fs";
-import path from "path";
-import jwt from "jsonwebtoken";
-import crypto from "crypto";
-import { logAdminActivity, getAdminId } from "../utils/activityLog";
-
-// ==============================
-// لاگ فعالیت‌ها (فاز ۱۴)
-// ==============================
-
-export const getAllActivityLogsForAdmin = async (
-req: Request,
-res: Response,
-) => {
-try {
-const {
-search = "",
-action,
-targetType,
-adminId,
-page = "1",
-limit = "20",
-} = req.query as Record<string, string>;
-
-    const pageNum = Math.max(1, parseInt(page) || 1);
-    const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 20));
-
-    const where: any = {};
-
-    if (action) where.action = action;
-    if (targetType) where.targetType = targetType;
-    if (adminId) where.adminId = Number(adminId);
-
-    if (search) {
-      where.OR = [
-        { description: { contains: search, mode: "insensitive" } },
-        { action: { contains: search, mode: "insensitive" } },
-        { admin: { name: { contains: search, mode: "insensitive" } } },
-        { admin: { phone: { contains: search } } },
-      ];
-    }
-
-    const [logs, total] = await Promise.all([
-      prisma.activityLog.findMany({
-        where,
-        select: {
-          id: true,
-          action: true,
-          targetType: true,
-          targetId: true,
-          description: true,
-          metadata: true,
-          ipAddress: true,
-          createdAt: true,
-          admin: {
-            select: { id: true, name: true, phone: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        skip: (pageNum - 1) * limitNum,
-        take: limitNum,
-      }),
-      prisma.activityLog.count({ where }),
-    ]);
-
-    return res.json({
-      success: true,
-      logs,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum) || 1,
-      },
-    });
-
-} catch (error) {
-console.error("Get Activity Logs Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت لاگ فعالیت‌ها" });
-}
-};
-
-// ==============================
-// مدیریت فایل‌ها (فاز ۱۲)
-// ==============================
-
-const UPLOADS_ROOT = path.join(process.cwd(), "uploads");
-
-function tryDeletePhysicalFile(fileUrlOrPath: string | null | undefined) {
-if (!fileUrlOrPath) return;
-try {
-let relative = fileUrlOrPath.replace(/^\/+/, "");
-if (relative.startsWith("uploads/")) {
-relative = relative.slice("uploads/".length);
-}
-const fullPath = path.join(UPLOADS_ROOT, relative);
-if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
-fs.unlinkSync(fullPath);
-}
-} catch (err) {
-console.warn("Could not delete physical file:", fileUrlOrPath, err);
-}
-}
-
-export const getAllFilesForAdmin = async (req: Request, res: Response) => {
-try {
-const {
-search = "",
-type,
-page = "1",
-limit = "20",
-} = req.query as Record<string, string>;
-
-    const pageNum = Math.max(1, parseInt(page) || 1);
-    const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 20));
-
-    const results: any[] = [];
-
-    // ---- ۱. آواتارها ----
-    if (!type || type === "avatar") {
-      const whereUser: any = {
-        avatar: { not: null },
-        deletedAt: null,
-      };
-      if (search) {
-        whereUser.OR = [
-          { name: { contains: search, mode: "insensitive" } },
-          { phone: { contains: search } },
-          { email: { contains: search, mode: "insensitive" } },
-        ];
-      }
-
-      const users = await prisma.user.findMany({
-        where: whereUser,
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          avatar: true,
-          createdAt: true,
-        },
-        orderBy: { createdAt: "desc" },
-      });
-
-      for (const u of users) {
-        results.push({
-          id: u.id,
-          type: "avatar",
-          fileName: u.avatar?.split("/").pop() || "avatar",
-          fileUrl: u.avatar,
-          fileType: null,
-          fileSize: null,
-          relatedId: u.id,
-          relatedTitle: u.name || u.phone || `User #${u.id}`,
-          relatedType: "user",
-          createdAt: u.createdAt,
-        });
-      }
-    }
-
-    // ---- ۲. پیوست‌های پروژه ----
-    if (!type || type === "attachment") {
-      const whereAtt: any = {};
-      if (search) {
-        whereAtt.OR = [
-          { fileName: { contains: search, mode: "insensitive" } },
-          { project: { title: { contains: search, mode: "insensitive" } } },
-        ];
-      }
-
-      const attachments = await prisma.projectAttachment.findMany({
-        where: whereAtt,
-        select: {
-          id: true,
-          fileName: true,
-          fileUrl: true,
-          fileType: true,
-          fileSize: true,
-          createdAt: true,
-          project: {
-            select: { id: true, title: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      });
-
-      for (const a of attachments) {
-        results.push({
-          id: a.id,
-          type: "attachment",
-          fileName: a.fileName,
-          fileUrl: a.fileUrl,
-          fileType: a.fileType,
-          fileSize: a.fileSize,
-          relatedId: a.project?.id,
-          relatedTitle: a.project?.title || `Project #${a.project?.id}`,
-          relatedType: "project",
-          createdAt: a.createdAt,
-        });
-      }
-    }
-
-    results.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
-
-    const total = results.length;
-    const start = (pageNum - 1) * limitNum;
-    const paged = results.slice(start, start + limitNum);
-
-    return res.json({
-      success: true,
-      files: paged,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum) || 1,
-      },
-    });
-
-} catch (error) {
-console.error("Get All Files Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت لیست فایل‌ها" });
-}
-};
-
-export const deleteFileByAdmin = async (req: Request, res: Response) => {
-try {
-const { type, id } = req.params;
-const numId = Number(id);
-
-    if (!["avatar", "attachment"].includes(type) || isNaN(numId)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "پارامترهای نامعتبر" });
-    }
-
-    if (type === "avatar") {
-      const user = await prisma.user.findUnique({
-        where: { id: numId },
-        select: { id: true, avatar: true, name: true, phone: true },
-      });
-      if (!user || !user.avatar) {
-        return res
-          .status(404)
-          .json({ success: false, message: "آواتار یافت نشد" });
-      }
-
-      tryDeletePhysicalFile(user.avatar);
-
-      await prisma.user.update({
-        where: { id: numId },
-        data: { avatar: null },
-      });
-
-      // لاگ
-      const adminId = getAdminId(req);
-      if (adminId) {
-        await logAdminActivity({
-          adminId,
-          action: "file.delete",
-          targetType: "avatar",
-          targetId: numId,
-          description: `ادمین آواتار کاربر «${user.name || user.phone}» را حذف کرد`,
-          req,
-        });
-      }
-
-      return res.json({ success: true, message: "آواتار حذف شد" });
-    }
-
-    // attachment
-    const attachment = await prisma.projectAttachment.findUnique({
-      where: { id: numId },
-      include: { project: { select: { id: true, title: true } } },
-    });
-    if (!attachment) {
-      return res
-        .status(404)
-        .json({ success: false, message: "فایل پیوست یافت نشد" });
-    }
-
-    tryDeletePhysicalFile(attachment.fileUrl);
-
-    await prisma.projectAttachment.delete({ where: { id: numId } });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "file.delete",
-        targetType: "attachment",
-        targetId: numId,
-        description: `ادمین فایل پیوست «${attachment.fileName}» از پروژه «${attachment.project?.title || attachment.projectId}» را حذف کرد`,
-        req,
-      });
-    }
-
-    return res.json({ success: true, message: "فایل پیوست حذف شد" });
-
-} catch (error) {
-console.error("Delete File Error:", error);
-return res.status(500).json({ success: false, message: "خطا در حذف فایل" });
-}
-};
-
-// ==============================
-// مدیریت کاربران
-// ==============================
-
-export const getAllUsersForAdmin = async (req: Request, res: Response) => {
-try {
-const {
-search = "",
-role,
-status,
-verified,
-sortBy = "newest",
-page = "1",
-limit = "10",
-} = req.query as Record<string, string>;
-
-    const pageNum = Math.max(1, parseInt(page) || 1);
-    const limitNum = Math.max(1, parseInt(limit) || 10);
-
-    const where: any = { deletedAt: null };
-
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { phone: { contains: search } },
-        { email: { contains: search, mode: "insensitive" } },
-      ];
-    }
-    if (role) where.role = role;
-    if (status) where.isActive = status === "active";
-    if (verified) where.isVerified = verified === "verified";
-
-    const baseSelect = {
-      id: true,
-      name: true,
-      phone: true,
-      email: true,
-      role: true,
-      profileCompleted: true,
-      isActive: true,
-      isVerified: true,
-      createdAt: true,
-      _count: { select: { projects: true } },
-    };
-
-    let orderBy: any = { createdAt: sortBy === "oldest" ? "asc" : "desc" };
-    if (sortBy === "projectsCount") orderBy = { projects: { _count: "desc" } };
-
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        select: baseSelect,
-        orderBy,
-        skip: (pageNum - 1) * limitNum,
-        take: limitNum,
-      }),
-      prisma.user.count({ where }),
-    ]);
-
-    return res.json({
-      success: true,
-      users,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum) || 1,
-      },
-    });
-
-} catch (error) {
-console.error("Get Users Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت لیست کاربران" });
-}
-};
-
-export const getUserDetail = async (req: Request, res: Response) => {
-try {
-const userId = Number(req.params.id);
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        employerProfile: true,
-        freelancerProfile: {
-          include: { skills: { include: { skill: true } } },
-        },
-        projects: {
-          select: { id: true, title: true, status: true, createdAt: true },
-          orderBy: { createdAt: "desc" },
-        },
-        contractsAsEmployer: {
-          select: {
-            id: true,
-            status: true,
-            totalAmount: true,
-            createdAt: true,
-            freelancer: { select: { name: true, phone: true } },
-          },
-        },
-        contractsAsFreelancer: {
-          select: {
-            id: true,
-            status: true,
-            totalAmount: true,
-            createdAt: true,
-            employer: { select: { name: true, phone: true } },
-          },
-        },
-        reviewsGiven: {
-          select: {
-            id: true,
-            rating: true,
-            comment: true,
-            createdAt: true,
-            reviewed: { select: { name: true } },
-          },
-        },
-        reviewsReceived: {
-          select: {
-            id: true,
-            rating: true,
-            comment: true,
-            createdAt: true,
-            reviewer: { select: { name: true } },
-          },
-        },
-      },
-    });
-
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "کاربر یافت نشد" });
-    }
-
-    const contractIds = [
-      ...user.contractsAsEmployer.map((c) => c.id),
-      ...user.contractsAsFreelancer.map((c) => c.id),
-    ];
-
-    const payments = contractIds.length
-      ? await prisma.payment.findMany({
-          where: { contractId: { in: contractIds } },
-          orderBy: { createdAt: "desc" },
-        })
-      : [];
-
-    const messages = await prisma.message.findMany({
-      where: { OR: [{ senderId: userId }, { receiverId: userId }] },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      select: {
-        id: true,
-        content: true,
-        type: true,
-        createdAt: true,
-        senderId: true,
-        receiverId: true,
-      },
-    });
-
-    const { password, ...safeUser } = user;
-    return res.json({ success: true, user: safeUser, payments, messages });
-
-} catch (error) {
-console.error("Get User Detail Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت جزئیات کاربر" });
-}
-};
-
-export const verifyUser = async (req: Request, res: Response) => {
-try {
-const user = await prisma.user.update({
-where: { id: Number(req.params.id) },
-data: { isVerified: true },
-select: { id: true, name: true, phone: true, isVerified: true },
-});
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "user.verify",
-        targetType: "user",
-        targetId: user.id,
-        description: `ادمین کاربر «${user.name || user.phone}» را تأیید کرد`,
-        req,
-      });
-    }
-
-    return res.json({ success: true, message: "کاربر تایید شد", user });
-
-} catch (error) {
-return res
-.status(500)
-.json({ success: false, message: "خطا در تایید کاربر" });
-}
-};
-
-// Soft delete
-export const deleteUser = async (req: Request, res: Response) => {
-try {
-const user = await prisma.user.update({
-where: { id: Number(req.params.id) },
-data: { deletedAt: new Date(), isActive: false },
-select: { id: true, name: true, phone: true, deletedAt: true },
-});
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "user.delete",
-        targetType: "user",
-        targetId: user.id,
-        description: `ادمین کاربر «${user.name || user.phone}» را حذف کرد`,
-        req,
-      });
-    }
-
-    return res.json({ success: true, message: "کاربر حذف شد", user });
-
-} catch (error) {
-return res
-.status(500)
-.json({ success: false, message: "خطا در حذف کاربر" });
-}
-};
-
-export const resetUserPassword = async (req: Request, res: Response) => {
-try {
-const newPassword = crypto.randomBytes(4).toString("hex");
-const hashed = await bcrypt.hash(newPassword, 10);
-
-    const user = await prisma.user.update({
-      where: { id: Number(req.params.id) },
-      data: { password: hashed },
-      select: { id: true, name: true, phone: true },
-    });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "user.reset_password",
-        targetType: "user",
-        targetId: user.id,
-        description: `ادمین رمز عبور کاربر «${user.name || user.phone}» را بازنشانی کرد`,
-        req,
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: "رمز عبور بازنشانی شد",
-      newPassword,
-    });
-
-} catch (error) {
-return res
-.status(500)
-.json({ success: false, message: "خطا در بازنشانی رمز عبور" });
-}
-};
-
-export const changeUserRole = async (req: Request, res: Response) => {
-try {
-const { role } = req.body;
-const allowedRoles = ["employer", "freelancer", "both", "admin"];
-if (!allowedRoles.includes(role)) {
-return res
-.status(400)
-.json({ success: false, message: "نقش نامعتبر است" });
-}
-
-    if (role === "admin") {
-      const requesterPermissions = (req as any).user?.permissions || [];
-      if (!requesterPermissions.includes("*")) {
-        return res.status(403).json({
-          success: false,
-          message: "فقط سوپر ادمین می‌تواند نقش ادمین اختصاص دهد",
-        });
-      }
-    }
-
-    const user = await prisma.user.update({
-      where: { id: Number(req.params.id) },
-      data: { role },
-      select: { id: true, name: true, phone: true, role: true },
-    });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "user.change_role",
-        targetType: "user",
-        targetId: user.id,
-        description: `ادمین نقش کاربر «${user.name || user.phone}» را به «${role}» تغییر داد`,
-        metadata: { newRole: role },
-        req,
-      });
-    }
-
-    return res.json({ success: true, message: "نقش کاربر تغییر یافت", user });
-
-} catch (error) {
-return res
-.status(500)
-.json({ success: false, message: "خطا در تغییر نقش" });
-}
-};
-
-export const toggleUserStatus = async (req: Request, res: Response) => {
-try {
-const { id } = req.params;
-
-    const user = await prisma.user.findUnique({
-      where: { id: Number(id) },
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "کاربر مورد نظر یافت نشد",
-      });
-    }
-
-    const updatedUser = await prisma.user.update({
-      where: { id: Number(id) },
-      data: {
-        isActive: !user.isActive,
-      },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        isActive: true,
-      },
-    });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: updatedUser.isActive ? "user.activate" : "user.deactivate",
-        targetType: "user",
-        targetId: updatedUser.id,
-        description: `ادمین حساب «${updatedUser.name || updatedUser.phone}» را ${updatedUser.isActive ? "فعال" : "غیرفعال"} کرد`,
-        req,
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: `حساب کاربری با موفقیت ${updatedUser.isActive ? "فعال" : "غیرفعال"} شد`,
-      user: updatedUser,
-    });
-
-} catch (error) {
-console.error("Toggle User Status Error:", error);
-return res.status(500).json({
-success: false,
-message: "خطا در تغییر وضعیت کاربر",
-});
-}
-};
-
-export const adminLogin = async (req: Request, res: Response) => {
-try {
-const { phone, password } = req.body;
-
-    if (!phone || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "شماره تلفن و رمز عبور الزامی هستند",
-      });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { phone },
-      include: {
-        adminRoles: {
-          include: {
-            role: {
-              include: {
-                rolePermissions: {
-                  include: {
-                    permission: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    const hasAdminRole =
-      user?.role === "admin" ||
-      (user?.adminRoles && user.adminRoles.length > 0);
-
-    if (!user || !hasAdminRole) {
-      return res.status(401).json({
-        success: false,
-        message: "اطلاعات ورود نامعتبر است یا دسترسی ادمین ندارید",
-      });
-    }
-
-    if (!user.isActive) {
-      return res.status(403).json({
-        success: false,
-        message: "حساب کاربری شما غیرفعال شده است",
-      });
-    }
-
-    if (!user.password) {
-      return res.status(401).json({
-        success: false,
-        message: "رمز عبور برای این حساب تنظیم نشده است",
-      });
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: "رمز عبور اشتباه است",
-      });
-    }
-
-    const adminRoles = user.adminRoles.map((ur) => ({
-      name: ur.role.name,
-      displayName: ur.role.displayName,
-    }));
-
-    const permissionsSet = new Set<string>();
-    user.adminRoles.forEach((ur) => {
-      ur.role.rolePermissions.forEach((rp) => {
-        permissionsSet.add(rp.permission.key);
-      });
-    });
-    const permissions = Array.from(permissionsSet);
-
-    const isSuperAdmin = adminRoles.some((r) => r.name === "SUPER_ADMIN");
-
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        phone: user.phone,
-        role: user.role,
-        adminRoles: adminRoles.map((r) => r.name),
-        permissions: isSuperAdmin ? ["*"] : permissions,
-      },
-      process.env.JWT_SECRET || "supersecretkey",
-      { expiresIn: "7d" },
-    );
-
-    return res.json({
-      success: true,
-      token,
-      user: {
-        id: user.id,
-        phone: user.phone,
-        name: user.name,
-        role: user.role,
-        isActive: user.isActive,
-        adminRoles,
-        permissions: isSuperAdmin ? ["*"] : permissions,
-      },
-    });
-
-} catch (error) {
-console.error("Admin Login Error:", error);
-return res.status(500).json({
-success: false,
-message: "خطای سرور در ورود ادمین",
-});
-}
-};
-
-// ==============================
-// داشبورد
-// ==============================
-
-export const getDashboardStats = async (req: Request, res: Response) => {
-try {
-const now = new Date();
-const startOfToday = new Date(
-now.getFullYear(),
-now.getMonth(),
-now.getDate(),
-);
-const last7Days = new Date(now);
-last7Days.setDate(last7Days.getDate() - 6);
-last7Days.setHours(0, 0, 0, 0);
-
-    const [
-      usersCount,
-      projectsCount,
-      activeProjects,
-      activeContracts,
-      todayPaymentsCount,
-      newUsersToday,
-      revenueAgg,
-      pendingReviews,
-      pendingReports,
-      latestUsers,
-      latestProjects,
-    ] = await Promise.all([
-      prisma.user.count({
-        where: { deletedAt: null, role: { not: "admin" } },
-      }),
-      prisma.project.count({
-        where: { deletedAt: null },
-      }),
-      prisma.project.count({
-        where: {
-          deletedAt: null,
-          status: { in: ["open", "in_progress"] },
-        },
-      }),
-      prisma.contract.count({
-        where: { status: "active" },
-      }),
-      prisma.payment.count({
-        where: {
-          status: "paid",
-          paidAt: { gte: startOfToday },
-        },
-      }),
-      prisma.user.count({
-        where: {
-          createdAt: { gte: startOfToday },
-          role: { not: "admin" },
-        },
-      }),
-      prisma.payment.aggregate({
-        where: { status: "paid" },
-        _sum: { amount: true },
-      }),
-      prisma.review.count(),
-      prisma.report.count({ where: { status: "pending" } }),
-      prisma.user.findMany({
-        where: { role: { not: "admin" }, deletedAt: null },
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          role: true,
-          isActive: true,
-          createdAt: true,
-        },
-        orderBy: { createdAt: "desc" },
-        take: 5,
-      }),
-      prisma.project.findMany({
-        where: { deletedAt: null },
-        select: {
-          id: true,
-          title: true,
-          status: true,
-          province: true,
-          city: true,
-          createdAt: true,
-          employer: {
-            select: { name: true, phone: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 5,
-      }),
-    ]);
-
-    const days: { date: string; label: string }[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      d.setHours(0, 0, 0, 0);
-      days.push({
-        date: d.toISOString().slice(0, 10),
-        label: d.toLocaleDateString("fa-IR", {
-          month: "short",
-          day: "numeric",
-        }),
-      });
-    }
-
-    const [usersInRange, projectsInRange, paymentsInRange] = await Promise.all([
-      prisma.user.findMany({
-        where: {
-          createdAt: { gte: last7Days },
-          role: { not: "admin" },
-        },
-        select: { createdAt: true },
-      }),
-      prisma.project.findMany({
-        where: {
-          createdAt: { gte: last7Days },
-          deletedAt: null,
-        },
-        select: { createdAt: true },
-      }),
-      prisma.payment.findMany({
-        where: {
-          status: "paid",
-          paidAt: { gte: last7Days },
-        },
-        select: { paidAt: true, amount: true },
-      }),
-    ]);
-
-    const countByDay = (
-      items: { createdAt?: Date | null; paidAt?: Date | null }[],
-      field: "createdAt" | "paidAt",
-    ) => {
-      return days.map((day) => {
-        const count = items.filter((item) => {
-          const dateVal = field === "createdAt" ? item.createdAt : item.paidAt;
-          if (!dateVal) return false;
-          return dateVal.toISOString().slice(0, 10) === day.date;
-        }).length;
-        return { date: day.date, label: day.label, value: count };
-      });
-    };
-
-    const revenueByDay = days.map((day) => {
-      const sum = paymentsInRange
-        .filter(
-          (p) => p.paidAt && p.paidAt.toISOString().slice(0, 10) === day.date,
-        )
-        .reduce((acc, p) => acc + Number(p.amount), 0);
-      return { date: day.date, label: day.label, value: sum };
-    });
-
-    return res.json({
-      success: true,
-      stats: {
-        usersCount,
-        projectsCount,
-        activeProjects,
-        activeContracts,
-        todayPayments: todayPaymentsCount,
-        newUsersToday,
-        revenue: Number(revenueAgg._sum.amount || 0),
-        pendingReviews,
-        pendingReports,
-      },
-      latestUsers,
-      latestProjects,
-      charts: {
-        dailyRegistrations: countByDay(usersInRange, "createdAt"),
-        dailyProjects: countByDay(projectsInRange, "createdAt"),
-        dailyPayments: revenueByDay,
-      },
-    });
-
-} catch (error) {
-console.error("Dashboard Stats Error:", error);
-return res.status(500).json({
-success: false,
-message: "خطا در دریافت آمار داشبورد",
-});
-}
-};
-
-// ==============================
-// مدیریت پروژه‌ها
-// ==============================
-
-export const getAllProjectsForAdmin = async (req: Request, res: Response) => {
-try {
-const {
-search = "",
-status,
-sortBy = "newest",
-page = "1",
-limit = "10",
-} = req.query as Record<string, string>;
-
-    const pageNum = Math.max(1, parseInt(page) || 1);
-    const limitNum = Math.max(1, parseInt(limit) || 10);
-
-    const where: any = { deletedAt: null };
-
-    if (search) {
-      where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { employer: { name: { contains: search, mode: "insensitive" } } },
-        { employer: { phone: { contains: search } } },
-      ];
-    }
-
-    if (status) {
-      where.status = status;
-    }
-
-    let orderBy: any = { createdAt: "desc" };
-    if (sortBy === "oldest") orderBy = { createdAt: "asc" };
-    if (sortBy === "budget") orderBy = { maxBudget: "desc" };
-
-    const [projects, total] = await Promise.all([
-      prisma.project.findMany({
-        where,
-        select: {
-          id: true,
-          title: true,
-          status: true,
-          province: true,
-          minBudget: true,
-          maxBudget: true,
-          budgetType: true,
-          isFeatured: true,
-          createdAt: true,
-          employer: {
-            select: { name: true, phone: true },
-          },
-        },
-        orderBy,
-        skip: (pageNum - 1) * limitNum,
-        take: limitNum,
-      }),
-      prisma.project.count({ where }),
-    ]);
-
-    return res.json({
-      success: true,
-      projects,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum) || 1,
-      },
-    });
-
-} catch (error) {
-console.error("Get All Projects Error:", error);
-return res.status(500).json({
-success: false,
-message: "خطا در دریافت لیست پروژه‌ها",
-});
-}
-};
-
-export const getProjectDetailForAdmin = async (req: Request, res: Response) => {
-try {
-const projectId = Number(req.params.id);
-
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      include: {
-        employer: {
-          select: { id: true, name: true, phone: true, email: true },
-        },
-        category: true,
-        _count: {
-          select: { proposals: true },
-        },
-        proposals: {
-          include: {
-            freelancer: {
-              select: { id: true, name: true, phone: true },
-            },
-          },
-          orderBy: { createdAt: "desc" },
-        },
-        contract: {
-          include: {
-            freelancer: {
-              select: { id: true, name: true, phone: true },
-            },
-            milestones: true,
-          },
-        },
-        attachments: true,
-        skills: {
-          include: {
-            skill: true,
-          },
-        },
-      },
-    });
-
-    if (!project || project.deletedAt) {
-      return res
-        .status(404)
-        .json({ success: false, message: "پروژه یافت نشد" });
-    }
-
-    return res.json({ success: true, project });
-
-} catch (error) {
-console.error("Get Project Detail Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت جزئیات پروژه" });
-}
-};
-
-export const publishProject = async (req: Request, res: Response) => {
-try {
-const project = await prisma.project.update({
-where: { id: Number(req.params.id) },
-data: { status: "open", publishedAt: new Date() },
-select: { id: true, title: true, status: true, publishedAt: true },
-});
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "project.publish",
-        targetType: "project",
-        targetId: project.id,
-        description: `ادمین پروژه «${project.title || project.id}» را منتشر کرد`,
-        req,
-      });
-    }
-
-    return res.json({ success: true, message: "پروژه منتشر شد", project });
-
-} catch (error) {
-console.error("Publish Project Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در انتشار پروژه" });
-}
-};
-
-export const closeProject = async (req: Request, res: Response) => {
-try {
-const project = await prisma.project.update({
-where: { id: Number(req.params.id) },
-data: { status: "completed", closedAt: new Date() },
-select: { id: true, title: true, status: true, closedAt: true },
-});
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "project.close",
-        targetType: "project",
-        targetId: project.id,
-        description: `ادمین پروژه «${project.title || project.id}» را بست`,
-        req,
-      });
-    }
-
-    return res.json({ success: true, message: "پروژه بسته شد", project });
-
-} catch (error) {
-console.error("Close Project Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در بستن پروژه" });
-}
-};
-
-export const toggleFeatureProject = async (req: Request, res: Response) => {
-try {
-const current = await prisma.project.findUnique({
-where: { id: Number(req.params.id) },
-select: { id: true, title: true, isFeatured: true },
-});
-
-    if (!current) {
-      return res
-        .status(404)
-        .json({ success: false, message: "پروژه یافت نشد" });
-    }
-
-    const project = await prisma.project.update({
-      where: { id: Number(req.params.id) },
-      data: { isFeatured: !current.isFeatured },
-      select: { id: true, title: true, isFeatured: true },
-    });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: project.isFeatured ? "project.feature" : "project.unfeature",
-        targetType: "project",
-        targetId: project.id,
-        description: project.isFeatured
-          ? `ادمین پروژه «${project.title || project.id}» را ویژه کرد`
-          : `ادمین پروژه «${project.title || project.id}» را از حالت ویژه خارج کرد`,
-        req,
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: project.isFeatured
-        ? "پروژه ویژه شد"
-        : "پروژه از حالت ویژه خارج شد",
-      project,
-    });
-
-} catch (error) {
-console.error("Toggle Feature Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در تغییر وضعیت ویژه" });
-}
-};
-
-// Soft delete
-export const deleteProjectByAdmin = async (req: Request, res: Response) => {
-try {
-const project = await prisma.project.update({
-where: { id: Number(req.params.id) },
-data: { deletedAt: new Date(), status: "cancelled" },
-select: { id: true, title: true, deletedAt: true },
-});
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "project.delete",
-        targetType: "project",
-        targetId: project.id,
-        description: `ادمین پروژه «${project.title || project.id}» را حذف کرد`,
-        req,
-      });
-    }
-
-    return res.json({ success: true, message: "پروژه حذف شد", project });
-
-} catch (error) {
-console.error("Delete Project Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در حذف پروژه" });
-}
-};
-
-// ==============================
-// مدیریت پیشنهادها
-// ==============================
-
-export const getAllProposalsForAdmin = async (req: Request, res: Response) => {
-try {
-const proposals = await prisma.proposal.findMany({
-select: {
-id: true,
-amount: true,
-deliveryDays: true,
-status: true,
-createdAt: true,
-freelancer: {
-select: { id: true, name: true, phone: true },
-},
-project: {
-select: { id: true, title: true },
-},
-},
-orderBy: { createdAt: "desc" },
-});
-
-    return res.json({
-      success: true,
-      proposals,
-    });
-
-} catch (error) {
-console.error("Get All Proposals Error:", error);
-return res.status(500).json({
-success: false,
-message: "خطا در دریافت لیست پیشنهادها",
-});
-}
-};
-
-export const acceptProposalForAdmin = async (req: Request, res: Response) => {
-try {
-const proposalId = Number(req.params.id);
-
-    const proposal = await prisma.proposal.findUnique({
-      where: { id: proposalId },
-      include: { project: true },
-    });
-
-    if (!proposal) {
-      return res
-        .status(404)
-        .json({ success: false, message: "پیشنهاد یافت نشد" });
-    }
-
-    if (proposal.status !== "pending") {
-      return res.status(400).json({
-        success: false,
-        message: "فقط پیشنهادهای در انتظار قابل تایید هستند",
-      });
-    }
-
-    const existingContract = await prisma.contract.findUnique({
-      where: { projectId: proposal.projectId },
-    });
-    if (existingContract) {
-      return res.status(400).json({
-        success: false,
-        message: "برای این پروژه قبلاً قرارداد ثبت شده است",
-      });
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      const updatedProposal = await tx.proposal.update({
-        where: { id: proposalId },
-        data: { status: "accepted" },
-      });
-
-      await tx.proposal.updateMany({
-        where: {
-          projectId: proposal.projectId,
-          id: { not: proposalId },
-          status: "pending",
-        },
-        data: { status: "rejected" },
-      });
-
-      const contract = await tx.contract.create({
-        data: {
-          projectId: proposal.projectId,
-          proposalId: proposal.id,
-          employerId: proposal.project.employerId,
-          freelancerId: proposal.freelancerId,
-          totalAmount: proposal.amount,
-          status: "active",
-        },
-      });
-
-      await tx.project.update({
-        where: { id: proposal.projectId },
-        data: { status: "in_progress" },
-      });
-
-      return { updatedProposal, contract };
-    });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "proposal.accept",
-        targetType: "proposal",
-        targetId: proposalId,
-        description: `ادمین پیشنهاد #${proposalId} را تأیید کرد و قرارداد #${result.contract.id} ایجاد شد`,
-        metadata: {
-          contractId: result.contract.id,
-          projectId: proposal.projectId,
-        },
-        req,
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: "پیشنهاد تایید شد و قرارداد ایجاد شد",
-      proposal: result.updatedProposal,
-      contract: result.contract,
-    });
-
-} catch (error) {
-console.error("Accept Proposal Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در تایید پیشنهاد" });
-}
-};
-
-export const rejectProposalForAdmin = async (req: Request, res: Response) => {
-try {
-const proposal = await prisma.proposal.findUnique({
-where: { id: Number(req.params.id) },
-});
-
-    if (!proposal) {
-      return res
-        .status(404)
-        .json({ success: false, message: "پیشنهاد یافت نشد" });
-    }
-
-    if (proposal.status !== "pending") {
-      return res.status(400).json({
-        success: false,
-        message: "فقط پیشنهادهای در انتظار قابل رد هستند",
-      });
-    }
-
-    const updated = await prisma.proposal.update({
-      where: { id: proposal.id },
-      data: { status: "rejected" },
-      select: { id: true, status: true },
-    });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "proposal.reject",
-        targetType: "proposal",
-        targetId: proposal.id,
-        description: `ادمین پیشنهاد #${proposal.id} را رد کرد`,
-        req,
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: "پیشنهاد رد شد",
-      proposal: updated,
-    });
-
-} catch (error) {
-console.error("Reject Proposal Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در رد پیشنهاد" });
-}
-};
-
-export const deleteProposalForAdmin = async (req: Request, res: Response) => {
-try {
-const proposal = await prisma.proposal.findUnique({
-where: { id: Number(req.params.id) },
-});
-
-    if (!proposal) {
-      return res
-        .status(404)
-        .json({ success: false, message: "پیشنهاد یافت نشد" });
-    }
-
-    if (proposal.status === "accepted") {
-      return res.status(400).json({
-        success: false,
-        message: "پیشنهاد تاییدشده (دارای قرارداد) قابل حذف نیست",
-      });
-    }
-
-    await prisma.proposal.delete({ where: { id: proposal.id } });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "proposal.delete",
-        targetType: "proposal",
-        targetId: proposal.id,
-        description: `ادمین پیشنهاد #${proposal.id} را حذف کرد`,
-        req,
-      });
-    }
-
-    return res.json({ success: true, message: "پیشنهاد حذف شد" });
-
-} catch (error) {
-console.error("Delete Proposal Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در حذف پیشنهاد" });
-}
-};
-
-// ==============================
-// مدیریت قراردادها
-// ==============================
-
-export const getAllContractsForAdmin = async (req: Request, res: Response) => {
-try {
-const {
-search = "",
-status,
-sortBy = "newest",
-page = "1",
-limit = "10",
-} = req.query as Record<string, string>;
-
-    const pageNum = Math.max(1, parseInt(page) || 1);
-    const limitNum = Math.max(1, parseInt(limit) || 10);
-
-    const where: any = {};
-
-    if (search) {
-      where.OR = [
-        { employer: { name: { contains: search, mode: "insensitive" } } },
-        { employer: { phone: { contains: search } } },
-        { freelancer: { name: { contains: search, mode: "insensitive" } } },
-        { freelancer: { phone: { contains: search } } },
-        { project: { title: { contains: search, mode: "insensitive" } } },
-      ];
-    }
-
-    if (status) where.status = status;
-
-    let orderBy: any = { createdAt: "desc" };
-    if (sortBy === "oldest") orderBy = { createdAt: "asc" };
-    if (sortBy === "amount") orderBy = { totalAmount: "desc" };
-
-    const [contracts, total] = await Promise.all([
-      prisma.contract.findMany({
-        where,
-        select: {
-          id: true,
-          totalAmount: true,
-          status: true,
-          startedAt: true,
-          completedAt: true,
-          cancelledAt: true,
-          project: { select: { id: true, title: true } },
-          employer: { select: { id: true, name: true, phone: true } },
-          freelancer: { select: { id: true, name: true, phone: true } },
-        },
-        orderBy,
-        skip: (pageNum - 1) * limitNum,
-        take: limitNum,
-      }),
-      prisma.contract.count({ where }),
-    ]);
-
-    return res.json({
-      success: true,
-      contracts,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum) || 1,
-      },
-    });
-
-} catch (error) {
-console.error("Get All Contracts Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت لیست قراردادها" });
-}
-};
-
-export const getContractDetailForAdmin = async (
-req: Request,
-res: Response,
-) => {
-try {
-const contractId = Number(req.params.id);
-
-    const contract = await prisma.contract.findUnique({
-      where: { id: contractId },
-      include: {
-        project: {
-          select: { id: true, title: true, status: true, description: true },
-        },
-        employer: {
-          select: { id: true, name: true, phone: true, email: true },
-        },
-        freelancer: {
-          select: { id: true, name: true, phone: true, email: true },
-        },
-        milestones: { orderBy: { createdAt: "asc" } },
-        payments: { orderBy: { createdAt: "desc" } },
-        reviews: {
-          include: {
-            reviewer: { select: { id: true, name: true } },
-            reviewed: { select: { id: true, name: true } },
-          },
-        },
-        amendments: { orderBy: { createdAt: "desc" } },
-        messages: {
-          orderBy: { createdAt: "desc" },
-          take: 30,
-          select: {
-            id: true,
-            content: true,
-            type: true,
-            fileUrl: true,
-            createdAt: true,
-            senderId: true,
-            receiverId: true,
-          },
-        },
-      },
-    });
-
-    if (!contract) {
-      return res
-        .status(404)
-        .json({ success: false, message: "قرارداد یافت نشد" });
-    }
-
-    return res.json({ success: true, contract });
-
-} catch (error) {
-console.error("Get Contract Detail Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت جزئیات قرارداد" });
-}
-};
-
-export const cancelContractByAdmin = async (req: Request, res: Response) => {
-try {
-const contract = await prisma.contract.findUnique({
-where: { id: Number(req.params.id) },
-});
-
-    if (!contract) {
-      return res
-        .status(404)
-        .json({ success: false, message: "قرارداد یافت نشد" });
-    }
-
-    if (contract.status !== "active") {
-      return res.status(400).json({
-        success: false,
-        message: "فقط قرارداد فعال قابل لغو است",
-      });
-    }
-
-    const [updatedContract] = await prisma.$transaction([
-      prisma.contract.update({
-        where: { id: contract.id },
-        data: { status: "cancelled", cancelledAt: new Date() },
-        select: { id: true, status: true, cancelledAt: true },
-      }),
-      prisma.project.update({
-        where: { id: contract.projectId },
-        data: { status: "cancelled", closedAt: new Date() },
-      }),
-    ]);
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "contract.cancel",
-        targetType: "contract",
-        targetId: contract.id,
-        description: `ادمین قرارداد #${contract.id} را لغو کرد`,
-        req,
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: "قرارداد لغو شد",
-      contract: updatedContract,
-    });
-
-} catch (error) {
-console.error("Cancel Contract Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در لغو قرارداد" });
-}
-};
-
-export const completeContractByAdmin = async (req: Request, res: Response) => {
-try {
-const contract = await prisma.contract.findUnique({
-where: { id: Number(req.params.id) },
-});
-
-    if (!contract) {
-      return res
-        .status(404)
-        .json({ success: false, message: "قرارداد یافت نشد" });
-    }
-
-    if (contract.status !== "active") {
-      return res.status(400).json({
-        success: false,
-        message: "فقط قرارداد فعال قابل تکمیل است",
-      });
-    }
-
-    const [updatedContract] = await prisma.$transaction([
-      prisma.contract.update({
-        where: { id: contract.id },
-        data: { status: "completed", completedAt: new Date() },
-        select: { id: true, status: true, completedAt: true },
-      }),
-      prisma.project.update({
-        where: { id: contract.projectId },
-        data: { status: "completed", closedAt: new Date() },
-      }),
-    ]);
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "contract.complete",
-        targetType: "contract",
-        targetId: contract.id,
-        description: `ادمین قرارداد #${contract.id} را تکمیل کرد`,
-        req,
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: "قرارداد تکمیل شد",
-      contract: updatedContract,
-    });
-
-} catch (error) {
-console.error("Complete Contract Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در تکمیل قرارداد" });
-}
-};
-
-export const resolveContractDisputeByAdmin = async (
-req: Request,
-res: Response,
-) => {
-try {
-const { resolution } = req.body as {
-resolution: "active" | "completed" | "cancelled";
-};
-const allowedResolutions = ["active", "completed", "cancelled"];
-
-    if (!allowedResolutions.includes(resolution)) {
-      return res.status(400).json({
-        success: false,
-        message: "نتیجه رفع اختلاف نامعتبر است",
-      });
-    }
-
-    const contract = await prisma.contract.findUnique({
-      where: { id: Number(req.params.id) },
-    });
-
-    if (!contract) {
-      return res
-        .status(404)
-        .json({ success: false, message: "قرارداد یافت نشد" });
-    }
-
-    if (contract.status !== "disputed") {
-      return res.status(400).json({
-        success: false,
-        message: "فقط قرارداد در وضعیت اختلاف قابل رفع است",
-      });
-    }
-
-    const contractData: any = { status: resolution };
-    const projectData: any = {};
-
-    if (resolution === "completed") {
-      contractData.completedAt = new Date();
-      projectData.status = "completed";
-      projectData.closedAt = new Date();
-    } else if (resolution === "cancelled") {
-      contractData.cancelledAt = new Date();
-      projectData.status = "cancelled";
-      projectData.closedAt = new Date();
-    } else {
-      projectData.status = "in_progress";
-    }
-
-    const [updatedContract] = await prisma.$transaction([
-      prisma.contract.update({
-        where: { id: contract.id },
-        data: contractData,
-        select: {
-          id: true,
-          status: true,
-          completedAt: true,
-          cancelledAt: true,
-        },
-      }),
-      prisma.project.update({
-        where: { id: contract.projectId },
-        data: projectData,
-      }),
-    ]);
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "contract.resolve_dispute",
-        targetType: "contract",
-        targetId: contract.id,
-        description: `ادمین اختلاف قرارداد #${contract.id} را با نتیجه «${resolution}» رفع کرد`,
-        metadata: { resolution },
-        req,
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: "اختلاف قرارداد رفع شد",
-      contract: updatedContract,
-    });
-
-} catch (error) {
-console.error("Resolve Contract Dispute Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در رفع اختلاف قرارداد" });
-}
-};
-
-// ==============================
-// مدیریت پرداخت‌ها
-// ==============================
-
-export const getAllPaymentsForAdmin = async (req: Request, res: Response) => {
-try {
-const {
-status,
-sortBy = "newest",
-page = "1",
-limit = "10",
-} = req.query as Record<string, string>;
-
-    const pageNum = Math.max(1, parseInt(page) || 1);
-    const limitNum = Math.max(1, parseInt(limit) || 10);
-
-    const where: any = {};
-    if (status) where.status = status;
-
-    let orderBy: any = { createdAt: "desc" };
-    if (sortBy === "oldest") orderBy = { createdAt: "asc" };
-    if (sortBy === "amount") orderBy = { amount: "desc" };
-
-    const [payments, total] = await Promise.all([
-      prisma.payment.findMany({
-        where,
-        select: {
-          id: true,
-          amount: true,
-          gateway: true,
-          trackingCode: true,
-          status: true,
-          paidAt: true,
-          createdAt: true,
-          contractId: true,
-          contract: {
-            select: {
-              id: true,
-              project: { select: { id: true, title: true } },
-              employer: { select: { id: true, name: true, phone: true } },
-              freelancer: { select: { id: true, name: true, phone: true } },
-            },
-          },
-        },
-        orderBy,
-        skip: (pageNum - 1) * limitNum,
-        take: limitNum,
-      }),
-      prisma.payment.count({ where }),
-    ]);
-
-    return res.json({
-      success: true,
-      payments,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum) || 1,
-      },
-    });
-
-} catch (error) {
-console.error("Get All Payments Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت لیست پرداخت‌ها" });
-}
-};
-
-// ==============================
-// مدیریت دسته‌بندی‌ها
-// ==============================
-
-async function getDescendantCategoryIds(categoryId: number): Promise<number[]> {
-const directChildren = await prisma.category.findMany({
-where: { parentId: categoryId },
-select: { id: true },
-});
-
-let result: number[] = directChildren.map((c) => c.id);
-
-for (const child of directChildren) {
-const nested = await getDescendantCategoryIds(child.id);
-result = result.concat(nested);
-}
-
-return result;
-}
-
-export const getAllCategoriesForAdmin = async (req: Request, res: Response) => {
-try {
-const categories = await prisma.category.findMany({
-include: {
-parent: { select: { id: true, name: true } },
-\_count: { select: { children: true, projects: true } },
-},
-orderBy: { createdAt: "asc" },
-});
-
-    return res.json({ success: true, categories });
-
-} catch (error) {
-console.error("Get All Categories Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت لیست دسته‌بندی‌ها" });
-}
-};
-
-export const createCategoryByAdmin = async (req: Request, res: Response) => {
-try {
-const { name, slug, description, parentId } = req.body as {
-name?: string;
-slug?: string;
-description?: string;
-parentId?: number | null;
-};
-
-    if (!name || !slug) {
-      return res.status(400).json({
-        success: false,
-        message: "نام و اسلاگ الزامی هستند",
-      });
-    }
-
-    if (parentId) {
-      const parentExists = await prisma.category.findUnique({
-        where: { id: Number(parentId) },
-        select: { id: true },
-      });
-      if (!parentExists) {
-        return res.status(400).json({
-          success: false,
-          message: "دسته‌بندی والد یافت نشد",
-        });
-      }
-    }
-
-    const category = await prisma.category.create({
-      data: {
-        name,
-        slug,
-        description: description || null,
-        parentId: parentId ? Number(parentId) : null,
-      },
-    });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "category.create",
-        targetType: "category",
-        targetId: category.id,
-        description: `ادمین دسته‌بندی «${category.name}» را ایجاد کرد`,
-        req,
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: "دسته‌بندی ایجاد شد",
-      category,
-    });
-
-} catch (error: any) {
-if (error?.code === "P2002") {
-return res.status(400).json({
-success: false,
-message: "این اسلاگ قبلاً استفاده شده است",
-});
-}
-console.error("Create Category Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در ایجاد دسته‌بندی" });
-}
-};
-
-export const updateCategoryByAdmin = async (req: Request, res: Response) => {
-try {
-const categoryId = Number(req.params.id);
-const { name, slug, description, parentId } = req.body as {
-name?: string;
-slug?: string;
-description?: string;
-parentId?: number | null;
-};
-
-    const existing = await prisma.category.findUnique({
-      where: { id: categoryId },
-    });
-    if (!existing) {
-      return res
-        .status(404)
-        .json({ success: false, message: "دسته‌بندی یافت نشد" });
-    }
-
-    if (parentId) {
-      const newParentId = Number(parentId);
-
-      if (newParentId === categoryId) {
-        return res.status(400).json({
-          success: false,
-          message: "دسته‌بندی نمی‌تواند والد خودش باشد",
-        });
-      }
-
-      const descendantIds = await getDescendantCategoryIds(categoryId);
-      if (descendantIds.includes(newParentId)) {
-        return res.status(400).json({
-          success: false,
-          message: "دسته‌بندی نمی‌تواند زیرمجموعه‌ی خودش قرار بگیرد",
-        });
-      }
-
-      const parentExists = await prisma.category.findUnique({
-        where: { id: newParentId },
-        select: { id: true },
-      });
-      if (!parentExists) {
-        return res.status(400).json({
-          success: false,
-          message: "دسته‌بندی والد یافت نشد",
-        });
-      }
-    }
-
-    const category = await prisma.category.update({
-      where: { id: categoryId },
-      data: {
-        ...(name !== undefined && { name }),
-        ...(slug !== undefined && { slug }),
-        ...(description !== undefined && { description }),
-        parentId: parentId ? Number(parentId) : null,
-      },
-    });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "category.update",
-        targetType: "category",
-        targetId: category.id,
-        description: `ادمین دسته‌بندی «${category.name}» را ویرایش کرد`,
-        req,
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: "دسته‌بندی ویرایش شد",
-      category,
-    });
-
-} catch (error: any) {
-if (error?.code === "P2002") {
-return res.status(400).json({
-success: false,
-message: "این اسلاگ قبلاً استفاده شده است",
-});
-}
-console.error("Update Category Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در ویرایش دسته‌بندی" });
-}
-};
-
-export const deleteCategoryByAdmin = async (req: Request, res: Response) => {
-try {
-const categoryId = Number(req.params.id);
-
-    const existing = await prisma.category.findUnique({
-      where: { id: categoryId },
-      include: { _count: { select: { children: true } } },
-    });
-
-    if (!existing) {
-      return res
-        .status(404)
-        .json({ success: false, message: "دسته‌بندی یافت نشد" });
-    }
-
-    if (existing._count.children > 0) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "این دسته‌بندی دارای زیرمجموعه است. ابتدا زیرمجموعه‌ها را حذف یا جابه‌جا کنید",
-      });
-    }
-
-    await prisma.category.delete({ where: { id: categoryId } });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "category.delete",
-        targetType: "category",
-        targetId: categoryId,
-        description: `ادمین دسته‌بندی «${existing.name}» را حذف کرد`,
-        req,
-      });
-    }
-
-    return res.json({ success: true, message: "دسته‌بندی حذف شد" });
-
-} catch (error) {
-console.error("Delete Category Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در حذف دسته‌بندی" });
-}
-};
-
-// ==============================
-// مدیریت مهارت‌ها
-// ==============================
-
-export const getAllSkillsForAdmin = async (req: Request, res: Response) => {
-try {
-const { search = "" } = req.query as Record<string, string>;
-
-    const where: any = {};
-    if (search) {
-      where.name = { contains: search, mode: "insensitive" };
-    }
-
-    const skills = await prisma.skill.findMany({
-      where,
-      include: {
-        _count: { select: { freelancers: true, projects: true } },
-      },
-      orderBy: { createdAt: "asc" },
-    });
-
-    return res.json({ success: true, skills });
-
-} catch (error) {
-console.error("Get All Skills Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت لیست مهارت‌ها" });
-}
-};
-
-export const createSkillByAdmin = async (req: Request, res: Response) => {
-try {
-const { name, slug } = req.body as { name?: string; slug?: string };
-
-    if (!name || !slug) {
-      return res.status(400).json({
-        success: false,
-        message: "نام و اسلاگ الزامی هستند",
-      });
-    }
-
-    const skill = await prisma.skill.create({ data: { name, slug } });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "skill.create",
-        targetType: "skill",
-        targetId: skill.id,
-        description: `ادمین مهارت «${skill.name}» را ایجاد کرد`,
-        req,
-      });
-    }
-
-    return res.json({ success: true, message: "مهارت ایجاد شد", skill });
-
-} catch (error: any) {
-if (error?.code === "P2002") {
-return res.status(400).json({
-success: false,
-message: "این اسلاگ قبلاً استفاده شده است",
-});
-}
-console.error("Create Skill Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در ایجاد مهارت" });
-}
-};
-
-export const updateSkillByAdmin = async (req: Request, res: Response) => {
-try {
-const skillId = Number(req.params.id);
-const { name, slug } = req.body as { name?: string; slug?: string };
-
-    const existing = await prisma.skill.findUnique({ where: { id: skillId } });
-    if (!existing) {
-      return res
-        .status(404)
-        .json({ success: false, message: "مهارت یافت نشد" });
-    }
-
-    const skill = await prisma.skill.update({
-      where: { id: skillId },
-      data: {
-        ...(name !== undefined && { name }),
-        ...(slug !== undefined && { slug }),
-      },
-    });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "skill.update",
-        targetType: "skill",
-        targetId: skill.id,
-        description: `ادمین مهارت «${skill.name}» را ویرایش کرد`,
-        req,
-      });
-    }
-
-    return res.json({ success: true, message: "مهارت ویرایش شد", skill });
-
-} catch (error: any) {
-if (error?.code === "P2002") {
-return res.status(400).json({
-success: false,
-message: "این اسلاگ قبلاً استفاده شده است",
-});
-}
-console.error("Update Skill Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در ویرایش مهارت" });
-}
-};
-
-export const deleteSkillByAdmin = async (req: Request, res: Response) => {
-try {
-const skillId = Number(req.params.id);
-
-    const existing = await prisma.skill.findUnique({ where: { id: skillId } });
-    if (!existing) {
-      return res
-        .status(404)
-        .json({ success: false, message: "مهارت یافت نشد" });
-    }
-
-    await prisma.skill.delete({ where: { id: skillId } });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "skill.delete",
-        targetType: "skill",
-        targetId: skillId,
-        description: `ادمین مهارت «${existing.name}» را حذف کرد`,
-        req,
-      });
-    }
-
-    return res.json({ success: true, message: "مهارت حذف شد" });
-
-} catch (error) {
-console.error("Delete Skill Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در حذف مهارت" });
-}
-};
-
-export const mergeSkillsByAdmin = async (req: Request, res: Response) => {
-try {
-const { sourceSkillIds, targetSkillId } = req.body as {
-sourceSkillIds?: number[];
-targetSkillId?: number;
-};
-
-    if (
-      !Array.isArray(sourceSkillIds) ||
-      sourceSkillIds.length === 0 ||
-      !targetSkillId
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "لیست مهارت‌های مبدأ و مهارت مقصد الزامی هستند",
-      });
-    }
-
-    const cleanSourceIds = sourceSkillIds
-      .map((id) => Number(id))
-      .filter((id) => id !== Number(targetSkillId));
-
-    if (cleanSourceIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "مهارت مقصد نمی‌تواند در لیست مبدأها باشد",
-      });
-    }
-
-    const allIds = [...cleanSourceIds, Number(targetSkillId)];
-    const foundSkills = await prisma.skill.findMany({
-      where: { id: { in: allIds } },
-      select: { id: true, name: true },
-    });
-
-    if (foundSkills.length !== allIds.length) {
-      return res.status(400).json({
-        success: false,
-        message: "یک یا چند مهارت انتخاب‌شده یافت نشد",
-      });
-    }
-
-    const targetSkill = foundSkills.find((s) => s.id === Number(targetSkillId));
-
-    await prisma.$transaction(async (tx) => {
-      for (const sourceId of cleanSourceIds) {
-        const freelancerLinks = await tx.freelancerSkill.findMany({
-          where: { skillId: sourceId },
-        });
-
-        for (const link of freelancerLinks) {
-          const alreadyHasTarget = await tx.freelancerSkill.findUnique({
-            where: {
-              freelancerProfileId_skillId: {
-                freelancerProfileId: link.freelancerProfileId,
-                skillId: Number(targetSkillId),
-              },
-            },
-          });
-
-          if (alreadyHasTarget) {
-            await tx.freelancerSkill.delete({ where: { id: link.id } });
-          } else {
-            await tx.freelancerSkill.update({
-              where: { id: link.id },
-              data: { skillId: Number(targetSkillId) },
-            });
-          }
-        }
-
-        const projectLinks = await tx.projectSkill.findMany({
-          where: { skillId: sourceId },
-        });
-
-        for (const link of projectLinks) {
-          const alreadyHasTarget = await tx.projectSkill.findUnique({
-            where: {
-              projectId_skillId: {
-                projectId: link.projectId,
-                skillId: Number(targetSkillId),
-              },
-            },
-          });
-
-          if (alreadyHasTarget) {
-            await tx.projectSkill.delete({ where: { id: link.id } });
-          } else {
-            await tx.projectSkill.update({
-              where: { id: link.id },
-              data: { skillId: Number(targetSkillId) },
-            });
-          }
-        }
-
-        await tx.skill.delete({ where: { id: sourceId } });
-      }
-    });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "skill.merge",
-        targetType: "skill",
-        targetId: Number(targetSkillId),
-        description: `ادمین ${cleanSourceIds.length} مهارت را در «${targetSkill?.name || targetSkillId}» ادغام کرد`,
-        metadata: { sourceSkillIds: cleanSourceIds, targetSkillId },
-        req,
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: "مهارت‌ها با موفقیت ادغام شدند",
-    });
-
-} catch (error) {
-console.error("Merge Skills Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در ادغام مهارت‌ها" });
-}
-};
-
-// ==============================
-// مدیریت پیام‌ها
-// ==============================
-
-export const getAllConversationsForAdmin = async (
-req: Request,
-res: Response,
-) => {
-try {
-const messages = await prisma.message.findMany({
-orderBy: { createdAt: "desc" },
-take: 5000,
-select: {
-id: true,
-contractId: true,
-senderId: true,
-receiverId: true,
-content: true,
-type: true,
-createdAt: true,
-sender: { select: { id: true, name: true, phone: true } },
-receiver: { select: { id: true, name: true, phone: true } },
-contract: {
-select: {
-id: true,
-project: { select: { id: true, title: true } },
-},
-},
-},
-});
-
-    const seen = new Map<string, any>();
-
-    for (const m of messages) {
-      const key = m.contractId
-        ? `contract-${m.contractId}`
-        : `direct-${Math.min(m.senderId, m.receiverId)}-${Math.max(m.senderId, m.receiverId)}`;
-
-      if (!seen.has(key)) {
-        seen.set(key, {
-          key,
-          contractId: m.contractId,
-          projectTitle: m.contract?.project?.title || null,
-          userA: m.sender,
-          userB: m.receiver,
-          lastMessagePreview:
-            m.type === "text"
-              ? m.content
-              : m.type === "file"
-                ? "📎 فایل پیوست"
-                : "پیام سیستمی",
-          lastMessageAt: m.createdAt,
-        });
-      }
-    }
-
-    const conversations = Array.from(seen.values());
-
-    return res.json({ success: true, conversations });
-
-} catch (error) {
-console.error("Get All Conversations Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت لیست مکالمات" });
-}
-};
-
-export const getConversationThreadForAdmin = async (
-req: Request,
-res: Response,
-) => {
-try {
-const { contractId, userAId, userBId } = req.query as Record<
-string,
-string >;
-
-    let where: any;
-
-    if (contractId) {
-      where = { contractId: Number(contractId) };
-    } else if (userAId && userBId) {
-      where = {
-        contractId: null,
-        OR: [
-          { senderId: Number(userAId), receiverId: Number(userBId) },
-          { senderId: Number(userBId), receiverId: Number(userAId) },
-        ],
-      };
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: "شناسه مکالمه نامعتبر است",
-      });
-    }
-
-    const messages = await prisma.message.findMany({
-      where,
-      orderBy: { createdAt: "asc" },
-      select: {
-        id: true,
-        content: true,
-        type: true,
-        fileUrl: true,
-        readAt: true,
-        createdAt: true,
-        senderId: true,
-        receiverId: true,
-        sender: { select: { id: true, name: true, phone: true } },
-        receiver: { select: { id: true, name: true, phone: true } },
-      },
-    });
-
-    return res.json({ success: true, messages });
-
-} catch (error) {
-console.error("Get Conversation Thread Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت مکالمه" });
-}
-};
-
-// ==============================
-// مدیریت نظرات
-// ==============================
-
-export const getAllReviewsForAdmin = async (req: Request, res: Response) => {
-try {
-const {
-search = "",
-rating,
-page = "1",
-limit = "10",
-} = req.query as Record<string, string>;
-
-    const pageNum = Math.max(1, parseInt(page) || 1);
-    const limitNum = Math.max(1, parseInt(limit) || 10);
-
-    const where: any = {};
-
-    if (search) {
-      where.OR = [
-        { comment: { contains: search, mode: "insensitive" } },
-        { reviewer: { name: { contains: search, mode: "insensitive" } } },
-        { reviewed: { name: { contains: search, mode: "insensitive" } } },
-      ];
-    }
-
-    if (rating) {
-      where.rating = Number(rating);
-    }
-
-    const [reviews, total] = await Promise.all([
-      prisma.review.findMany({
-        where,
-        select: {
-          id: true,
-          rating: true,
-          comment: true,
-          target: true,
-          createdAt: true,
-          reviewer: { select: { id: true, name: true, phone: true } },
-          reviewed: { select: { id: true, name: true, phone: true } },
-          contract: {
-            select: {
-              id: true,
-              project: { select: { id: true, title: true } },
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        skip: (pageNum - 1) * limitNum,
-        take: limitNum,
-      }),
-      prisma.review.count({ where }),
-    ]);
-
-    return res.json({
-      success: true,
-      reviews,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum) || 1,
-      },
-    });
-
-} catch (error) {
-console.error("Get All Reviews Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت لیست نظرات" });
-}
-};
-
-export const deleteReviewByAdmin = async (req: Request, res: Response) => {
-try {
-const review = await prisma.review.findUnique({
-where: { id: Number(req.params.id) },
-});
-
-    if (!review) {
-      return res.status(404).json({ success: false, message: "نظر یافت نشد" });
-    }
-
-    await prisma.review.delete({ where: { id: review.id } });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "review.delete",
-        targetType: "review",
-        targetId: review.id,
-        description: `ادمین نظر #${review.id} را حذف کرد`,
-        req,
-      });
-    }
-
-    return res.json({ success: true, message: "نظر حذف شد" });
-
-} catch (error) {
-console.error("Delete Review Error:", error);
-return res.status(500).json({ success: false, message: "خطا در حذف نظر" });
-}
-};
-
-// ==============================
-// مدیریت گزارش‌ها (فاز ۱۳)
-// ==============================
-
-export const getAllReportsForAdmin = async (req: Request, res: Response) => {
-try {
-const {
-search = "",
-status,
-targetType,
-page = "1",
-limit = "10",
-} = req.query as Record<string, string>;
-
-    const pageNum = Math.max(1, parseInt(page) || 1);
-    const limitNum = Math.max(1, parseInt(limit) || 10);
-
-    const where: any = {};
-
-    if (status) where.status = status;
-    if (targetType) where.targetType = targetType;
-
-    if (search) {
-      where.OR = [
-        { reason: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
-        { reporter: { name: { contains: search, mode: "insensitive" } } },
-        { reporter: { phone: { contains: search } } },
-      ];
-    }
-
-    const [reports, total, statusCounts] = await Promise.all([
-      prisma.report.findMany({
-        where,
-        select: {
-          id: true,
-          targetType: true,
-          targetId: true,
-          reason: true,
-          description: true,
-          status: true,
-          adminNote: true,
-          resolvedAt: true,
-          createdAt: true,
-          reporter: {
-            select: { id: true, name: true, phone: true },
-          },
-          resolver: {
-            select: { id: true, name: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        skip: (pageNum - 1) * limitNum,
-        take: limitNum,
-      }),
-      prisma.report.count({ where }),
-      prisma.report.groupBy({
-        by: ["status"],
-        _count: { status: true },
-      }),
-    ]);
-
-    const stats = {
-      pending: 0,
-      reviewing: 0,
-      resolved: 0,
-      rejected: 0,
-      dismissed: 0,
-    };
-    statusCounts.forEach((item) => {
-      stats[item.status as keyof typeof stats] = item._count.status;
-    });
-
-    return res.json({
-      success: true,
-      reports,
-      stats,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum) || 1,
-      },
-    });
-
-} catch (error) {
-console.error("Get All Reports Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت لیست گزارش‌ها" });
-}
-};
-
-export const getReportDetailForAdmin = async (req: Request, res: Response) => {
-try {
-const reportId = Number(req.params.id);
-
-    const report = await prisma.report.findUnique({
-      where: { id: reportId },
-      include: {
-        reporter: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            email: true,
-            role: true,
-            isActive: true,
-          },
-        },
-        resolver: {
-          select: { id: true, name: true, phone: true },
-        },
-      },
-    });
-
-    if (!report) {
-      return res
-        .status(404)
-        .json({ success: false, message: "گزارش یافت نشد" });
-    }
-
-    let targetInfo: any = null;
-
-    if (report.targetType === "user") {
-      targetInfo = await prisma.user.findUnique({
-        where: { id: report.targetId },
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          email: true,
-          role: true,
-          isActive: true,
-          isVerified: true,
-        },
-      });
-    } else if (report.targetType === "project") {
-      targetInfo = await prisma.project.findUnique({
-        where: { id: report.targetId },
-        select: {
-          id: true,
-          title: true,
-          status: true,
-          province: true,
-          employer: { select: { id: true, name: true, phone: true } },
-        },
-      });
-    } else if (report.targetType === "message") {
-      targetInfo = await prisma.message.findUnique({
-        where: { id: report.targetId },
-        select: {
-          id: true,
-          content: true,
-          type: true,
-          createdAt: true,
-          sender: { select: { id: true, name: true, phone: true } },
-          receiver: { select: { id: true, name: true, phone: true } },
-        },
-      });
-    } else if (report.targetType === "review") {
-      targetInfo = await prisma.review.findUnique({
-        where: { id: report.targetId },
-        select: {
-          id: true,
-          rating: true,
-          comment: true,
-          reviewer: { select: { id: true, name: true } },
-          reviewed: { select: { id: true, name: true } },
-        },
-      });
-    } else if (report.targetType === "proposal") {
-      targetInfo = await prisma.proposal.findUnique({
-        where: { id: report.targetId },
-        select: {
-          id: true,
-          amount: true,
-          status: true,
-          freelancer: { select: { id: true, name: true, phone: true } },
-          project: { select: { id: true, title: true } },
-        },
-      });
-    }
-
-    return res.json({
-      success: true,
-      report: { ...report, targetInfo },
-    });
-
-} catch (error) {
-console.error("Get Report Detail Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت جزئیات گزارش" });
-}
-};
-
-export const updateReportStatusByAdmin = async (
-req: Request,
-res: Response,
-) => {
-try {
-const reportId = Number(req.params.id);
-const { status, adminNote } = req.body as {
-status?: string;
-adminNote?: string;
-};
-
-    const allowedStatuses = [
-      "pending",
-      "reviewing",
-      "resolved",
-      "rejected",
-      "dismissed",
-    ];
-
-    if (status && !allowedStatuses.includes(status)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "وضعیت نامعتبر است" });
-    }
-
-    const existing = await prisma.report.findUnique({
-      where: { id: reportId },
-    });
-
-    if (!existing) {
-      return res
-        .status(404)
-        .json({ success: false, message: "گزارش یافت نشد" });
-    }
-
-    const adminId = getAdminId(req);
-
-    const data: any = {};
-    if (status) data.status = status;
-    if (adminNote !== undefined) data.adminNote = adminNote;
-
-    if (
-      status &&
-      ["resolved", "rejected", "dismissed"].includes(status) &&
-      existing.status !== status
-    ) {
-      data.resolvedBy = adminId;
-      data.resolvedAt = new Date();
-    }
-
-    if (status === "pending") {
-      data.resolvedBy = null;
-      data.resolvedAt = null;
-    }
-
-    const report = await prisma.report.update({
-      where: { id: reportId },
-      data,
-      select: {
-        id: true,
-        status: true,
-        adminNote: true,
-        resolvedAt: true,
-        resolvedBy: true,
-      },
-    });
-
-    // لاگ
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "report.update_status",
-        targetType: "report",
-        targetId: reportId,
-        description: `ادمین وضعیت گزارش #${reportId} را به «${status || existing.status}» تغییر داد`,
-        metadata: { newStatus: status, adminNote },
-        req,
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: "وضعیت گزارش به‌روزرسانی شد",
-      report,
-    });
-
-} catch (error) {
-console.error("Update Report Status Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در به‌روزرسانی گزارش" });
-}
-};
-
-export const deleteReportByAdmin = async (req: Request, res: Response) => {
-try {
-const report = await prisma.report.findUnique({
-where: { id: Number(req.params.id) },
-});
-
-    if (!report) {
-      return res
-        .status(404)
-        .json({ success: false, message: "گزارش یافت نشد" });
-    }
-
-    await prisma.report.delete({ where: { id: report.id } });
-
-    // لاگ
-    const adminId = getAdminId(req);
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "report.delete",
-        targetType: "report",
-        targetId: report.id,
-        description: `ادمین گزارش #${report.id} را حذف کرد`,
-        req,
-      });
-    }
-
-    return res.json({ success: true, message: "گزارش حذف شد" });
-
-} catch (error) {
-console.error("Delete Report Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در حذف گزارش" });
-}
-};
-
-// ==============================
-// تنظیمات سایت (فاز ۱۵)
-// ==============================
-
-export const getAllSettingsForAdmin = async (req: Request, res: Response) => {
-try {
-const settings = await prisma.setting.findMany({
-orderBy: [{ group: "asc" }, { id: "asc" }],
-});
-
-    // گروه‌بندی برای فرانت
-    const grouped: Record<string, any[]> = {};
-    for (const s of settings) {
-      const g = s.group || "general";
-      if (!grouped[g]) grouped[g] = [];
-      grouped[g].push(s);
-    }
-
-    return res.json({
-      success: true,
-      settings,
-      grouped,
-    });
-
-} catch (error) {
-console.error("Get Settings Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت تنظیمات" });
-}
-};
-
-export const updateSettingsByAdmin = async (req: Request, res: Response) => {
-try {
-const { settings } = req.body as {
-settings?: { key: string; value: string }[];
-};
-
-    if (!Array.isArray(settings) || settings.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "لیست تنظیمات الزامی است",
-      });
-    }
-
-    const adminId = getAdminId(req);
-    const updatedKeys: string[] = [];
-
-    await prisma.$transaction(async (tx) => {
-      for (const item of settings) {
-        if (!item.key) continue;
-
-        await tx.setting.upsert({
-          where: { key: item.key },
-          update: {
-            value: String(item.value ?? ""),
-            updatedBy: adminId,
-          },
-          create: {
-            key: item.key,
-            value: String(item.value ?? ""),
-            updatedBy: adminId,
-          },
-        });
-
-        updatedKeys.push(item.key);
-      }
-    });
-
-    // لاگ
-    if (adminId) {
-      await logAdminActivity({
-        adminId,
-        action: "settings.update",
-        targetType: "settings",
-        description: `ادمین تنظیمات سایت را به‌روزرسانی کرد (${updatedKeys.join(", ")})`,
-        metadata: { keys: updatedKeys },
-        req,
-      });
-    }
-
-    // برگرداندن تنظیمات جدید
-    const allSettings = await prisma.setting.findMany({
-      orderBy: [{ group: "asc" }, { id: "asc" }],
-    });
-
-    return res.json({
-      success: true,
-      message: "تنظیمات با موفقیت ذخیره شد",
-      settings: allSettings,
-    });
-
-} catch (error) {
-console.error("Update Settings Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در ذخیره تنظیمات" });
-}
-};
-
-// ==============================
-// اعلان‌ها (فاز ۱۶)
-// ==============================
-
-export const getAllNotificationsForAdmin = async (
-req: Request,
-res: Response,
-) => {
-try {
-const {
-isRead,
-type,
-page = "1",
-limit = "20",
-} = req.query as Record<string, string>;
-
-    const pageNum = Math.max(1, parseInt(page) || 1);
-    const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 20));
-
-    const where: any = {};
-    if (isRead === "true") where.isRead = true;
-    if (isRead === "false") where.isRead = false;
-    if (type) where.type = type;
-
-    const [notifications, total, unreadCount] = await Promise.all([
-      prisma.notification.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: (pageNum - 1) * limitNum,
-        take: limitNum,
-      }),
-      prisma.notification.count({ where }),
-      prisma.notification.count({ where: { isRead: false } }),
-    ]);
-
-    return res.json({
-      success: true,
-      notifications,
-      unreadCount,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum) || 1,
-      },
-    });
-
-} catch (error) {
-console.error("Get Notifications Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت اعلان‌ها" });
-}
-};
-
-export const markNotificationRead = async (req: Request, res: Response) => {
-try {
-const id = Number(req.params.id);
-
-    const notification = await prisma.notification.update({
-      where: { id },
-      data: { isRead: true },
-      select: { id: true, isRead: true },
-    });
-
-    return res.json({ success: true, notification });
-
-} catch (error) {
-return res
-.status(500)
-.json({ success: false, message: "خطا در علامت‌گذاری اعلان" });
-}
-};
-
-export const markAllNotificationsRead = async (req: Request, res: Response) => {
-try {
-await prisma.notification.updateMany({
-where: { isRead: false },
-data: { isRead: true },
-});
-
-    return res.json({ success: true, message: "همه اعلان‌ها خوانده شدند" });
-
-} catch (error) {
-return res
-.status(500)
-.json({ success: false, message: "خطا در علامت‌گذاری همه اعلان‌ها" });
-}
-};
-
-export const deleteNotificationByAdmin = async (
-req: Request,
-res: Response,
-) => {
-try {
-await prisma.notification.delete({
-where: { id: Number(req.params.id) },
-});
-
-    return res.json({ success: true, message: "اعلان حذف شد" });
-
-} catch (error) {
-return res
-.status(500)
-.json({ success: false, message: "خطا در حذف اعلان" });
-}
-};
-
-// ==============================
-// آنالیتیکس
-// ==============================
-
-type AnalyticsRange = "7d" | "30d" | "90d" | "365d";
-
-function getRangeConfig(range: AnalyticsRange) {
-const now = new Date();
-const end = new Date(now);
-end.setHours(23, 59, 59, 999);
-
-const daysMap: Record<AnalyticsRange, number> = {
-"7d": 7,
-"30d": 30,
-"90d": 90,
-"365d": 365,
-};
-const days = daysMap[range] ?? 30;
-
-const start = new Date(now);
-start.setDate(start.getDate() - (days - 1));
-start.setHours(0, 0, 0, 0);
-
-const prevEnd = new Date(start);
-prevEnd.setMilliseconds(prevEnd.getMilliseconds() - 1);
-const prevStart = new Date(prevEnd);
-prevStart.setDate(prevStart.getDate() - (days - 1));
-prevStart.setHours(0, 0, 0, 0);
-
-const bucketUnit: "day" | "week" | "month" =
-days <= 31 ? "day" : days <= 120 ? "week" : "month";
-
-return { start, end, prevStart, prevEnd, bucketUnit };
-}
-
-function buildBuckets(start: Date, end: Date, unit: "day" | "week" | "month") {
-const buckets: { key: string; label: string; from: Date; to: Date }[] = [];
-const cursor = new Date(start);
-
-while (cursor <= end) {
-const from = new Date(cursor);
-let to: Date;
-
-    if (unit === "day") {
-      to = new Date(cursor);
-      to.setHours(23, 59, 59, 999);
-      cursor.setDate(cursor.getDate() + 1);
-    } else if (unit === "week") {
-      to = new Date(cursor);
-      to.setDate(to.getDate() + 6);
-      to.setHours(23, 59, 59, 999);
-      cursor.setDate(cursor.getDate() + 7);
-    } else {
-      to = new Date(
-        cursor.getFullYear(),
-        cursor.getMonth() + 1,
-        0,
-        23,
-        59,
-        59,
-        999,
-      );
-      cursor.setMonth(cursor.getMonth() + 1);
-      cursor.setDate(1);
-    }
-
-    const finalTo = to > end ? end : to;
-    const label =
-      unit === "month"
-        ? from.toLocaleDateString("fa-IR", { month: "long" })
-        : from.toLocaleDateString("fa-IR", { month: "short", day: "numeric" });
-
-    buckets.push({
-      key: from.toISOString().slice(0, 10),
-      label,
-      from,
-      to: finalTo,
-    });
-
-}
-
-return buckets;
-}
-
-function aggregateByBucket<T>(
-items: T[],
-dateField: (item: T) => Date | null,
-buckets: { key: string; label: string; from: Date; to: Date }[],
-valueField?: (item: T) => number,
+import { AuthRequest } from "../middleware/auth.middleware";
+import { Prisma } from "@prisma/client";
+import { createProjectSchema } from "../validators/project.validator";
+import { updateProjectSchema } from "../validators/project.validator";
+import { createNotification } from "../utils/notification";
+
+/\*\*
+
+- =========================
+- Helper: normalize multipart body
+- =========================
+  \*/
+  const preprocessMultipartData = (body: any) => {
+  const processed = { ...body };
+
+Object.keys(processed).forEach((key) => {
+if (
+processed[key] === "" ||
+processed[key] === "null" ||
+processed[key] === "undefined"
 ) {
-return buckets.map((bucket) => {
-const inBucket = items.filter((item) => {
-const d = dateField(item);
-return d ? d >= bucket.from && d <= bucket.to : false;
+processed[key] = undefined; // تبدیل به undefined تا Zod فیلدهای optional را رد کند
+}
 });
 
-    const value = valueField
-      ? inBucket.reduce((sum, item) => sum + valueField(item), 0)
-      : inBucket.length;
-
-    return { date: bucket.key, label: bucket.label, value };
-
-});
+if (
+processed.calculatedArea !== undefined &&
+processed.calculatedArea !== "" &&
+processed.calculatedArea !== "null" &&
+!isNaN(Number(processed.calculatedArea))
+) {
+processed.calculatedArea = Number(processed.calculatedArea);
+} else {
+processed.calculatedArea = undefined;
 }
 
-function calcGrowth(current: number, previous: number) {
-if (previous === 0) return current > 0 ? 100 : 0;
-return Math.round(((current - previous) / previous) \* 1000) / 10;
+// 🌟 پردازش فاصله منحنی میزان
+if (typeof processed.contourInterval === "string") {
+if (
+processed.contourInterval === "" ||
+processed.contourInterval === "null" ||
+processed.contourInterval === "undefined"
+) {
+processed.contourInterval = null;
+}
 }
 
-export const getAnalyticsForAdmin = async (req: Request, res: Response) => {
+// اصلاح CorridorLength
+if (
+processed.corridorLength !== undefined &&
+processed.corridorLength !== "" &&
+processed.corridorLength !== "null" &&
+!isNaN(Number(processed.corridorLength))
+) {
+processed.corridorLength = Number(processed.corridorLength);
+} else {
+processed.corridorLength = undefined;
+}
+
+if (typeof processed.techType === "string") {
 try {
-const range = ((req.query.range as string) || "30d") as AnalyticsRange;
-const { start, end, prevStart, prevEnd, bucketUnit } =
-getRangeConfig(range);
-const buckets = buildBuckets(start, end, bucketUnit);
+processed.techType = JSON.parse(processed.techType);
+} catch {}
+}
+if (typeof processed.terrainTypes === "string") {
+try {
+processed.terrainTypes = JSON.parse(processed.terrainTypes);
+} catch {
+processed.terrainTypes = [];
+}
+}
 
-    const [
-      usersInRange,
-      usersInPrevCount,
-      projectsInRange,
-      projectsInPrevCount,
-      paymentsInRange,
-      paymentsInPrevAgg,
-      contractsInRange,
-      contractsInPrevCount,
-      contractStatusCounts,
-    ] = await Promise.all([
-      prisma.user.findMany({
-        where: { createdAt: { gte: start, lte: end }, role: { not: "admin" } },
-        select: { createdAt: true },
-      }),
-      prisma.user.count({
-        where: {
-          createdAt: { gte: prevStart, lte: prevEnd },
-          role: { not: "admin" },
+if (typeof processed.outputFormats === "string") {
+try {
+processed.outputFormats = JSON.parse(processed.outputFormats);
+} catch {}
+}
+
+if (typeof processed.polygonCoordinates === "string") {
+try {
+processed.polygonCoordinates = JSON.parse(processed.polygonCoordinates);
+} catch {}
+}
+
+if (typeof processed.geoJson === "string") {
+try {
+processed.geoJson = JSON.parse(processed.geoJson);
+} catch {}
+}
+
+// 🌟 پردازش روش اصلی اجرا
+if (typeof processed.surveyMethod === "string") {
+if (
+processed.surveyMethod === "" ||
+processed.surveyMethod === "null" ||
+processed.surveyMethod === "undefined"
+) {
+processed.surveyMethod = null;
+}
+}
+
+if (typeof processed.specificSurveys === "string") {
+try {
+processed.specificSurveys = JSON.parse(processed.specificSurveys);
+} catch {
+processed.specificSurveys = [];
+}
+}
+
+if (typeof processed.requiredEquipment === "string") {
+try {
+processed.requiredEquipment = JSON.parse(processed.requiredEquipment);
+} catch {
+processed.requiredEquipment = [];
+}
+}
+
+// 🌟 پارس کردن مشخصات فنی مجزا برای هر روش (که به صورت رشته‌ی JSON ارسال می‌شوند)
+if (typeof processed.groundTechnicalSpecs === "string") {
+try {
+processed.groundTechnicalSpecs = JSON.parse(
+processed.groundTechnicalSpecs,
+);
+} catch {
+processed.groundTechnicalSpecs = [];
+}
+}
+
+if (typeof processed.aerialTechnicalSpecs === "string") {
+try {
+processed.aerialTechnicalSpecs = JSON.parse(
+processed.aerialTechnicalSpecs,
+);
+} catch {
+processed.aerialTechnicalSpecs = [];
+}
+}
+
+if (typeof processed.gisTechnicalSpecs === "string") {
+try {
+processed.gisTechnicalSpecs = JSON.parse(processed.gisTechnicalSpecs);
+} catch {
+processed.gisTechnicalSpecs = [];
+}
+}
+
+// اصلاح بخش تبدیل بودجه‌ها
+if (
+processed.minBudget !== undefined &&
+processed.minBudget !== "" &&
+processed.minBudget !== "null"
+) {
+processed.minBudget = Number(processed.minBudget);
+} else {
+processed.minBudget = undefined;
+}
+
+if (
+processed.maxBudget !== undefined &&
+processed.maxBudget !== "" &&
+processed.maxBudget !== "null"
+) {
+processed.maxBudget = Number(processed.maxBudget);
+} else {
+processed.maxBudget = undefined;
+}
+
+if (processed.projectId !== undefined) {
+processed.projectId = Number(processed.projectId);
+}
+
+return processed;
+};
+
+/\*\*
+
+- =========================
+- 1.  Create Project (WITH FILES)
+- =========================
+  \*/
+  export const createProject = async (req: AuthRequest, res: Response) => {
+  let processedBody: any = null; // تعریف متغیر بیرون از try برای دسترسی در catch در صورت خطا
+
+try {
+const employerId = Number(req.user!.userId);
+
+    processedBody = preprocessMultipartData(req.body);
+
+    const validation = createProjectSchema.safeParse(processedBody);
+
+    if (!validation.success) {
+      console.log("❌ Zod Validation Error Details:");
+      console.log(
+        JSON.stringify(validation.error.flatten().fieldErrors, null, 2),
+      );
+
+      return res.status(400).json({
+        success: false,
+        message: "خطای اعتبارسنجی داده‌ها",
+        errors: validation.error.issues,
+      });
+    }
+    const data = validation.data;
+
+    let categoryId: number | null = null;
+
+    if (data.category) {
+      const foundCategory = await prisma.category.findUnique({
+        where: { slug: data.category },
+      });
+
+      if (foundCategory) {
+        categoryId = foundCategory.id;
+      }
+    }
+
+    /**
+     * =========================
+     * Transaction (Project + Files)
+     * =========================
+     */
+    const result = await prisma.$transaction(async (tx) => {
+      const newProject = await tx.project.create({
+        data: {
+          employerId,
+          categoryId,
+          title: data.title ?? "",
+          description: data.description ?? "",
+          status: "open",
+          province: data.province ?? null,
+          city: data.city ?? null,
+          address: data.address ?? null,
+          areaSelectionMethod: data.areaSelectionMethod ?? "map",
+          mappingType: data.mappingType ?? null,
+
+          // 🌟 ذخیره مشخصات روش‌ها، مقیاس پرواز و فیلدهای توضیحات مجزا در دیتابیس
+          surveyMethod: (data as any).surveyMethod ?? null,
+          specificSurveys: (data as any).specificSurveys ?? [],
+          requiredEquipment: (data as any).requiredEquipment ?? [],
+
+          groundTechnicalSpecs: (data as any).groundTechnicalSpecs ?? [],
+          aerialTechnicalSpecs: (data as any).aerialTechnicalSpecs ?? [],
+          aerialScaleOption: (data as any).aerialScaleOption ?? null,
+          gisTechnicalSpecs: (data as any).gisTechnicalSpecs ?? [],
+
+          groundDescription: (data as any).groundDescription ?? null,
+          aerialDescription: (data as any).aerialDescription ?? null,
+          gisDescription: (data as any).gisDescription ?? null,
+          contourInterval: (data as any).contourInterval ?? null,
+          calculatedArea: data.calculatedArea ?? null,
+          corridorLength: data.corridorLength ?? null,
+          utmZone: data.utmZone ?? null,
+          terrainTypes: data.terrainTypes ?? [],
+          requiredAccuracy: data.requiredAccuracy ?? null,
+          mapScale: data.mapScale ?? null,
+          deliveryTime: data.deliveryTime ?? null,
+          budgetType: data.budgetType ?? "fixed",
+          minBudget: data.minBudget ? new Prisma.Decimal(data.minBudget) : null,
+          maxBudget: data.maxBudget ? new Prisma.Decimal(data.maxBudget) : null,
+          polygonCoordinates: data.polygonCoordinates ?? "",
+          geoJson: data.geoJson ?? null,
+          techType: data.techType ?? "",
+          outputFormats: data.outputFormats ?? "",
         },
-      }),
-      prisma.project.findMany({
-        where: { createdAt: { gte: start, lte: end }, deletedAt: null },
-        select: { createdAt: true },
-      }),
-      prisma.project.count({
-        where: { createdAt: { gte: prevStart, lte: prevEnd }, deletedAt: null },
-      }),
-      prisma.payment.findMany({
-        where: { status: "paid", paidAt: { gte: start, lte: end } },
-        select: { paidAt: true, amount: true },
-      }),
-      prisma.payment.aggregate({
-        where: { status: "paid", paidAt: { gte: prevStart, lte: prevEnd } },
-        _sum: { amount: true },
-      }),
-      prisma.contract.findMany({
-        where: { createdAt: { gte: start, lte: end } },
-        select: { createdAt: true, status: true, totalAmount: true },
-      }),
-      prisma.contract.count({
-        where: { createdAt: { gte: prevStart, lte: prevEnd } },
-      }),
-      prisma.contract.groupBy({
-        by: ["status"],
-        where: { createdAt: { gte: start, lte: end } },
-        _count: { _all: true },
-      }),
-    ]);
+      });
 
-    const totalRegistrations = usersInRange.length;
-    const totalProjects = projectsInRange.length;
-    const totalRevenue = paymentsInRange.reduce(
-      (sum, p) => sum + Number(p.amount),
-      0,
-    );
-    const totalContracts = contractsInRange.length;
-    const totalContractsAmount = contractsInRange.reduce(
-      (sum, c) => sum + Number(c.totalAmount),
-      0,
-    );
-    const prevRevenue = Number(paymentsInPrevAgg._sum.amount || 0);
+      /**
+       * =========================
+       * Save attachments (FILES)
+       * =========================
+       */
+      const files = req.files as Express.Multer.File[] | undefined;
 
-    return res.json({
+      if (files && files.length > 0) {
+        for (const file of files) {
+          await tx.projectAttachment.create({
+            data: {
+              projectId: newProject.id,
+              fileName: file.originalname,
+              fileUrl: `/uploads/projects/${file.filename}`,
+              fileType: file.mimetype,
+              fileSize: file.size,
+            },
+          });
+        }
+      }
+
+      return newProject;
+    });
+
+    await createNotification({
+      type: "new_project",
+      title: "پروژه جدید ایجاد شد",
+      message: `پروژه «${result.title || "بدون عنوان"}» ثبت شد`,
+      link: `/admin/projects/${result.id}`,
+      metadata: { projectId: result.id, employerId },
+    });
+
+    return res.status(201).json({
       success: true,
-      range,
-      summary: {
-        registrations: {
-          total: totalRegistrations,
-          growth: calcGrowth(totalRegistrations, usersInPrevCount),
-        },
-        revenue: {
-          total: totalRevenue,
-          growth: calcGrowth(totalRevenue, prevRevenue),
-        },
-        projects: {
-          total: totalProjects,
-          growth: calcGrowth(totalProjects, projectsInPrevCount),
-        },
-        contracts: {
-          total: totalContracts,
-          totalAmount: totalContractsAmount,
-          growth: calcGrowth(totalContracts, contractsInPrevCount),
-        },
-      },
-      charts: {
-        registrations: aggregateByBucket(
-          usersInRange,
-          (u) => u.createdAt,
-          buckets,
-        ),
-        projects: aggregateByBucket(
-          projectsInRange,
-          (p) => p.createdAt,
-          buckets,
-        ),
-        revenue: aggregateByBucket(
-          paymentsInRange,
-          (p) => p.paidAt,
-          buckets,
-          (p) => Number(p.amount),
-        ),
-        contracts: aggregateByBucket(
-          contractsInRange,
-          (c) => c.createdAt,
-          buckets,
-        ),
-      },
-      contractStatusBreakdown: contractStatusCounts.map((s) => ({
-        status: s.status,
-        count: s._count._all,
-      })),
+      project: result,
     });
 
 } catch (error) {
-console.error("Get Analytics Error:", error);
-return res
-.status(500)
-.json({ success: false, message: "خطا در دریافت آنالیتیکس" });
+console.error("❌ createProject error:", error);
+
+    if (processedBody) {
+      const validation = createProjectSchema.safeParse(processedBody);
+      if (!validation.success) {
+        console.log(
+          "Validation Errors:",
+          validation.error.flatten().fieldErrors,
+        );
+      }
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "خطا در ثبت پروژه",
+    });
+
 }
 };
 
-export const globalSearchForAdmin = async (req: Request, res: Response) => {
-try {
-const q = ((req.query.q as string) || "").trim();
+/\*\*
 
-    if (!q || q.length < 2) {
+- =========================
+- 2.  Get Projects (public feed)
+- =========================
+  \*/
+  export const getProjects = async (req: Request, res: Response) => {
+  try {
+  const {
+  category,
+  search,
+  province,
+  city,
+  budgetType,
+  page = 1,
+  limit = 10,
+  } = req.query;
+
+      const skip = (Number(page) - 1) * Number(limit);
+
+      const whereClause: any = {
+        deletedAt: null,
+        status: "open",
+      };
+
+      if (category) {
+        whereClause.category = { slug: String(category) };
+      }
+
+      if (province) whereClause.province = String(province);
+      if (city) whereClause.city = String(city);
+      if (budgetType) whereClause.budgetType = budgetType;
+
+      if (search) {
+        whereClause.OR = [
+          {
+            title: {
+              contains: String(search),
+              mode: "insensitive",
+            },
+          },
+          {
+            description: {
+              contains: String(search),
+              mode: "insensitive",
+            },
+          },
+        ];
+      }
+
+      const [projects, total] = await prisma.$transaction([
+        prisma.project.findMany({
+          where: whereClause,
+          skip,
+          take: Number(limit),
+          orderBy: { createdAt: "desc" },
+          include: {
+            category: true,
+            employer: {
+              select: { name: true, avatar: true },
+            },
+            attachments: true,
+          },
+        }),
+
+        prisma.project.count({ where: whereClause }),
+      ]);
+
       return res.json({
         success: true,
-        results: {
-          users: null,
-          projects: null,
-          contracts: null,
-          payments: null,
+        meta: {
+          total,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(total / Number(limit)),
         },
+        projects,
       });
-    }
 
-    const permissions: string[] = (req as any).user?.permissions || [];
-    const isSuper = permissions.includes("*");
-    const can = (key: string) => isSuper || permissions.includes(key);
+  } catch (error) {
+  return res.status(500).json({
+  success: false,
+  message: "خطا در دریافت لیست پروژه‌ها",
+  });
+  }
+  };
 
-    const results: Record<string, any> = {
-      users: null,
-      projects: null,
-      contracts: null,
-      payments: null,
-    };
+/\*\*
 
-    const tasks: Promise<void>[] = [];
+- =========================
+- 3.  Get Project By ID
+- =========================
+  \*/
+  export const getProjectById = async (req: Request, res: Response) => {
+  try {
+  const id = Number(req.params.id);
 
-    if (can("users.view")) {
-      tasks.push(
-        prisma.user
-          .findMany({
-            where: {
-              deletedAt: null,
-              OR: [
-                { name: { contains: q, mode: "insensitive" } },
-                { phone: { contains: q } },
-                { email: { contains: q, mode: "insensitive" } },
-              ],
-            },
+      console.log("Project ID:", id);
+
+      const project = await prisma.project.findUnique({
+        where: { id },
+        include: {
+          category: true,
+
+          employer: {
             select: {
               id: true,
               name: true,
-              phone: true,
-              email: true,
-              role: true,
+              avatar: true,
             },
-            take: 5,
-          })
-          .then((data) => {
-            results.users = data;
-          }),
-      );
-    }
+          },
 
-    if (can("projects.view")) {
-      tasks.push(
-        prisma.project
-          .findMany({
-            where: {
-              deletedAt: null,
-              OR: [
-                { title: { contains: q, mode: "insensitive" } },
-                { employer: { name: { contains: q, mode: "insensitive" } } },
-                { employer: { phone: { contains: q } } },
-              ],
-            },
-            select: {
-              id: true,
-              title: true,
-              status: true,
-              employer: { select: { name: true, phone: true } },
-            },
-            take: 5,
-          })
-          .then((data) => {
-            results.projects = data;
-          }),
-      );
-    }
+          attachments: true,
 
-    if (can("contracts.view")) {
-      tasks.push(
-        prisma.contract
-          .findMany({
-            where: {
-              OR: [
-                { employer: { name: { contains: q, mode: "insensitive" } } },
-                { employer: { phone: { contains: q } } },
-                { freelancer: { name: { contains: q, mode: "insensitive" } } },
-                { freelancer: { phone: { contains: q } } },
-                { project: { title: { contains: q, mode: "insensitive" } } },
-              ],
-            },
+          contract: {
             select: {
               id: true,
               status: true,
-              totalAmount: true,
-              project: { select: { title: true } },
-              employer: { select: { name: true, phone: true } },
-              freelancer: { select: { name: true, phone: true } },
-            },
-            take: 5,
-          })
-          .then((data) => {
-            results.contracts = data;
-          }),
-      );
-    }
 
-    if (can("payments.view")) {
-      const isNumeric = /^\d+$/.test(q);
-      tasks.push(
-        prisma.payment
-          .findMany({
-            where: {
-              OR: [
-                { trackingCode: { contains: q, mode: "insensitive" } },
-                { gateway: { contains: q, mode: "insensitive" } },
-                ...(isNumeric ? [{ amount: Number(q) }] : []),
-                {
-                  contract: {
-                    project: { title: { contains: q, mode: "insensitive" } },
-                  },
+              employer: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatar: true,
+                  role: true,
                 },
-              ],
+              },
+
+              freelancer: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatar: true,
+                  role: true,
+                },
+              },
             },
+          },
+        },
+      });
+
+      console.log("Project Found:", project);
+
+      if (!project || project.deletedAt) {
+        return res.status(404).json({
+          success: false,
+          message: "پروژه یافت نشد",
+        });
+      }
+
+      const proposalCount = await prisma.proposal.count({
+        where: {
+          projectId: id,
+        },
+      });
+
+      await prisma.project.update({
+        where: { id },
+        data: {
+          viewCount: {
+            increment: 1,
+          },
+        },
+      });
+
+      return res.status(200).json({
+        success: true,
+        project: {
+          ...project,
+          canEdit: !project.contract,
+          canDelete: !project.contract,
+          proposalCount,
+          attachmentCount: project.attachments.length,
+        },
+      });
+
+  } catch (error) {
+  console.error("getProjectById error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "خطا در دریافت جزئیات پروژه",
+      });
+
+  }
+  };
+
+/\*\*
+
+- =========================
+- 4.  Update Project
+- =========================
+  \*/
+  export const updateProject = async (req: AuthRequest, res: Response) => {
+  try {
+  const { id } = req.params;
+  const employerId = Number(req.user!.userId);
+
+      const processedBody = { ...req.body };
+
+      const validation = updateProjectSchema.safeParse(processedBody);
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          errors: validation.error.issues,
+        });
+      }
+
+      const project = await prisma.project.findUnique({
+        where: { id: Number(id) },
+      });
+
+      if (!project || project.deletedAt) {
+        return res.status(404).json({
+          success: false,
+          message: "پروژه یافت نشد",
+        });
+      }
+
+      if (project.employerId !== employerId) {
+        return res.status(403).json({
+          success: false,
+          message: "دسترسی ندارید",
+        });
+      }
+
+      if (project.status !== "draft" && project.status !== "open") {
+        return res.status(400).json({
+          success: false,
+          message: "این پروژه قابل ویرایش نیست",
+        });
+      }
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const updatedProject = await tx.project.update({
+          where: { id: Number(id) },
+          data: {
+            ...validation.data,
+            mappingType: validation.data.mappingType,
+            calculatedArea:
+              validation.data.mappingType === "area"
+                ? validation.data.calculatedArea
+                : null,
+            corridorLength:
+              validation.data.mappingType === "corridor"
+                ? validation.data.corridorLength
+                : null,
+
+            terrainTypes: validation.data.terrainTypes ?? undefined,
+            minBudget: validation.data.minBudget
+              ? new Prisma.Decimal(validation.data.minBudget)
+              : undefined,
+            maxBudget: validation.data.maxBudget
+              ? new Prisma.Decimal(validation.data.maxBudget)
+              : undefined,
+          } as any,
+        });
+
+        /**
+         * =========================
+         * ADD NEW FILES (NOT REPLACE)
+         * =========================
+         */
+        const files = req.files as Express.Multer.File[] | undefined;
+
+        if (files && files.length > 0) {
+          for (const file of files) {
+            await tx.projectAttachment.create({
+              data: {
+                projectId: updatedProject.id,
+                fileName: file.originalname,
+                fileUrl: `/uploads/projects/${file.filename}`,
+                fileType: file.mimetype,
+                fileSize: file.size,
+              },
+            });
+          }
+        }
+
+        return updatedProject;
+      });
+
+      return res.json({
+        success: true,
+        message: "پروژه بروزرسانی شد",
+        project: updated,
+      });
+
+  } catch (error) {
+  console.error(error);
+
+      return res.status(500).json({
+        success: false,
+        message: "خطا در بروزرسانی پروژه",
+      });
+
+  }
+  };
+
+/\*\*
+
+- =========================
+- 5.  DELETE PROJECT (SOFT DELETE)
+- =========================
+  \*/
+  export const deleteProject = async (req: AuthRequest, res: Response) => {
+  try {
+  const { id } = req.params;
+  const employerId = Number(req.user!.userId);
+
+      const project = await prisma.project.findUnique({
+        where: { id: Number(id) },
+      });
+
+      if (!project || project.deletedAt) {
+        return res.status(404).json({
+          success: false,
+          message: "پروژه یافت نشد",
+        });
+      }
+
+      if (project.employerId !== employerId) {
+        return res.status(403).json({
+          success: false,
+          message: "دسترسی ندارید",
+        });
+      }
+
+      if (project.status !== "draft" && project.status !== "open") {
+        return res.status(400).json({
+          success: false,
+          message: "امکان حذف این پروژه وجود ندارد",
+        });
+      }
+
+      await prisma.project.update({
+        where: { id: Number(id) },
+        data: {
+          deletedAt: new Date(),
+          status: "cancelled",
+        },
+      });
+
+      return res.json({
+        success: true,
+        message: "پروژه حذف شد",
+      });
+
+  } catch (error) {
+  return res.status(500).json({
+  success: false,
+  message: "خطا در حذف پروژه",
+  });
+  }
+  };
+
+/\*\*
+
+- =========================
+- 6.  SUBMIT PROPOSAL
+- =========================
+  \*/
+  export const submitProposal = async (req: AuthRequest, res: Response) => {
+  try {
+  const freelancerId = Number(req.user!.userId);
+
+      const { projectId, amount, deliveryDays, coverLetter } = req.body;
+
+      if (!projectId || !amount || !deliveryDays || !coverLetter) {
+        return res.status(400).json({
+          success: false,
+          message: "تمام فیلدها الزامی است",
+        });
+      }
+
+      const targetProjectId = Number(projectId);
+
+      console.log("Logged User:", req.user);
+      console.log("FreelancerId:", freelancerId);
+
+      const project = await prisma.project.findUnique({
+        where: {
+          id: targetProjectId,
+        },
+        select: {
+          employerId: true,
+          deletedAt: true,
+          status: true,
+        },
+      });
+
+      if (!project || project.deletedAt || project.status !== "open") {
+        return res.status(404).json({
+          success: false,
+          message: "پروژه در دسترس نیست",
+        });
+      }
+
+      if (project.employerId === freelancerId) {
+        return res.status(400).json({
+          success: false,
+          message: "نمی‌توانید برای پروژه خودتان پیشنهاد ثبت کنید.",
+        });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: {
+          id: freelancerId,
+        },
+        select: {
+          role: true,
+        },
+      });
+      console.log("User From DB:", user);
+
+      if (!user || (user.role !== "freelancer" && user.role !== "both")) {
+        return res.status(403).json({
+          success: false,
+          message: "فقط فریلنسرها می‌توانند پیشنهاد ثبت کنند.",
+        });
+      }
+
+      const existing = await prisma.proposal.findUnique({
+        where: {
+          projectId_freelancerId: {
+            projectId: targetProjectId,
+            freelancerId,
+          },
+        },
+      });
+
+      if (existing) {
+        return res.status(400).json({
+          success: false,
+          message: "قبلاً پیشنهاد ثبت کرده‌اید",
+        });
+      }
+
+      const proposal = await prisma.proposal.create({
+        data: {
+          projectId: targetProjectId,
+          freelancerId,
+          amount: new Prisma.Decimal(amount),
+          deliveryDays: Number(deliveryDays),
+          coverLetter: String(coverLetter).trim(),
+          status: "pending",
+        },
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "پیشنهاد ثبت شد",
+        proposal,
+      });
+
+  } catch (error) {
+  console.error("submitProposal error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "خطا در ثبت پیشنهاد",
+      });
+
+  }
+  };
+
+/\*\*
+
+- =========================
+- 7.  GET MY PROJECTS
+- =========================
+  \*/
+  export const getMyProjects = async (req: AuthRequest, res: Response) => {
+  try {
+  const userId = Number(req.user?.userId);
+
+      const projects = await prisma.project.findMany({
+        where: {
+          employerId: userId,
+          deletedAt: null,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: {
+          category: true,
+          attachments: true,
+
+          _count: {
             select: {
-              id: true,
-              amount: true,
-              status: true,
-              trackingCode: true,
-              contractId: true,
-              contract: { select: { project: { select: { title: true } } } },
+              proposals: true,
             },
-            take: 5,
-          })
-          .then((data) => {
-            results.payments = data;
-          }),
-      );
-    }
+          },
+        },
+      });
 
-    await Promise.all(tasks);
+      return res.status(200).json({
+        success: true,
+        projects,
+        count: projects.length,
+      });
 
-    return res.json({ success: true, results });
+  } catch (error) {
+  return res.status(500).json({
+  success: false,
+  message: "خطا در دریافت پروژه‌ها",
+  });
+  }
+  };
+
+export const getProjectProposals = async (req: AuthRequest, res: Response) => {
+try {
+const projectId = Number(req.params.id);
+const employerId = Number(req.user!.userId);
+const project = await prisma.project.findUnique({
+where: {
+id: projectId,
+},
+select: {
+id: true,
+employerId: true,
+deletedAt: true,
+},
+});
+if (!project || project.deletedAt) {
+return res.status(404).json({
+success: false,
+message: "پروژه پیدا نشد",
+});
+}
+if (project.employerId !== employerId) {
+return res.status(403).json({
+success: false,
+message: "دسترسی ندارید",
+});
+}
+
+    const proposals = await prisma.proposal.findMany({
+      where: {
+        projectId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      include: {
+        freelancer: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+            city: true,
+            province: true,
+          },
+        },
+      },
+    });
+    return res.status(200).json({
+      success: true,
+      proposals,
+      count: proposals.length,
+    });
 
 } catch (error) {
-console.error("Global Search Error:", error);
-return res.status(500).json({ success: false, message: "خطا در جستجو" });
+console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "خطا در دریافت پیشنهادها",
+    });
+
+}
+};
+
+/\*\*
+
+- =========================
+- 8.  ACCEPT PROPOSAL & CREATE CONTRACT (SUPPORTING CHAT AGREEMENTS)
+- =========================
+  \*/
+  export const acceptProposal = async (req: AuthRequest, res: Response) => {
+  try {
+  const proposalId = Number(req.params.id);
+  const employerId = Number(req.user!.userId);
+  const { finalAmount } = req.body;
+
+      const proposal = await prisma.proposal.findUnique({
+        where: { id: proposalId },
+        include: { project: true },
+      });
+
+      if (!proposal) {
+        return res
+          .status(404)
+          .json({ success: false, message: "پیشنهاد مورد نظر یافت نشد." });
+      }
+
+      if (proposal.project.employerId !== employerId) {
+        return res
+          .status(403)
+          .json({ success: false, message: "شما دسترسی لازم را ندارید." });
+      }
+
+      // شرط پروژه را منعطف‌تر می‌کنیم تا اگر پروژه دوباره باز شد (وضعیت open)، قابل قبول باشد
+      if (proposal.project.status !== "open") {
+        return res.status(400).json({
+          success: false,
+          message: "پروژه در وضعیت مناسبی برای تایید پیشنهاد نیست.",
+        });
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        // ۱. آپدیت وضعیت پیشنهاد فعلی
+        const updatedProposal = await tx.proposal.update({
+          where: { id: proposalId },
+          data: { status: "accepted" },
+        });
+
+        // ۲. آپدیت وضعیت پروژه
+        await tx.project.update({
+          where: { id: proposal.projectId },
+          data: { status: "in_progress" },
+        });
+
+        // ۳. رد کردن سایر پیشنهادها
+        await tx.proposal.updateMany({
+          where: {
+            projectId: proposal.projectId,
+            id: { not: proposalId },
+            status: "pending",
+          },
+          data: { status: "rejected" },
+        });
+
+        const contractAmount = finalAmount
+          ? new Prisma.Decimal(finalAmount)
+          : proposal.amount;
+
+        // ۴. 🌟 استفاده از upsert به جای create برای جلوگیری از خطای Unique constraint
+        // ۴. استفاده از upsert هوشمند برای پیشگیری از هرگونه خطای تکرار کلید
+        const contract = await tx.contract.upsert({
+          where: {
+            projectId: proposal.projectId, // بررسی یکتا بودن بر اساس کلید projectId
+          },
+          update: {
+            proposalId: proposal.id,
+            freelancerId: proposal.freelancerId,
+            totalAmount: contractAmount,
+            status: "active",
+            cancelledAt: null, // پاک کردن تاریخ لغو قبلی در صورت فعال‌سازی مجدد
+          },
+          create: {
+            projectId: proposal.projectId,
+            proposalId: proposal.id,
+            employerId: employerId,
+            freelancerId: proposal.freelancerId,
+            totalAmount: contractAmount,
+            status: "active",
+          },
+        });
+        return { updatedProposal, contract };
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "پیشنهاد با موفقیت تایید شد.",
+        data: result,
+      });
+
+  } catch (error) {
+  console.error("❌ acceptProposal error:", error);
+  return res
+  .status(500)
+  .json({ success: false, message: "خطا در تایید پیشنهاد" });
+  }
+  };
+  /\*\*
+
+- =========================
+- 9.  GET FREELANCER CONTRACTS (MY PROJECTS AS FREELANCER)
+- =========================
+  \*/
+  export const getFreelancerContracts = async (
+  req: AuthRequest,
+  res: Response,
+  ) => {
+  try {
+  const freelancerId = Number(req.user!.userId);
+
+      if (!freelancerId) {
+        return res.status(401).json({
+          success: false,
+          message: "کاربر احراز هویت نشده است.",
+        });
+      }
+
+      const contracts = await prisma.contract.findMany({
+        where: {
+          freelancerId: freelancerId,
+          status: "active",
+        },
+        include: {
+          project: {
+            include: {
+              category: true,
+              attachments: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      return res.status(200).json({
+        success: true,
+        contracts,
+        count: contracts.length,
+      });
+
+  } catch (error) {
+  console.error("❌ getFreelancerContracts error:", error);
+  return res.status(500).json({
+  success: false,
+  message: "خطا در دریافت پروژه‌های فریلنسر",
+  });
+  }
+  };
+
+/\*\*
+
+- =========================
+- 10. GET ACCEPTED PROJECTS FOR FREELANCER
+- =========================
+  \*/
+  export const getAcceptedProjects = async (req: AuthRequest, res: Response) => {
+  try {
+  const freelancerId = Number(req.user!.userId);
+
+      const status = String(req.query.status || "all");
+
+      let contractWhere: any = {
+        freelancerId,
+      };
+
+      if (status === "active") {
+        contractWhere.status = "active";
+      } else if (status === "completed") {
+        contractWhere.status = "completed";
+      } else {
+        contractWhere.status = {
+          in: ["active", "completed"],
+        };
+      }
+
+      const contracts = await prisma.contract.findMany({
+        where: contractWhere,
+        include: {
+          project: {
+            include: {
+              employer: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatar: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      const projects = contracts.map((contract) => ({
+        ...contract.project,
+        contractId: contract.id,
+        contractStatus: contract.status,
+        totalAmount: contract.totalAmount,
+        startedAt: contract.startedAt,
+        completedAt: contract.completedAt,
+      }));
+
+      return res.status(200).json({
+        success: true,
+        projects,
+        count: projects.length,
+      });
+
+  } catch (error) {
+  console.error("getAcceptedProjects error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "خطا در دریافت پروژه‌ها",
+      });
+
+  }
+  };
+
+export const rejectAcceptedProposal = async (
+req: AuthRequest,
+res: Response,
+) => {
+try {
+// ۱. اطمینان از دریافت پارامترها از req.params یا req.body
+// طبق روت شما که :contractId داشت، باید از params بگیرید:
+const contractId = Number(req.params.contractId);
+const { projectId } = req.body;
+const employerId = Number(req.user!.userId);
+
+    // بررسی اینکه آیا IDها معتبر هستند
+    if (isNaN(contractId) || isNaN(Number(projectId))) {
+      return res
+        .status(400)
+        .json({ success: false, message: "شناسه نامعتبر است" });
+    }
+
+    // ... (بقیه کدهای بررسی مالکیت پروژه)
+
+    await prisma.$transaction(async (tx) => {
+      // الف) لغو قرارداد - حتما از متغیری که عدد شده استفاده کنید
+      await tx.contract.update({
+        where: { id: contractId }, // 👈 اینجا باید عدد باشد
+        data: {
+          status: "cancelled",
+          cancelledAt: new Date(),
+        },
+      });
+
+      // ب) بازگرداندن پروژه به وضعیت open
+      await tx.project.update({
+        where: { id: Number(projectId) },
+        data: { status: "open" },
+      });
+
+      // ج) تغییر وضعیت پیشنهاد قبلی به rejected
+      await tx.proposal.updateMany({
+        where: { projectId: Number(projectId), status: "accepted" },
+        data: { status: "rejected" },
+      });
+    });
+
+    return res.status(200).json({ success: true, message: "توافق لغو شد" });
+
+} catch (error) {
+console.error(error); // برای دیدن جزئیات خطا در کنسول سرور
+return res
+.status(500)
+.json({ success: false, message: "خطا در لغو توافق" });
 }
 };
 
 import { Router } from "express";
+import {
+getProjectProposals,
+getFreelancerContracts,
+getMyProjects,
+createProject,
+getProjects,
+getProjectById,
+updateProject,
+deleteProject,
+acceptProposal,
+submitProposal,
+getAcceptedProjects,
+rejectAcceptedProposal, // 👈 این متد را ایمپورت کنید
+} from "../controllers/project.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
-import {
-adminMiddleware,
-requirePermission,
-} from "../middleware/admin.middleware";
-import {
-adminLogin,
-getAllUsersForAdmin,
-getUserDetail,
-toggleUserStatus,
-verifyUser,
-deleteUser,
-resetUserPassword,
-changeUserRole,
-getAllFilesForAdmin,
-getAllSettingsForAdmin,
-updateSettingsByAdmin,
-getAllNotificationsForAdmin,
-markNotificationRead,
-markAllNotificationsRead,
-deleteNotificationByAdmin,
-globalSearchForAdmin,
-getAnalyticsForAdmin,
-deleteFileByAdmin,
-getDashboardStats,
-getAllProjectsForAdmin,
-publishProject,
-closeProject,
-toggleFeatureProject,
-getAllReviewsForAdmin,
-deleteReviewByAdmin,
-deleteProjectByAdmin,
-getAllConversationsForAdmin,
-getConversationThreadForAdmin,
-getProjectDetailForAdmin,
-getAllProposalsForAdmin,
-acceptProposalForAdmin,
-rejectProposalForAdmin,
-deleteProposalForAdmin,
-getAllContractsForAdmin,
-getAllReportsForAdmin,
-getReportDetailForAdmin,
-updateReportStatusByAdmin,
-deleteReportByAdmin,
-getContractDetailForAdmin,
-cancelContractByAdmin,
-completeContractByAdmin,
-resolveContractDisputeByAdmin,
-getAllPaymentsForAdmin,
-getAllCategoriesForAdmin,
-createCategoryByAdmin,
-updateCategoryByAdmin,
-getAllSkillsForAdmin,
-createSkillByAdmin,
-updateSkillByAdmin,
-deleteSkillByAdmin,
-getAllActivityLogsForAdmin,
-mergeSkillsByAdmin,
-deleteCategoryByAdmin,
-} from "../controllers/admin.controller";
+import { upload } from "../middleware/upload.middleware";
 
 const router = Router();
 
-router.get("/test", authMiddleware, adminMiddleware, (req, res) => {
-return res.json({
-success: true,
-message: "خوش آمدید! دسترسی ادمین تایید شد.",
-});
-});
-
-router.post("/login", adminLogin);
-
-// داشبورد — کلید permission اختصاصی نداریم، فقط عمومی بودن ادمین کافیست
+/_ ==============================================
+۱. روت‌های ثابت و محافظت‌شده
+============================================== _/
 router.get(
-"/dashboard/stats",
+"/freelancer/active-contracts",
 authMiddleware,
-adminMiddleware,
-getDashboardStats,
+getFreelancerContracts,
 );
+router.get("/accepted-projects", authMiddleware, getAcceptedProjects);
+router.post("/proposals/submit", authMiddleware, submitProposal);
 
-// مشاهده — SUPER_ADMIN, ADMIN, SUPPORT, FINANCE, MODERATOR همه دسترسی دارند
-router.get(
-"/users",
-authMiddleware,
-requirePermission("users.view"),
-getAllUsersForAdmin,
-);
-router.get(
-"/users/:id",
-authMiddleware,
-requirePermission("users.view"),
-getUserDetail,
-);
-
-router.get(
-"/projects/:id",
-authMiddleware,
-requirePermission("projects.view"),
-getProjectDetailForAdmin,
-);
-
-router.get(
-"/projects",
-authMiddleware,
-requirePermission("projects.view"),
-getAllProjectsForAdmin,
-);
-
-// پیشنهادها — مشاهده با proposals.view (نه projects.view)
-router.get(
-"/proposals",
-authMiddleware,
-requirePermission("proposals.view"),
-getAllProposalsForAdmin,
-);
-
-router.get(
-"/messages",
-authMiddleware,
-requirePermission("messages.view"),
-getAllConversationsForAdmin,
-);
-
-router.get(
-"/messages/thread",
-authMiddleware,
-requirePermission("messages.view"),
-getConversationThreadForAdmin,
-);
-// مسدود/فعال‌سازی — فقط SUPER_ADMIN, ADMIN, MODERATOR
-router.patch(
-"/users/:id/toggle-status",
-authMiddleware,
-requirePermission("users.ban"),
-toggleUserStatus,
-);
-
-// تایید هویت — SUPER_ADMIN, ADMIN, SUPPORT
-router.patch(
-"/users/:id/verify",
-authMiddleware,
-requirePermission("users.edit"),
-verifyUser,
-);
-
-// حذف — فقط SUPER_ADMIN (طبق rolePermissionMap فقط SUPER_ADMIN کلید users.delete رو داره)
-router.delete(
-"/users/:id",
-authMiddleware,
-requirePermission("users.delete"),
-deleteUser,
-);
-
-// ری‌ست رمز — حساس است، حداقل users.edit لازم است
+router.get("/my-projects", authMiddleware, getMyProjects);
 router.post(
-"/users/:id/reset-password",
+"/create",
 authMiddleware,
-requirePermission("users.edit"),
-resetUserPassword,
+upload.array("attachments"),
+createProject,
 );
 
-// تغییر نقش — users.edit پایه، ولی تبدیل به admin داخل کنترلر چک اضافه دارد (فقط "\*")
+/_ ==============================================
+۲. روت‌های عمومی
+============================================== _/
+router.get("/list", getProjects);
+
+/_ ==============================================
+۳. روت‌های دارای متغیر پویا (:id)
+============================================== _/
+router.get("/detail/:id", getProjectById);
+router.get("/detail/:id/proposals", authMiddleware, getProjectProposals);
+router.put("/update/:id", authMiddleware, updateProject);
+router.delete("/delete/:id", authMiddleware, deleteProject);
+
+// تایید پیشنهاد (قبلاً داشتید)
+router.patch("/proposals/:id/accept", authMiddleware, acceptProposal);
+
+// 🌟 جدید: رد کردن توافق توسط کارفرما (برگرداندن پروژه به حالت open)
 router.patch(
-"/users/:id/role",
+"/proposals/:contractId/reject",
 authMiddleware,
-requirePermission("users.edit"),
-changeUserRole,
+rejectAcceptedProposal,
 );
 
-router.patch(
-"/projects/:id/publish",
-authMiddleware,
-requirePermission("projects.edit"),
-publishProject,
-);
-router.patch(
-"/projects/:id/close",
-authMiddleware,
-requirePermission("projects.edit"),
-closeProject,
-);
-router.patch(
-"/projects/:id/feature",
-authMiddleware,
-requirePermission("projects.feature"),
-toggleFeatureProject,
-);
-router.delete(
-"/projects/:id",
-authMiddleware,
-requirePermission("projects.delete"),
-deleteProjectByAdmin,
-);
-
-// پیشنهادها — عملیات نوشتنی (تایید/رد/حذف) با proposals.manage
-router.patch(
-"/proposals/:id/accept",
-authMiddleware,
-requirePermission("proposals.manage"),
-acceptProposalForAdmin,
-);
-
-router.patch(
-"/proposals/:id/reject",
-authMiddleware,
-requirePermission("proposals.manage"),
-rejectProposalForAdmin,
-);
-
-router.delete(
-"/proposals/:id",
-authMiddleware,
-requirePermission("proposals.manage"),
-deleteProposalForAdmin,
-);
-
-router.get(
-"/contracts",
-authMiddleware,
-requirePermission("contracts.view"),
-getAllContractsForAdmin,
-);
-
-router.get(
-"/contracts/:id",
-authMiddleware,
-requirePermission("contracts.view"),
-getContractDetailForAdmin,
-);
-
-router.patch(
-"/contracts/:id/cancel",
-authMiddleware,
-requirePermission("contracts.cancel"),
-cancelContractByAdmin,
-);
-
-router.patch(
-"/contracts/:id/complete",
-authMiddleware,
-requirePermission("contracts.edit"),
-completeContractByAdmin,
-);
-
-router.patch(
-"/contracts/:id/resolve-dispute",
-authMiddleware,
-requirePermission("contracts.edit"),
-resolveContractDisputeByAdmin,
-);
-
-router.get(
-"/payments",
-authMiddleware,
-requirePermission("payments.view"),
-getAllPaymentsForAdmin,
-);
-
-router.get(
-"/categories",
-authMiddleware,
-requirePermission("categories.manage"),
-getAllCategoriesForAdmin,
-);
-
-router.post(
-"/categories",
-authMiddleware,
-requirePermission("categories.manage"),
-createCategoryByAdmin,
-);
-
-router.patch(
-"/categories/:id",
-authMiddleware,
-requirePermission("categories.manage"),
-updateCategoryByAdmin,
-);
-
-router.delete(
-"/categories/:id",
-authMiddleware,
-requirePermission("categories.manage"),
-deleteCategoryByAdmin,
-);
-
-router.get(
-"/skills",
-authMiddleware,
-requirePermission("skills.manage"),
-getAllSkillsForAdmin,
-);
-
-router.post(
-"/skills",
-authMiddleware,
-requirePermission("skills.manage"),
-createSkillByAdmin,
-);
-
-router.patch(
-"/skills/:id",
-authMiddleware,
-requirePermission("skills.manage"),
-updateSkillByAdmin,
-);
-
-router.delete(
-"/skills/:id",
-authMiddleware,
-requirePermission("skills.manage"),
-deleteSkillByAdmin,
-);
-
-router.post(
-"/skills/merge",
-authMiddleware,
-requirePermission("skills.manage"),
-mergeSkillsByAdmin,
-);
-
-router.get(
-"/reviews",
-authMiddleware,
-requirePermission("reviews.view"),
-getAllReviewsForAdmin,
-);
-
-router.delete(
-"/reviews/:id",
-authMiddleware,
-requirePermission("reviews.delete"),
-deleteReviewByAdmin,
-);
-
-// داخل router:
-router.get(
-"/files",
-authMiddleware,
-requirePermission("settings.view"), // یا هر permission مناسب
-getAllFilesForAdmin,
-);
-
-router.delete(
-"/files/:type/:id",
-authMiddleware,
-requirePermission("settings.manage"),
-deleteFileByAdmin,
-);
-
-// داخل router:
-router.get(
-"/reports",
-authMiddleware,
-requirePermission("reports.view"),
-getAllReportsForAdmin,
-);
-
-router.get(
-"/reports/:id",
-authMiddleware,
-requirePermission("reports.view"),
-getReportDetailForAdmin,
-);
-
-router.patch(
-"/reports/:id",
-authMiddleware,
-requirePermission("reports.view"), // یا reports.manage اگر بعداً اضافه کردی
-updateReportStatusByAdmin,
-);
-
-router.get(
-"/activity-logs",
-authMiddleware,
-requirePermission("settings.view"), // یا permission مناسب
-getAllActivityLogsForAdmin,
-);
-
-router.delete(
-"/reports/:id",
-authMiddleware,
-requirePermission("reports.view"),
-deleteReportByAdmin,
-);
-
-router.get(
-"/settings",
-authMiddleware,
-requirePermission("settings.view"),
-getAllSettingsForAdmin,
-);
-
-router.put(
-"/settings",
-authMiddleware,
-requirePermission("settings.manage"),
-updateSettingsByAdmin,
-);
-
-router.get(
-"/notifications",
-authMiddleware,
-adminMiddleware,
-getAllNotificationsForAdmin,
-);
-
-router.patch(
-"/notifications/:id/read",
-authMiddleware,
-adminMiddleware,
-markNotificationRead,
-);
-
-router.patch(
-"/notifications/mark-all-read",
-authMiddleware,
-adminMiddleware,
-markAllNotificationsRead,
-);
-
-router.delete(
-"/notifications/:id",
-authMiddleware,
-requirePermission("settings.manage"),
-deleteNotificationByAdmin,
-);
-
-router.get(
-"/analytics",
-authMiddleware,
-requirePermission("reports.view"),
-getAnalyticsForAdmin,
-);
-
-router.get("/search", authMiddleware, adminMiddleware, globalSearchForAdmin);
 export default router;
 
-import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/stores/auth.store'
-import { useAdminStore } from '@/stores/admin.store'
+import { api } from './api'
+import axios from 'axios'
+import type { Project, ActivityLog, ProjectDetail } from '@/types/project'
 
-// صفحات عمومی و کاربر
-import HomePage from '../pages/HomePage.vue'
-import LoginPage from '../pages/LoginPage.vue'
-import SignupPage from '../pages/SignupPage.vue'
-import OtpView from '../pages/OtpPage.vue'
-import PasswordView from '../pages/PasswordPage.vue'
-import DashboardPage from '../pages/DashboardPage.vue'
-import CreateUsername from '../pages/CreateUsername.vue'
-import WelcomePage from '../pages/WelcomePage.vue'
-import NewprojectPage from '../pages/CreateProjectPage.vue'
-import ProfilePage from '../pages/profilePage.vue'
-import ConsultationPage from '@/pages/consultationPage.vue'
+/\*\*
 
-// صفحات و لایوت مدیریت
-import AdminLoginPage from '../pages/AdminLoginPage.vue'
-import AdminLayout from '../components/admin/AdminLayout/AdminLayout.vue'
-import AdminDashboardPage from '../pages/AdminDashboardPage.vue'
-import AdminUsersPage from '../pages/AdminUserPage.vue'
-import AdminUserDetailPage from '../pages/AdminUserDetailPage.vue'
-import AdminProjectPage from '../pages/AdminProjectPage.vue'
-import AdminProjectDetailPage from '../pages/AdminProjectDetailPage.vue'
-import AdminProposalPage from '../pages/AdminProposalPage.vue'
-import AdminContractPage from '@/pages/AdminContractPage.vue'
-import AdminContractDetailPage from '../pages/AdminContractDetailPage.vue'
-import AdminPaymentPage from '../pages/AdminPaymentPage.vue'
-import AdminCategoryPage from '../pages/AdminCategoryPage.vue'
-import AdminSkillPage from '../pages/AdminSkillPage.vue'
-import AdminMessagePage from '../pages/AdminMessagePage.vue'
-import AdminReviewPage from '../pages/AdminReviewPage.vue'
-import AdminFilePage from '../pages/AdminFilePage.vue'
-import AdminReportPage from '../pages/AdminReportPage.vue'
-import AdminActivityLogPage from '@/pages/AdminActivityLogPage.vue'
-import AdminSettingPage from '@/pages/AdminSettingPage.vue'
-import AdminNotificationPage from '../pages/AdminNotificationPage.vue'
-import AdminAnalyticsPage from '../pages/AdminAnalyticsPage.vue'
+- =========================
+- Types
+- =========================
+  \*/
+  export interface ProposalPayload {
+  projectId: number
+  amount: number
+  deliveryDays: number
+  coverLetter: string
+  }
 
-const router = createRouter({
-history: createWebHistory(),
-routes: [
-{
-path: '/',
-component: HomePage,
-},
-{
-path: '/login',
-component: LoginPage,
-meta: { requiresGuest: true },
-},
-{
-path: '/signup',
-component: SignupPage,
-meta: { requiresGuest: true },
-},
-{
-path: '/login/otp',
-component: OtpView,
-meta: { requiresGuest: true },
-},
-{
-path: '/login/password',
-component: PasswordView,
-meta: { requiresGuest: true },
-},
-{
-path: '/admin/login',
-component: AdminLoginPage,
-// ⚠️ دیگر requiresGuest نمی‌گذاریم تا کاربر عادی هم بتواند وارد صفحه لاگین ادمین شود
-},
+export interface ProjectFormPayload {
+// اطلاعات پایه
+title: string
+category?: string
+description?: string
 
-    // --- مسیرهای پنل مدیریت ---
-    {
-      path: '/admin',
-      component: AdminLayout,
-      meta: { requiresAdmin: true },
-      children: [
-        {
-          path: '',
-          redirect: '/admin/dashboard',
-        },
-        {
-          path: 'skills',
-          component: AdminSkillPage,
-        },
-        {
-          path: 'dashboard',
-          component: AdminDashboardPage,
-        },
-        {
-          path: 'settings',
-          component: AdminSettingPage,
-          meta: { permission: 'settings.view' },
-        },
-        {
-          path: 'notifications',
-          component: AdminNotificationPage,
-        },
-        {
-          path: 'analytics',
-          component: AdminAnalyticsPage,
-          meta: { permission: 'reports.view' },
-        },
+// اطلاعات موقعیت
+province?: string
+city?: string
+address?: string
 
-        {
-          path: 'activity-logs',
-          component: AdminActivityLogPage,
-          meta: { permission: 'settings.view' },
-        },
-        {
-          path: 'reports',
-          component: AdminReportPage,
-          meta: { permission: 'reports.view' },
-        },
-        {
-          path: 'reviews',
-          component: AdminReviewPage,
-          meta: { permission: 'reviews.view' },
-        },
-        {
-          path: 'files',
-          component: AdminFilePage,
-          meta: { permission: 'settings.view' },
-        },
-        {
-          path: 'categories',
-          component: AdminCategoryPage,
-        },
+// اطلاعات نقشه‌برداری و کریدور
+mappingType?: 'area' | 'corridor' | null
+corridorLength?: number
+areaSelectionMethod?: string
+calculatedArea?: number
+coordinateSystem?: string
+utmZone?: string
+terrainTypes?: string[]
 
-        {
-          path: 'proposals',
-          component: AdminProposalPage,
-          meta: { permission: 'proposals.view' },
-        },
-        {
-          path: 'contracts',
-          component: AdminContractPage,
-        },
-        {
-          path: 'contracts/:id',
-          component: AdminContractDetailPage,
-        },
-        {
-          path: 'users',
-          component: AdminUsersPage,
-          meta: { permission: 'users.view' }, // 🌟 مثال دسترسی
-        },
-        {
-          path: 'users/:id',
-          component: AdminUserDetailPage,
-          meta: { permission: 'users.view' },
-        },
-        {
-          path: 'payments',
-          component: AdminPaymentPage,
-        },
-        {
-          path: 'projects/:id',
-          component: AdminProjectDetailPage,
-          meta: { permission: 'projects.view' },
-        },
-        {
-          path: 'projects',
-          component: AdminProjectPage,
-          meta: { permission: 'projects.view' },
-        },
-        {
-          path: 'messages',
-          component: AdminMessagePage,
-          meta: { permission: 'messages.view' },
-        },
-        // مسیرهای بعدی را اینجا اضافه کن:
-        // { path: 'projects', component: ..., meta: { permission: 'projects.view' } },
-        // { path: 'payments', component: ..., meta: { permission: 'payments.view' } },
-      ],
-    },
+// روش‌ها، تجهیزات و مشخصات فنی جدید
+surveyMethod?: 'ground' | 'aerial' | 'gis' | ''
+specificSurveys?: string[]
+requiredEquipment?: string[]
 
-    // --- روت‌های محافظت‌شده کاربری ---
-    {
-      path: '/dashboard',
-      component: DashboardPage,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: '/consultation',
-      name: 'consultation',
-      component: ConsultationPage,
-    },
-    {
-      path: '/onboarding/create-username',
-      component: CreateUsername,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: '/onboarding/welcome',
-      component: WelcomePage,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: '/newproject',
-      component: NewprojectPage,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: '/profile',
-      name: 'profile',
-      component: ProfilePage,
-      meta: { requiresAuth: true },
-    },
+// 🌟 مشخصات فنی مجزا و توضیحات هر روش
+groundTechnicalSpecs?: string[]
+aerialTechnicalSpecs?: string[]
+aerialScaleOption?: string
+gisTechnicalSpecs?: string[]
+groundDescription?: string
+aerialDescription?: string
+gisDescription?: string
+contourInterval?: string | null
+// داده‌های جغرافیایی
+polygonCoordinates?: any[]
+geoJson?: any
 
-],
-scrollBehavior(to, from, savedPosition) {
-if (savedPosition) {
-return savedPosition
+// جزئیات فنی و خروجی
+techType?: any[]
+outputFormats?: any[]
+requiredAccuracy?: string
+mapScale: string
+
+// زمان‌بندی و مالی
+deliveryTime?: string
+budgetType?: 'fixed' | 'hourly' | 'negotiable' | string
+minBudget?: number | string
+maxBudget?: number | string
 }
-return { top: 0, behavior: 'smooth' }
+
+/\*\*
+
+- =========================
+- Project Service
+- =========================
+  \*/
+  export const projectService = {
+  /\*\*
+  - 1.  دریافت لیست پروژه‌های عمومی
+        \*/
+        async getAllProjects(): Promise<Project[]> {
+        const response = await api.get('/projects/list')
+        return response.data.projects || []
+        },
+
+/\*\*
+
+- 2.  دریافت جزئیات یک پروژه
+      \*/
+      async getProjectById(id: number): Promise<ProjectDetail> {
+      const response = await api.get(`/projects/detail/${id}`)
+      return response.data.project
+      },
+
+/\*\*
+
+- 3.  ایجاد پروژه (با فایل)
+      \*/
+      async createProject(formDataRaw: ProjectFormPayload, uploadedFiles: File[]): Promise<Project> {
+      const data = new FormData()
+
+  if (formDataRaw.surveyMethod) {
+  data.append('surveyMethod', formDataRaw.surveyMethod)
+  }
+  if (formDataRaw.specificSurveys && formDataRaw.specificSurveys.length > 0) {
+  data.append('specificSurveys', JSON.stringify(formDataRaw.specificSurveys))
+  }
+  if (formDataRaw.requiredEquipment && formDataRaw.requiredEquipment.length > 0) {
+  data.append('requiredEquipment', JSON.stringify(formDataRaw.requiredEquipment))
+  }
+
+  // 🌟 ارسال مشخصات فنی و توضیحات اختصاصی هر بخش به فرم‌دیتا
+  if (formDataRaw.groundTechnicalSpecs && formDataRaw.groundTechnicalSpecs.length > 0) {
+  data.append('groundTechnicalSpecs', JSON.stringify(formDataRaw.groundTechnicalSpecs))
+  }
+  if (formDataRaw.aerialTechnicalSpecs && formDataRaw.aerialTechnicalSpecs.length > 0) {
+  data.append('aerialTechnicalSpecs', JSON.stringify(formDataRaw.aerialTechnicalSpecs))
+  }
+  if (formDataRaw.aerialScaleOption) {
+  data.append('aerialScaleOption', formDataRaw.aerialScaleOption)
+  }
+  if (formDataRaw.gisTechnicalSpecs && formDataRaw.gisTechnicalSpecs.length > 0) {
+  data.append('gisTechnicalSpecs', JSON.stringify(formDataRaw.gisTechnicalSpecs))
+  }
+  if (formDataRaw.groundDescription) {
+  data.append('groundDescription', formDataRaw.groundDescription)
+  }
+  if (formDataRaw.aerialDescription) {
+  data.append('aerialDescription', formDataRaw.aerialDescription)
+  }
+  if (formDataRaw.gisDescription) {
+  data.append('gisDescription', formDataRaw.gisDescription)
+  }
+
+  data.append('title', formDataRaw.title || '')
+  if (formDataRaw.description) data.append('description', formDataRaw.description)
+
+  if (formDataRaw.category && formDataRaw.category !== 'unknown') {
+  data.append('category', formDataRaw.category)
+  }
+
+  if (formDataRaw.province) data.append('province', formDataRaw.province)
+  if (formDataRaw.city) data.append('city', formDataRaw.city)
+  if (formDataRaw.address) data.append('address', formDataRaw.address)
+  if (formDataRaw.areaSelectionMethod)
+  data.append('areaSelectionMethod', formDataRaw.areaSelectionMethod)
+
+  if (formDataRaw.mappingType) {
+  data.append('mappingType', formDataRaw.mappingType)
+  }
+  if (formDataRaw.calculatedArea !== undefined && formDataRaw.calculatedArea !== null) {
+  data.append('calculatedArea', String(formDataRaw.calculatedArea))
+  }
+  if (formDataRaw.corridorLength !== undefined && formDataRaw.corridorLength !== null) {
+  data.append('corridorLength', String(formDataRaw.corridorLength))
+  }
+
+  if (formDataRaw.contourInterval) {
+  data.append('contourInterval', formDataRaw.contourInterval)
+  }
+
+  if (formDataRaw.utmZone && formDataRaw.utmZone !== 'auto')
+  data.append('utmZone', formDataRaw.utmZone)
+
+  if (formDataRaw.terrainTypes && formDataRaw.terrainTypes.length > 0) {
+  data.append('terrainTypes', JSON.stringify(formDataRaw.terrainTypes))
+  }
+
+  if (formDataRaw.polygonCoordinates && formDataRaw.polygonCoordinates.length > 0) {
+  data.append('polygonCoordinates', JSON.stringify(formDataRaw.polygonCoordinates))
+  }
+  if (formDataRaw.geoJson) {
+  data.append('geoJson', JSON.stringify(formDataRaw.geoJson))
+  }
+
+  data.append('techType', JSON.stringify(formDataRaw.techType || []))
+  data.append('outputFormats', JSON.stringify(formDataRaw.outputFormats || []))
+  if (formDataRaw.requiredAccuracy) data.append('requiredAccuracy', formDataRaw.requiredAccuracy)
+  if (formDataRaw.mapScale) {
+  data.append('mapScale', formDataRaw.mapScale)
+  }
+  if (formDataRaw.deliveryTime) data.append('deliveryTime', formDataRaw.deliveryTime)
+
+  data.append('budgetType', formDataRaw.budgetType || 'fixed')
+
+  if (formDataRaw.minBudget && String(formDataRaw.minBudget).trim() !== '') {
+  data.append('minBudget', String(formDataRaw.minBudget))
+  }
+  if (formDataRaw.maxBudget && String(formDataRaw.maxBudget).trim() !== '') {
+  data.append('maxBudget', String(formDataRaw.maxBudget))
+  }
+
+  if (uploadedFiles?.length) {
+  uploadedFiles.forEach((file) => {
+  data.append('attachments', file)
+  })
+  }
+
+  const response = await api.post('/projects/create', data, {
+  headers: { 'Content-Type': 'multipart/form-data' },
+  })
+
+  return response.data.project
+
+},
+
+/\*\*
+
+- 3.5. دانلود فایل پیوست پروژه
+  \*/
+  async downloadAttachment(fileUrl: string): Promise<Blob> {
+  // گرفتن آدرس پایه سرور (مثلاً http://localhost:5000) بدون پیشوند /api
+  const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+
+  // درخواست مستقیم به آدرس کامل سرور برای فایل‌های استاتیک
+  const response = await axios.get(`${baseURL}${fileUrl}`, {
+  responseType: 'blob',
+  })
+  return response.data
+
+},
+/\*\*
+
+- 4.  آپدیت پروژه (با فایل جدید)
+      \*/
+      async updateProject(
+      id: number,
+      formDataRaw: Partial<ProjectFormPayload>,
+      uploadedFiles: File[] = [],
+      ): Promise<Project> {
+      const data = new FormData()
+
+  Object.entries(formDataRaw).forEach(([key, value]) => {
+  if (value !== undefined && value !== null) {
+  if (typeof value === 'object' && key !== 'polygonCoordinates' && key !== 'geoJson') {
+  data.append(key, JSON.stringify(value))
+  } else {
+  data.append(key, String(value))
+  }
+  }
+  })
+
+  if (uploadedFiles.length) {
+  uploadedFiles.forEach((file) => {
+  data.append('attachments', file)
+  })
+  }
+
+  const response = await api.put(`/projects/update/${id}`, data, {
+  headers: { 'Content-Type': 'multipart/form-data' },
+  })
+
+  return response.data.project
+
+},
+
+/\*\*
+
+- 5.  حذف پروژه
+      \*/
+      async deleteProject(id: number): Promise<void> {
+      await api.delete(`/projects/delete/${id}`)
+      },
+
+/\*\*
+
+- 6.  ارسال پیشنهاد
+      \*/
+      async sendProposal(payload: ProposalPayload): Promise<any> {
+      const response = await api.post('/projects/proposals/submit', payload)
+      return response.data
+      },
+
+/\*\*
+
+- 7.  پروژه‌های من (کارفرما)
+      \*/
+      async getMyProjects(): Promise<Project[]> {
+      const response = await api.get('/projects/my-projects')
+      return response.data.projects || []
+      },
+
+/\*\*
+
+- 8.  فعالیت‌ها
+      \*/
+      async getActivityLogs(): Promise<ActivityLog[]> {
+      const response = await api.get('/activity-logs')
+      return response.data.logs || []
+      },
+
+/\*\*
+
+- دریافت پیشنهادهای یک پروژه (مخصوص کارفرما)
+  \*/
+  async getProjectProposals(projectId: number) {
+  const response = await api.get(`/projects/detail/${projectId}/proposals`)
+  return response.data.proposals
+  },
+
+/\*\*
+
+- قبول یک پیشنهاد توسط کارفرما و ایجاد قرارداد
+  \*/
+  async acceptProposal(proposalId: number, finalAmount?: number): Promise<any> {
+  const payload = finalAmount ? { finalAmount } : {}
+  const response = await api.patch(`/projects/proposals/${proposalId}/accept`, payload)
+  return response.data
+  },
+
+async getAcceptedProjects(status: 'all' | 'active' | 'completed' = 'all') {
+const response = await api.get('/projects/accepted-projects', {
+params: {
+status,
 },
 })
+return response.data.projects || []
+},
 
-router.beforeEach((to, from, next) => {
-const authStore = useAuthStore()
-const adminStore = useAdminStore()
-
-// همیشه هدر ادمین را ست کن اگر توکن دارد
-if (adminStore.token) {
-adminStore.setAuthHeader()
+rejectProposal: async (contractId: number, projectId: number) => {
+const response = await api.patch(`/projects/proposals/${contractId}/reject`, {
+projectId,
+})
+return response.data
+},
 }
 
-const isAdminRoute = to.path.startsWith('/admin')
-const isAdminLoginPage = to.path === '/admin/login'
+import { defineStore } from 'pinia'
+import { ref, reactive, computed } from 'vue'
+import { projectService } from '@/services/project.service'
+import type {
+Project,
+ActivityLog,
+ProjectDetail,
+ProjectStatus,
+AcceptedProject,
+} from '@/types/project'
 
-// ---------- مسیرهای ادمین ----------
-if (isAdminRoute) {
-// صفحه لاگین ادمین
-if (isAdminLoginPage) {
-if (adminStore.token) {
-return next('/admin/dashboard')
-}
-return next()
-}
+export type Coordinate = [number, number]
 
-    // بقیه مسیرهای /admin/*
-    if (!adminStore.token) {
-      return next('/admin/login')
-    }
+export const useProjectStore = defineStore('project', () => {
+/\*\*
 
-    // چک دسترسی خاص (اگر meta.permission تعریف شده باشد)
-    const requiredPermission = to.meta.permission as string | undefined
-    if (requiredPermission && !adminStore.hasPermission(requiredPermission)) {
-      // می‌توانی به صفحه 403 بفرستی یا به داشبورد
-      return next('/admin/dashboard')
-    }
+- =========================
+- State
+- =========================
+  \*/
+  const projects = ref<Project[]>([])
+  const myProjects = ref<Project[]>([])
+  const activityLogs = ref<ActivityLog[]>([])
+  const acceptedProjects = ref<AcceptedProject[]>([]) // Modal State (Project Details)
+  const projectDetails = ref<ProjectDetail | null>(null)
+  const isProjectDetailsModalOpen = ref(false)
+  const isProjectDetailsLoading = ref(false)
+  const isQuickEntry = ref(false)
+  const isDownloading = ref(false)
 
-    return next()
+const isLoading = ref(false)
+const error = ref<string | null>(null)
 
-}
+/\*\*
 
-// ---------- مسیرهای عادی کاربر ----------
-if (to.meta.requiresAuth && !authStore.token) {
-return next('/signup')
-}
+- =========================
+- Form (Create Project)
+- =========================
+  \*/
 
-if (to.meta.requiresGuest && authStore.token) {
-return next('/dashboard')
-}
+const formData = reactive({
+title: '',
+category: '',
+description: '',
+province: '',
+city: '',
+address: '',
+terrainTypes: [] as string[],
 
-return next()
+    mappingType: null as 'area' | 'corridor' | null,
+    calculatedArea: 0,
+    corridorLength: 0,
+
+    // 🌟 روش اصلی اجرا (زمینی، هوایی/فتوگرامتری، کارتوگرافی و GIS)
+    surveyMethod: '' as 'ground' | 'aerial' | 'gis' | '',
+
+    // 🌟 مشخصات فنی مجزا و اختصاصی برای هر روش بر اساس تصاویر
+    groundTechnicalSpecs: [] as string[], // مشخصات فنی نقشه‌برداری زمینی
+    aerialTechnicalSpecs: [] as string[], // مشخصات فنی نقشه فتوگرامتری
+    aerialScaleOption: '', // مقادیر 0.5، 1، 1.5، 2 مربوط به فتوگرامتری
+    gisTechnicalSpecs: [] as string[], // مشخصات فنی کارتوگرافی و GIS
+
+    // 🌟 فیلدهای توضیحات متنی مجزا برای هر بخش
+    groundDescription: '',
+    aerialDescription: '',
+    gisDescription: '',
+    contourInterval: '',
+
+    requiredEquipment: [] as string[], // تجهیزات مورد نیاز پیشنهادی
+
+    areaSelectionMethod: 'map',
+    polygonCoordinates: [] as Coordinate[],
+    geoJson: null as any,
+    utmZone: '',
+    techType: [] as string[],
+    outputFormats: [] as string[],
+    requiredAccuracy: '',
+    mapScale: '',
+    deliveryTime: '',
+    budgetType: '',
+    minBudget: '',
+    maxBudget: '',
+
 })
 
-export default router
+const uploadedFiles = ref<File[]>([])
+
+/\*\*
+
+- =========================
+- Getters
+- =========================
+  \*/
+  const dashboardStats = computed(() => ({
+  totalProjects: projects.value.length,
+  activeProjects: projects.value.filter((p) => p.status === 'open' || p.status === 'in_progress')
+  .length,
+  completedProjects: projects.value.filter((p) => p.status === 'completed').length,
+  }))
+
+/\*\*
+
+- بررسی معتبر بودن زمان تحویل (مدیریت حالت روزهای دلخواه و گزینه‌های ثابت)
+  \*/
+  const isDeliveryTimeValid = computed(() => {
+  const time = formData.deliveryTime
+  if (!time) return false
+
+  const staticOptions = ['urgent', '3-days', '1-week', '2-weeks']
+  if (staticOptions.includes(time)) return true
+
+  const match = time.match(/\d+/)
+  return match ? Number(match[0]) > 0 : false
+
+})
+
+const openProjects = computed(() => projects.value.filter((p) => p.status === 'open'))
+
+/\*\*
+
+- =========================
+- Modal Actions (Project Details)
+- =========================
+  \*/
+  const openProjectDetails = async (id: number) => {
+  isProjectDetailsModalOpen.value = true
+  isProjectDetailsLoading.value = true
+  error.value = null
+
+  try {
+  const res = await projectService.getProjectById(id)
+  projectDetails.value = res
+  } catch (err: any) {
+  error.value = err.response?.data?.message || 'خطا در دریافت جزئیات پروژه'
+  projectDetails.value = null
+  } finally {
+  isProjectDetailsLoading.value = false
+  }
+
+}
+
+const closeProjectDetails = () => {
+isProjectDetailsModalOpen.value = false
+projectDetails.value = null
+}
+
+/\*\*
+
+- =========================
+- API Actions
+- =========================
+-
+-
+-
+-
+- \*/
+
+const fetchProjects = async () => {
+isLoading.value = true
+error.value = null
+
+    try {
+      projects.value = await projectService.getAllProjects()
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'خطا در دریافت پروژه‌ها'
+    } finally {
+      isLoading.value = false
+    }
+
+}
+
+const downloadProjectFile = async (fileId: number, fileName: string) => {
+isDownloading.value = true
+try {
+// 🌟 نکته مهم: اینجا به جای store.projectDetails، مستقیماً از projectDetails.value استفاده کنید
+const file = projectDetails.value?.attachments?.find((f: any) => f.id === fileId)
+
+      if (!file) {
+        throw new Error('فایل مورد نظر یافت نشد')
+      }
+
+      // فراخوانی لایه سرویس که فایل را به صورت Blob می‌گیرد
+      const blob = await projectService.downloadAttachment(file.fileUrl)
+
+      // ساخت لینک موقت و دانلود در مرورگر
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', fileName)
+      document.body.appendChild(link)
+      link.click()
+
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('خطا در دانلود فایل:', err)
+    } finally {
+      isDownloading.value = false
+    }
+
+}
+const fetchMyProjects = async () => {
+isLoading.value = true
+error.value = null
+
+    try {
+      myProjects.value = await projectService.getMyProjects()
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'خطا در دریافت پروژه‌های من'
+    } finally {
+      isLoading.value = false
+    }
+
+}
+
+const fetchActivityLogs = async () => {
+try {
+activityLogs.value = await projectService.getActivityLogs()
+} catch (err) {
+console.error(err)
+}
+}
+
+const submitProject = async () => {
+isLoading.value = true
+error.value = null
+
+    try {
+      const payload = {
+        ...formData,
+        isQuick: isQuickEntry.value,
+      }
+
+      const res = await projectService.createProject(payload, uploadedFiles.value)
+
+      if (res) {
+        projects.value.unshift(res)
+        myProjects.value.unshift(res)
+      }
+
+      resetForm()
+      return res
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'خطا در ثبت پروژه'
+      throw err
+    } finally {
+      isLoading.value = false
+      isQuickEntry.value = false
+    }
+
+}
+
+const updateProject = async (id: number, data: any, files: File[] = []) => {
+isLoading.value = true
+error.value = null
+
+    try {
+      const payload = { ...data }
+      const res = await projectService.updateProject(id, payload, files)
+
+      const index = myProjects.value.findIndex((p) => p.id === id)
+      if (index !== -1) {
+        myProjects.value[index] = res
+      }
+
+      if (projectDetails.value?.id === id) {
+        projectDetails.value = {
+          ...projectDetails.value,
+          ...res,
+        } as ProjectDetail
+      }
+
+      return res
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'خطا در ویرایش پروژه'
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+
+}
+
+const deleteProject = async (id: number) => {
+await projectService.deleteProject(id)
+
+    myProjects.value = myProjects.value.filter((p) => p.id !== id)
+
+    if (projectDetails.value?.id === id) {
+      closeProjectDetails()
+    }
+
+}
+
+const fetchAcceptedProjects = async (status: 'all' | 'active' | 'completed' = 'all') => {
+isLoading.value = true
+error.value = null
+
+    try {
+      acceptedProjects.value = await projectService.getAcceptedProjects(status)
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'خطا در دریافت پروژه‌ها'
+    } finally {
+      isLoading.value = false
+    }
+
+}
+
+const acceptProposal = async (proposalId: number, projectId: number, finalAmount?: number) => {
+isLoading.value = true
+error.value = null
+
+    try {
+      const res = await projectService.acceptProposal(proposalId, finalAmount)
+      updateProjectStatusLocally(projectId, 'in_progress')
+      return res
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'خطا در تایید پیشنهاد پروژه'
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+
+}
+
+const updateProjectStatusLocally = (projectId: number, newStatus: string) => {
+const status = newStatus as ProjectStatus
+
+    if (projectDetails.value && projectDetails.value.id === projectId) {
+      projectDetails.value.status = status
+    }
+
+    const myProjIndex = myProjects.value.findIndex((p) => p.id === projectId)
+    if (myProjIndex !== -1) {
+      myProjects.value[myProjIndex]!.status = status
+    }
+
+    const projIndex = projects.value.findIndex((p) => p.id === projectId)
+    if (projIndex !== -1) {
+      projects.value[projIndex]!.status = status
+    }
+
+    const acceptedIndex = acceptedProjects.value.findIndex((p) => p.id === projectId)
+    if (acceptedIndex !== -1) {
+      acceptedProjects.value[acceptedIndex]!.status = status
+    }
+
+}
+
+const rejectProposal = async (contractId: number, projectId: number) => {
+isLoading.value = true
+error.value = null
+
+    try {
+      await projectService.rejectProposal(contractId, projectId)
+      updateProjectStatusLocally(projectId, 'open')
+
+      if (projectDetails.value?.id === projectId) {
+        projectDetails.value.contract = null
+      }
+
+      return true
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'خطا در لغو توافق'
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+
+}
+
+const setMappingType = (type: 'area' | 'corridor') => {
+formData.mappingType = type
+if (type === 'area') {
+formData.corridorLength = 0
+} else {
+formData.calculatedArea = 0
+}
+}
+
+const syncProjects = async () => {
+try {
+await fetchMyProjects()
+await fetchAcceptedProjects()
+} catch (err) {
+console.error('خطا در همگام‌سازی پروژه‌ها:', err)
+}
+}
+
+/\*\*
+
+- =========================
+- Helpers
+- =========================
+  \*/
+  const addFiles = (files: File[]) => {
+  uploadedFiles.value.push(...files)
+  }
+
+const removeFile = (index: number) => {
+uploadedFiles.value.splice(index, 1)
+}
+
+const setMapScale = (scale: string) => {
+formData.mapScale = scale
+
+    switch (scale) {
+      case '1/100':
+        formData.requiredAccuracy = '۲ سانتی‌متر'
+        break
+      case '1/200':
+        formData.requiredAccuracy = '۵ سانتی‌متر'
+        break
+      case '1/500':
+        formData.requiredAccuracy = '۱۰ سانتی‌متر'
+        break
+      case '1/1000':
+        formData.requiredAccuracy = '۲۰ سانتی‌متر'
+        break
+      case '1/2000':
+        formData.requiredAccuracy = '۴۰ سانتی‌متر'
+        break
+      case '1/5000':
+        formData.requiredAccuracy = '۱ متر'
+        break
+      default:
+        formData.requiredAccuracy = ''
+    }
+
+}
+
+const resetForm = () => {
+formData.title = ''
+formData.category = ''
+formData.description = ''
+formData.province = ''
+formData.city = ''
+formData.address = ''
+formData.terrainTypes = []
+
+    formData.mappingType = null
+    formData.calculatedArea = 0
+    formData.corridorLength = 0
+    formData.requiredAccuracy = ''
+    formData.mapScale = ''
+
+    formData.surveyMethod = ''
+    formData.groundTechnicalSpecs = []
+    formData.aerialTechnicalSpecs = []
+    formData.aerialScaleOption = ''
+    formData.gisTechnicalSpecs = []
+    formData.groundDescription = ''
+    formData.aerialDescription = ''
+    formData.gisDescription = ''
+    formData.requiredEquipment = []
+    formData.contourInterval = ''
+
+    formData.polygonCoordinates = []
+    formData.geoJson = null
+    formData.techType = []
+    formData.outputFormats = []
+    formData.minBudget = ''
+    formData.maxBudget = ''
+
+    uploadedFiles.value = []
+    error.value = null
+
+}
+
+const clearPolygon = () => {
+formData.polygonCoordinates = []
+formData.geoJson = null
+formData.calculatedArea = 0
+}
+
+/\*\*
+
+- =========================
+- Return
+- =========================
+  \*/
+
+return {
+projects,
+myProjects,
+activityLogs,
+acceptedProjects,
+projectDetails,
+isProjectDetailsModalOpen,
+isProjectDetailsLoading,
+isDeliveryTimeValid,
+isQuickEntry,
+isDownloading,
+formData,
+uploadedFiles,
+isLoading,
+error,
+
+    dashboardStats,
+    openProjects,
+
+    setMappingType,
+    fetchProjects,
+    rejectProposal,
+    syncProjects,
+    fetchMyProjects,
+    fetchActivityLogs,
+    submitProject,
+    downloadProjectFile,
+    updateProject,
+    deleteProject,
+    acceptProposal,
+    updateProjectStatusLocally,
+    fetchAcceptedProjects,
+    openProjectDetails,
+    closeProjectDetails,
+
+    addFiles,
+    removeFile,
+    resetForm,
+    clearPolygon,
+    setMapScale,
+
+}
+})
+
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useProjectStore } from '../stores/project.store.ts'
+import { useToast } from 'vue-toastification'
+import { useRouter } from 'vue-router'
+
+import StepBasicInfo from '../components/stepProjectForm/StepBasicInfo.vue'
+import StepMapBoundary from '../components/stepProjectForm/StepMapBoundary.vue'
+import StepTechnicalSpecs from '../components/stepProjectForm/StepTechnicalSpecs.vue'
+import StepTimingBudget from '../components/stepProjectForm/StepTimingBudget.vue'
+import StepInvoice from '../components/stepProjectForm/StepInvoice.vue'
+import StepSuccess from '../components/stepProjectForm/SuccessCreateProject.vue' // ۱. وارد کردن صفحه موفقیت
+
+const store = useProjectStore()
+const toast = useToast()
+const router = useRouter()
+
+const isSubmitted = ref(false) // ۲. وضعیت نمایش صفحه نهایی
+
+type StepDefinition = {
+  id: number
+  type: 'basic-info' | 'map-boundary' | 'technical-specs' | 'timing-budget' | 'preview'
+  title: string
+  question: string
+}
+
+const steps: StepDefinition[] = [
+  { id: 1, type: 'basic-info', title: 'اطلاعات پروژه', question: 'پروژه خود را معرفی کنید' },
+  {
+    id: 2,
+    type: 'map-boundary',
+    title: 'محدوده پروژه',
+    question: 'محدوده عملیات را روی نقشه مشخص کنید',
+  },
+  {
+    id: 3,
+    type: 'technical-specs',
+    title: 'خدمات و خروجی‌ها',
+    question: 'نوع خدمات و خروجی مورد نیاز را انتخاب کنید',
+  },
+  {
+    id: 4,
+    type: 'timing-budget',
+    title: 'زمان و بودجه',
+    question: 'زمان تحویل، بودجه و فایل‌های ضمیمه را مشخص کنید',
+  },
+  { id: 5, type: 'preview', title: 'بازبینی نهایی', question: 'اطلاعات پروژه را بررسی و ثبت کنید' },
+]
+
+const currentStep = ref(0)
+const currentStepData = computed<StepDefinition>(() => {
+  const safeIndex = Math.max(0, Math.min(currentStep.value, steps.length - 1))
+  return steps[safeIndex] as StepDefinition
+})
+
+const progress = computed(() => {
+  return Math.round(((currentStep.value + 1) / steps.length) * 100)
+})
+
+const isStepValid = computed(() => {
+  const type = currentStepData.value.type
+
+  if (type === 'basic-info') {
+    // اعتبارسنجی فیلدهای متنی اولیه
+    return (
+      store.formData.title?.trim().length > 0 &&
+      store.formData.province?.trim().length > 0 &&
+      store.formData.city?.trim().length > 0 &&
+      store.formData.category
+    )
+  }
+
+  if (type === 'map-boundary') {
+    // ۱. بررسی اینکه آیا حوزه انتخابی جزو GIS یا کارتوگرافی است یا خیر
+    const isGisOrDrafting = ['gis', 'drafting'].includes(store.formData.category)
+
+    // ۴. بررسی نوع منطقه (برای همه حالت‌ها اجباری است)
+    const isTerrainValid = store.formData.terrainTypes?.length > 0
+
+    // اگر کاربر GIS یا ترسیم و کارتوگرافی انتخاب کرده باشد، فقط انتخاب نوع منطقه کافیست
+    if (isGisOrDrafting) {
+      return isTerrainValid
+    }
+
+    // ۲. بررسی انتخاب نوع پروژه (طولی یا مساحتی) برای سایر حوزه‌ها
+    if (!store.formData.mappingType) return false
+
+    // ۳. بررسی شرط‌های ترسیم نقشه یا آپلود فایل
+    const hasValidMap =
+      store.formData.mappingType === 'area'
+        ? store.formData.polygonCoordinates?.length >= 3 // برای مساحتی حداقل ۳ نقطه
+        : store.formData.polygonCoordinates?.length >= 2 // برای کریدور حداقل ۲ نقطه
+
+    const hasUploadedFile = store.uploadedFiles?.length > 0
+    const isMapOrUploadValid = hasValidMap || hasUploadedFile
+
+    // ۵. بررسی فیلد طولی (اگر کریدور انتخاب شده، باید طول وارد شده باشد)
+    const isCorridorValid =
+      store.formData.mappingType === 'area' ? true : store.formData.corridorLength > 0
+
+    return isMapOrUploadValid && isCorridorValid && isTerrainValid
+  }
+
+  if (type === 'technical-specs') {
+    return true
+  }
+
+  if (type === 'timing-budget') {
+    // بررسی زمان تحویل: اگر مقدار انتخاب شده و اگر حالت custom است، باید اینپوت خالی نباشد
+    const time = store.formData.deliveryTime
+    if (!time) return false
+
+    const staticOptions = ['urgent', '3-days', '1-week', '2-weeks']
+    if (staticOptions.includes(time)) return true
+
+    // اگر مقدار سفارشی است، باید مطمئن شویم متن شامل عدد معتبر است
+    const match = time.match(/\d+/)
+    return match ? Number(match[0]) > 0 : false
+  }
+
+  return true
+})
+
+// تابعی برای ریست کردن کل فرم (مخصوص دکمه ثبت پروژه جدید)
+const handleResetForm = () => {
+  store.resetForm() // اگر پینیا متد ریست دارد، در غیر این صورت فیلدها را دستی خالی کن
+  currentStep.value = 0
+  isSubmitted.value = false
+}
+// تابعی برای ریست کردن کل فرم و رفتن به داشبورد
+const goToDashboard = () => {
+  handleResetForm()
+  router.push('/dashboard')
+}
+
+const goToStep = (targetIndex: number) => {
+  if (isSubmitted.value) return // اگر فرم ثبت شده، کلیک روی هدر قفل شود
+  if (targetIndex === currentStep.value) return
+  if (targetIndex < currentStep.value) {
+    currentStep.value = targetIndex
+    return
+  }
+  if (targetIndex > currentStep.value) {
+    if (!isStepValid.value) {
+      toast.error('لطفاً ابتدا اطلاعات مرحله فعلی را به طور کامل و صحیح وارد کنید.')
+      return
+    }
+    if (targetIndex > currentStep.value + 1) {
+      toast.warning('شما نمی‌توانید مراحل را جا بیندازید. لطفاً گام به گام جلو بروید.')
+      return
+    }
+    currentStep.value = targetIndex
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
+
+const nextStep = () => {
+  if (!isStepValid.value) return
+  if (currentStep.value < steps.length - 1) {
+    currentStep.value++
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  } else {
+    submitProject()
+  }
+}
+
+const previousStep = () => {
+  if (currentStep.value > 0) currentStep.value--
+}
+
+const submitProject = async () => {
+  const payload = {
+    ...store.formData,
+    filesCount: store.uploadedFiles.length,
+  }
+  console.log('PROJECT PAYLOAD', payload)
+
+  // تغییر وضعیت به ثبت نهایی و نمایش کامپوننت موفقیت
+  isSubmitted.value = true
+  toast.success('پروژه شما با موفقیت ثبت شد!')
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+</script>
+
+<template>
+  <main class="bg-gray-50 min-h-screen py-8 px-4">
+    <div class="max-w-5xl mx-auto">
+      <div v-if="!isSubmitted" class="mb-8" style="direction: rtl">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+          <h1 class="text-lg md:text-xl font-black text-gray-800 text-right">
+            ثبت پروژه نقشه‌برداری
+          </h1>
+
+          <div
+            class="flex items-center justify-between md:justify-end md:gap-6 w-full md:w-auto border-t md:border-t-0 pt-3 md:pt-0 border-gray-100"
+          >
+            <button
+              @click="goToDashboard"
+              class="text-xs font-medium text-gray-500 hover:text-red-600 flex items-center gap-1.5 transition-colors bg-gray-100 hover:bg-red-50 px-2.5 py-1.5 rounded-lg md:bg-transparent md:p-0"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke="currentColor"
+                class="w-4 h-4"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
+                />
+              </svg>
+              <span>خروج و بازگشت</span>
+            </button>
+
+            <span
+              class="text-xs font-bold text-gray-400 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-100 md:border-0 md:bg-transparent md:p-0"
+            >
+              مرحله {{ currentStep + 1 }} از {{ steps.length }}
+            </span>
+          </div>
+        </div>
+
+        <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div
+            class="h-full bg-[#008f55] transition-all duration-300"
+            :style="{ width: progress + '%' }"
+          />
+        </div>
+      </div>
+
+      <div v-if="!isSubmitted" class="grid grid-cols-5 gap-1 mb-6" style="direction: rtl">
+        <div
+          v-for="(step, index) in steps"
+          :key="step.id"
+          @click="goToStep(index)"
+          class="rounded-xl border items-center py-3 justify-center text-center transition-all cursor-pointer select-none"
+          :class="[
+            currentStep === index
+              ? 'border-[#008f55] bg-emerald-50'
+              : currentStep > index
+                ? 'border-emerald-200 bg-white'
+                : 'border-gray-200 bg-white',
+          ]"
+        >
+          <div
+            class="flex text-[8px] md:text-[13px] items-center justify-center font-semibold"
+            :class="currentStep >= index ? 'text-[#008f55]' : 'text-gray-400'"
+          >
+            {{ step.title }}
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white border border-gray-100 rounded-3xl shadow-sm p-8">
+        <div v-if="!isSubmitted">
+          <div class="mb-8 text-right" style="direction: rtl">
+            <h2 class="text-lg font-black text-gray-800">{{ currentStepData.question }}</h2>
+          </div>
+
+          <StepBasicInfo v-if="currentStepData.type === 'basic-info'" />
+          <StepMapBoundary v-if="currentStepData.type === 'map-boundary'" />
+          <StepTechnicalSpecs v-if="currentStepData.type === 'technical-specs'" />
+          <StepTimingBudget v-if="currentStepData.type === 'timing-budget'" />
+          <StepInvoice v-if="currentStepData.type === 'preview'" />
+
+          <!-- بخش دکمه‌ها - بهینه‌سازی شده برای موبایل و دسکتاپ -->
+          <div class="flex flex-col-reverse md:flex-row gap-3 mt-10" style="direction: rtl">
+            <!-- دکمه انصراف و بازگشت (در موبایل پایین‌تر قرار می‌گیرد) -->
+            <button
+              @click="goToDashboard"
+              type="button"
+              class="w-full md:w-auto px-6 py-3 rounded-xl border border-red-200 text-red-500 font-bold hover:bg-red-50 transition-all md:mr-auto text-center"
+            >
+              انصراف و بازگشت
+            </button>
+
+            <div class="flex flex-row gap-3 w-full md:w-auto">
+              <!-- دکمه مرحله قبل -->
+              <button
+                v-if="currentStep > 0"
+                @click="previousStep"
+                type="button"
+                class="flex-1 md:flex-none px-6 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all text-center"
+              >
+                مرحله قبل
+              </button>
+
+              <!-- دکمه ادامه / ثبت نهایی -->
+              <button
+                v-if="currentStep !== steps.length - 1"
+                @click="nextStep"
+                :disabled="!isStepValid"
+                type="button"
+                class="flex-1 md:flex-none md:min-w-[160px] py-3 px-6 rounded-xl font-bold transition-all text-center"
+                :class="
+                  isStepValid
+                    ? 'bg-[#008f55] text-white hover:bg-[#007646]'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                "
+              >
+                {{ currentStep === steps.length - 1 ? 'ثبت نهایی پروژه' : 'ادامه' }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <StepSuccess v-else :projectTitle="store.formData.title" @reset="handleResetForm" />
+      </div>
+    </div>
+
+  </main>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, watchEffect } from 'vue'
+import { useProjectStore } from '@/stores/project.store'
+
+const store = useProjectStore()
+
+// وضعیت باز یا بسته بودن منوی خروجی‌های پیشرفته (همچنان به صورت کشویی باقی بماند یا آن را هم باز کنید)
+const showAdvancedSettings = ref(false)
+
+// 🌟 تعیین خودکار روش اجرا بر اساس کتگوری انتخابی مرحله اول
+// تعیین خودکار روش اجرا و پاکسازی/مقداردهی اولیه آرایه‌ها
+watchEffect(() => {
+  const category = store.formData.category
+
+  if (category === 'gis' || category === 'drafting') {
+    store.formData.surveyMethod = 'gis'
+  } else if (category === 'drone') {
+    store.formData.surveyMethod = 'aerial'
+  } else if (category === 'mapping') {
+    store.formData.surveyMethod = 'ground'
+  } else {
+    store.formData.surveyMethod = ''
+  }
+
+  // تضمین اینکه هیچ‌کدام از آرایه‌ها undefined نشوند
+  const data = store.formData as any
+  if (!data.specificSurveys) data.specificSurveys = []
+  if (!data.requiredEquipment) data.requiredEquipment = []
+  if (!data.groundTechnicalSpecs) data.groundTechnicalSpecs = []
+  if (!data.aerialTechnicalSpecs) data.aerialTechnicalSpecs = []
+  if (!data.gisTechnicalSpecs) data.gisTechnicalSpecs = []
+  if (!data.outputFormats) data.outputFormats = []
+})
+const mapScales = [
+  { scale: '1/100', accuracy: '۲ سانتی‌متر' },
+  { scale: '1/200', accuracy: '۵ سانتی‌متر' },
+  { scale: '1/500', accuracy: '۱۰ سانتی‌متر' },
+  { scale: '1/1000', accuracy: '۲۰ سانتی‌متر' },
+  { scale: '1/2000', accuracy: '۴۰ سانتی‌متر' },
+  { scale: '1/5000', accuracy: '۱ متر' },
+]
+
+const outputFormatOptions = [
+  { id: 'dwg', label: 'فایل اتوکد (DWG)' },
+  { id: 'pdf', label: 'فایل PDF و نقشه چاپی' },
+  { id: 'report', label: 'گزارش محاسباتی و متنی' },
+]
+
+// گزینه‌های روش زمینی
+const groundSurveyOptions = [
+  'نقشه‌برداری ثبتی و کاداستر',
+  'نقشه‌برداری توپوگرافی',
+  'نقشه‌برداری مسیر',
+  'نقشه‌برداری کنترل و ترازیابی',
+  'نقشه‌برداری پروفیل',
+  'ایستگاه ماندگار',
+]
+
+const groundEquipmentOptions = [
+  'دوربین توتال استیشن',
+  'دستگاه GPS',
+  'سیستم Base و Rover',
+  'متر لیزری',
+  'لیزر اسکنر',
+]
+
+const groundTechnicalOptions = [
+  'ایستگاه ماندگار بتن سازمان نقشه‌برداری',
+  'ایستگاه ماندگار سنگ ریشه دار',
+  'ایستگاه ماندگار میخ و واشر',
+  'برداشت سامانه شمیم',
+  'منحنی میزان استاندارد سازمان نقشه‌برداری',
+  'برداشت عوارض خاص',
+  'نیاز به علامت برای نقاط برداشتی مسیر',
+  'منحنی میزان',
+  'توصیف عوارض (چاه، دکل، لبه جدول)',
+]
+
+const contourIntervalOptions = ['0.5', '1', '1.5', '2']
+
+// گزینه‌های روش هوایی
+const aerialSurveyOptions = [
+  'نقشه فتوگرامتری',
+  'نقشه توپوگرافی',
+  'نقشه سه بعدی',
+  'نقشه کاداستر و شهری',
+  'نقشه مسیر',
+  'نظارت هوشمند پروژه',
+]
+
+const aerialEquipmentOptions = [
+  'پهپاد با ماژول RTK',
+  'پهپاد ماتریس',
+  'پهپاد مویک ۳',
+  'پهپاد مویک ۲ پرو',
+  'پهپاد فانتوم ۴ پرو',
+]
+
+const aerialTechnicalOptions = [
+  'برداشت ایستگاه ماندگار بتن سازمان نقشه‌برداری',
+  'برداشت نقاط کنترل',
+  'برداشت عوارض خاص (پل، ساختمان، ...)',
+  'شناسنامه نقاط',
+  'پرواز مایل',
+  'پرواز با تراکم بالا برای مدل سازی',
+  'پرواز با تراکم بالا در نقاط روستایی و شهری',
+  'پرواز ترکیبی عمودی و مایل',
+]
+
+const gisTechnicalOptions = [
+  'ترسیم شبکه معابر',
+  'ترسیم فضای سبز',
+  'ترسیم عرصه و عیان',
+  'جانمایی پلاک ثبتی',
+  'تهیه نقشه برای شهرداری',
+  'تهیه نقشه برای سند',
+  'تعیین مساحت دقیق',
+  'تفکیک اراضی',
+  'تهیه نقشه برای دادگاه یا کارشناس رسمی',
+  'GIS Ready',
+]
+</script>
+
+<template>
+  <div class="space-y-6 text-right" style="direction: rtl">
+    <!-- راهنمای ساده برای کارفرما -->
+    <div class="p-4 bg-sky-50 rounded-2xl border border-sky-100 flex items-start gap-3">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="1.5"
+        stroke="currentColor"
+        class="w-5 h-5 text-sky-600 mt-0.5 shrink-0"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+        />
+      </svg>
+      <p class="text-xs text-sky-900 leading-relaxed">
+        مشخصات فنی و گزینه‌های زیر بر اساس نوع پروژه انتخابی شما به صورت هوشمند بارگذاری شده است.
+        می‌توانید جزئیات دلخواه را انتخاب کنید.
+      </p>
+    </div>
+
+    <!-- 🌟 ۱. اگر روش زمینی انتخاب شده باشد (حوزه Mapping) -->
+    <div
+      v-if="store.formData.surveyMethod === 'ground'"
+      class="space-y-5 p-5 bg-emerald-50/30 rounded-2xl border border-emerald-100"
+    >
+      <div class="flex items-center gap-2 pb-2 border-b border-emerald-100">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+        <h3 class="text-xs font-black text-emerald-900">تنظیمات تخصصی نقشه‌برداری زمینی</h3>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-gray-800 mb-2"
+          >نوع نقشه‌برداری زمینی (چند انتخابی)</label
+        >
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <label
+            v-for="item in groundSurveyOptions"
+            :key="item"
+            class="flex items-center gap-2.5 p-2.5 rounded-xl border border-gray-200 cursor-pointer hover:border-emerald-400 transition-all bg-white"
+            :class="{
+              'bg-emerald-50/40 border-emerald-600': (
+                store.formData as any
+              ).specificSurveys.includes(item),
+            }"
+          >
+            <input
+              type="checkbox"
+              :value="item"
+              v-model="(store.formData as any).specificSurveys"
+              class="accent-emerald-600 w-4 h-4"
+            />
+            <span class="text-xs font-medium text-gray-800">{{ item }}</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-gray-800 mb-2">تجهیزات مورد نیاز زمینی</label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <label
+            v-for="eq in groundEquipmentOptions"
+            :key="eq"
+            class="flex items-center gap-2.5 p-2.5 rounded-xl border border-gray-200 cursor-pointer hover:border-emerald-400 transition-all bg-white"
+            :class="{
+              'bg-emerald-50/40 border-emerald-600': store.formData.requiredEquipment.includes(eq),
+            }"
+          >
+            <input
+              type="checkbox"
+              :value="eq"
+              v-model="store.formData.requiredEquipment"
+              class="accent-emerald-600 w-4 h-4"
+            />
+            <span class="text-xs font-medium text-gray-800">{{ eq }}</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-emerald-900 mb-2"
+          >مشخصات فنی و انتظارات زمینی</label
+        >
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <label
+            v-for="spec in groundTechnicalOptions"
+            :key="spec"
+            class="flex items-center gap-2.5 p-2.5 rounded-xl border border-emerald-200 cursor-pointer hover:border-emerald-500 transition-all bg-white"
+            :class="{
+              'bg-emerald-100/60 border-emerald-600':
+                store.formData.groundTechnicalSpecs.includes(spec),
+            }"
+          >
+            <input
+              type="checkbox"
+              :value="spec"
+              v-model="store.formData.groundTechnicalSpecs"
+              class="accent-emerald-600 w-4 h-4"
+            />
+            <span class="text-xs font-medium text-emerald-950">{{ spec }}</span>
+          </label>
+        </div>
+
+        <div
+          v-if="store.formData.groundTechnicalSpecs.includes('منحنی میزان')"
+          class="mt-3 p-3 bg-emerald-50/80 rounded-xl border border-emerald-200"
+        >
+          <label class="block text-xs font-bold text-emerald-900 mb-2"
+            >انتخاب فاصله منحنی میزان (متر)</label
+          >
+          <div class="flex gap-2">
+            <button
+              type="button"
+              v-for="val in contourIntervalOptions"
+              :key="val"
+              @click="store.formData.contourInterval = val"
+              :class="[
+                'py-1.5 px-4 text-xs font-bold rounded-lg border transition-all',
+                store.formData.contourInterval === val
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow'
+                  : 'bg-white text-emerald-800 border-emerald-200 hover:border-emerald-400',
+              ]"
+            >
+              {{ val }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-gray-800 mb-1">توضیحات اختصاصی بخش زمینی</label>
+        <textarea
+          v-model="store.formData.groundDescription"
+          rows="2"
+          placeholder="نکات خاص یا شرایط محیطی مربوط به بخش زمینی..."
+          class="w-full p-3 text-xs border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 bg-white"
+        ></textarea>
+      </div>
+    </div>
+
+    <!-- 🌟 ۲. اگر روش هوایی انتخاب شده باشد (حوزه Drone) -->
+    <div
+      v-if="store.formData.surveyMethod === 'aerial'"
+      class="space-y-5 p-5 bg-indigo-50/30 rounded-2xl border border-indigo-100"
+    >
+      <div class="flex items-center gap-2 pb-2 border-b border-indigo-100">
+        <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+        <h3 class="text-xs font-black text-indigo-900">
+          تنظیمات تخصصی نقشه‌برداری هوایی و فتوگرامتری
+        </h3>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-gray-800 mb-2"
+          >نوع نقشه‌برداری هوایی (چند انتخابی)</label
+        >
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <label
+            v-for="item in aerialSurveyOptions"
+            :key="item"
+            class="flex items-center gap-2.5 p-2.5 rounded-xl border border-gray-200 cursor-pointer hover:border-indigo-400 transition-all bg-white"
+            :class="{
+              'bg-indigo-50/40 border-indigo-600': (store.formData as any).specificSurveys.includes(
+                item,
+              ),
+            }"
+          >
+            <input
+              type="checkbox"
+              :value="item"
+              v-model="(store.formData as any).specificSurveys"
+              class="accent-indigo-600 w-4 h-4"
+            />
+            <span class="text-xs font-medium text-gray-800">{{ item }}</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-gray-800 mb-2">تجهیزات مورد نیاز هوایی</label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <label
+            v-for="eq in aerialEquipmentOptions"
+            :key="eq"
+            class="flex items-center gap-2.5 p-2.5 rounded-xl border border-gray-200 cursor-pointer hover:border-indigo-400 transition-all bg-white"
+            :class="{
+              'bg-indigo-50/40 border-indigo-600': store.formData.requiredEquipment.includes(eq),
+            }"
+          >
+            <input
+              type="checkbox"
+              :value="eq"
+              v-model="store.formData.requiredEquipment"
+              class="accent-indigo-600 w-4 h-4"
+            />
+            <span class="text-xs font-medium text-gray-800">{{ eq }}</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-gray-800 mb-1"
+          >نوع پوشش یا دقت پرواز هوایی</label
+        >
+        <input
+          type="text"
+          v-model="store.formData.aerialScaleOption"
+          placeholder="مثلاً GSD معادل ۳ سانتیمتر بر پیکسل"
+          class="w-full p-2.5 text-xs border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 bg-white"
+        />
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-indigo-900 mb-2"
+          >مشخصات فنی خروجی‌ها و پرواز هوایی</label
+        >
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <label
+            v-for="spec in aerialTechnicalOptions"
+            :key="spec"
+            class="flex items-center gap-2.5 p-2.5 rounded-xl border border-indigo-200 cursor-pointer hover:border-indigo-500 transition-all bg-white"
+            :class="{
+              'bg-indigo-100/60 border-indigo-600':
+                store.formData.aerialTechnicalSpecs.includes(spec),
+            }"
+          >
+            <input
+              type="checkbox"
+              :value="spec"
+              v-model="store.formData.aerialTechnicalSpecs"
+              class="accent-indigo-600 w-4 h-4"
+            />
+            <span class="text-xs font-medium text-indigo-950">{{ spec }}</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-gray-800 mb-1">توضیحات اختصاصی بخش هوایی</label>
+        <textarea
+          v-model="store.formData.aerialDescription"
+          rows="2"
+          placeholder="محدودیت‌های پروازی، موانع هوایی یا شرایط منطقه..."
+          class="w-full p-3 text-xs border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 bg-white"
+        ></textarea>
+      </div>
+    </div>
+
+    <!-- 🌟 ۳. اگر روش GIS انتخاب شده باشد (حوزه GIS یا Drafting) -->
+    <div
+      v-if="store.formData.surveyMethod === 'gis'"
+      class="space-y-5 p-5 bg-amber-50/30 rounded-2xl border border-amber-100"
+    >
+      <div class="flex items-center gap-2 pb-2 border-b border-amber-100">
+        <span class="w-2.5 h-2.5 rounded-full bg-amber-600"></span>
+        <h3 class="text-xs font-black text-amber-900">تنظیمات تخصصی سیستم اطلاعات مکانی (GIS)</h3>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-amber-900 mb-2">نوع خدمات و تحلیل‌های GIS</label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <label
+            v-for="spec in gisTechnicalOptions"
+            :key="spec"
+            class="flex items-center gap-2.5 p-2.5 rounded-xl border border-amber-200 cursor-pointer hover:border-amber-500 transition-all bg-white"
+            :class="{
+              'bg-amber-100/60 border-amber-600': store.formData.gisTechnicalSpecs.includes(spec),
+            }"
+          >
+            <input
+              type="checkbox"
+              :value="spec"
+              v-model="store.formData.gisTechnicalSpecs"
+              class="accent-amber-600 w-4 h-4"
+            />
+            <span class="text-xs font-medium text-amber-950">{{ spec }}</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-gray-800 mb-1">توضیحات اختصاصی پروژه GIS</label>
+        <textarea
+          v-model="store.formData.gisDescription"
+          rows="2"
+          placeholder="فرمت لایه‌های ورودی، سیستم مختصات مرجع یا ساختار پایگاه داده..."
+          class="w-full p-3 text-xs border border-gray-200 rounded-xl focus:outline-none focus:border-amber-500 bg-white"
+        ></textarea>
+      </div>
+    </div>
+
+    <!-- بخش مقیاس نقشه و خطای مجاز (برای زمینی و هوایی) -->
+    <div
+      v-if="store.formData.category === 'mapping' || store.formData.category === 'drone'"
+      class="p-5 bg-emerald-50/50 rounded-2xl border border-emerald-100"
+    >
+      <label class="block text-xs font-bold text-emerald-900 mb-1">مقیاس نقشه مورد نیاز</label>
+      <p class="text-[11px] text-emerald-700 mb-3">
+        با انتخاب مقیاس، خطای مجاز به صورت خودکار پیشنهاد می‌شود. (اختیاری)
+      </p>
+
+      <div class="grid grid-cols-3 md:grid-cols-6 gap-2 mb-3">
+        <button
+          type="button"
+          v-for="item in mapScales"
+          :key="item.scale"
+          @click="store.setMapScale(item.scale)"
+          :class="[
+            'py-2.5 px-2 text-xs font-bold rounded-xl border transition-all',
+            store.formData.mapScale === item.scale
+              ? 'bg-[#008f55] text-white border-[#008f55] shadow-md'
+              : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-400',
+          ]"
+        >
+          {{ item.scale }}
+        </button>
+      </div>
+
+      <div
+        v-if="store.formData.requiredAccuracy"
+        class="flex items-center gap-2 pt-2 text-xs text-gray-600 border-t border-emerald-200/60"
+      >
+        <span>خطای مجاز محاسبه شده:</span>
+        <span class="bg-emerald-600 text-white font-bold px-2.5 py-1 rounded-lg">
+          ± {{ store.formData.requiredAccuracy }}
+        </span>
+      </div>
+    </div>
+
+    <hr class="border-gray-100 my-4" />
+
+    <!-- بخش تنظیمات خروجی‌ها (اختیاری) -->
+    <div class="border border-gray-200 rounded-2xl overflow-hidden bg-gray-50/50">
+      <button
+        type="button"
+        @click="showAdvancedSettings = !showAdvancedSettings"
+        class="w-full p-4 flex items-center justify-between text-right font-bold text-xs text-gray-700 hover:bg-gray-100/80 transition-colors"
+      >
+        <div class="flex items-center gap-2">
+          <span class="text-[#008f55] bg-emerald-100 px-2 py-0.5 rounded text-[10px]">اختیاری</span>
+          <span>فرمت‌های خروجی مورد انتظار پروژه</span>
+        </div>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class="w-4 h-4 text-gray-500 transition-transform duration-300"
+          :class="{ 'rotate-180': showAdvancedSettings }"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
+      </button>
+
+      <div v-if="showAdvancedSettings" class="p-4 pt-0 space-y-5 border-t border-gray-200 bg-white">
+        <div class="pt-4">
+          <label class="block text-xs font-bold text-gray-800 mb-2"
+            >چه خروجی‌هایی از پروژه نیاز دارید؟</label
+          >
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <label
+              v-for="format in outputFormatOptions"
+              :key="format.id"
+              class="flex items-center gap-2.5 p-3 rounded-xl border border-gray-200 cursor-pointer hover:border-[#008f55] transition-all bg-white"
+              :class="{
+                'bg-emerald-50/40 border-[#008f55]': store.formData.outputFormats.includes(
+                  format.id,
+                ),
+              }"
+            >
+              <input
+                type="checkbox"
+                :value="format.id"
+                v-model="store.formData.outputFormats"
+                class="accent-[#008f55] w-4 h-4"
+              />
+              <span class="text-xs font-medium text-gray-800">{{ format.label }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</template>
+
+خواسته من اینکه کد های کامپوننت setpTechnicalSpecs.vue بازنویسی بشه طوری که من میخواهم بازنویسی بشه
+من ازت میخواهم قسمتی که نوشته چه خروجی از پروژه نیاز دارید باید بر اساس کتگوری که کارفرما تعیین کرده از بین سه حالت خروجی یکی رو که با کتگوری متناسب هست نشون بده

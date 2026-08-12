@@ -236,7 +236,7 @@ export const deleteFileByAdmin = async (req: Request, res: Response) => {
     const { type, id } = req.params;
     const numId = Number(id);
 
-    if (!["avatar", "attachment"].includes(type) || isNaN(numId)) {
+    if (!["avatar", "attachment"].includes(type as string) || isNaN(numId)) {
       return res
         .status(400)
         .json({ success: false, message: "پارامترهای نامعتبر" });

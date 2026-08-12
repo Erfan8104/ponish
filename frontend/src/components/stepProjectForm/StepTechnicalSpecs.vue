@@ -40,11 +40,57 @@ const mapScales = [
   { scale: '1/5000', accuracy: '۱ متر' },
 ]
 
-const outputFormatOptions = [
-  { id: 'dwg', label: 'فایل اتوکد (DWG)' },
-  { id: 'pdf', label: 'فایل PDF و نقشه چاپی' },
-  { id: 'report', label: 'گزارش محاسباتی و متنی' },
+// 🌟 خروجی‌های مخصوص نقشه‌برداری زمینی (Ground)
+const groundOutputOptions = [
+  { id: 'ground_points_txt_csv_sdr', label: 'نقاط (TXT، CSV، SDR)' },
+  { id: 'ground_rinex_file', label: 'فایل Rinex' },
+  { id: 'ground_profile_maps', label: 'نقشه‌های پروفیل (طولی، عرضی)' },
+  { id: 'ground_descriptive_report', label: 'گزارش توصیفی و دفتری پروژه' },
 ]
+
+// 🌟 خروجی‌های مخصوص نقشه‌برداری هوایی (Aerial / Drone)
+const aerialOutputOptions = [
+  { id: 'aerial_orthophoto_ecw', label: 'ارتوفتوموزاییک (ECW)' },
+  { id: 'aerial_dense_point_cloud', label: 'ابر نقاط متراکم (Dense Point Cloud)' },
+  { id: 'aerial_dem_dsm', label: 'مدل‌های ارتفاعی (DEM/DSM)' },
+  { id: 'aerial_3d_mesh', label: 'مدل سه‌بعدی بافت‌دار (3D Textured Mesh - MX)' },
+  { id: 'aerial_technical_report', label: 'گزارش فنی از مراحل پروژه' },
+  { id: 'aerial_raw_points_txt_csv', label: 'فایل خام نقاط (TXT، CSV)' },
+  { id: 'aerial_raw_photos_jpg', label: 'عکس‌های خام (JPG)' },
+]
+
+// 🌟 خروجی‌های مخصوص GIS و ترسیم
+const gisOutputOptions = [
+  { id: 'gis_feature_extraction', label: 'گویاسازی و استخراج عوارض' },
+  { id: 'gis_topography_map', label: 'نقشه توپوگرافی' },
+  { id: 'gis_building_plan_map', label: 'نقشه پلان ساختمان' },
+  { id: 'gis_route_map', label: 'نقشه مسیر' },
+  { id: 'gis_cadastral_plan', label: 'پلان ثبتی' },
+  { id: 'gis_study_map', label: 'نقشه مطالعاتی' },
+  { id: 'gis_boundary_easement_map', label: 'نقشه محدوده و حریم' },
+  { id: 'gis_land_use_map', label: 'نقشه اراضی و کاربری زمین' },
+  { id: 'gis_urban_facilities_map', label: 'نقشه تاسیسات شهری' },
+  { id: 'gis_elevation_contour_map', label: 'نقشه ارتفاعی/منحنی میزان' },
+  { id: 'gis_zoning_blocking_map', label: 'بلوک‌بندی، منطقه‌بندی، حوضه‌بندی' },
+  { id: 'gis_parcel_building_map', label: 'نقشه عرصه و اعیان' },
+  { id: 'gis_utilities_map', label: 'نقشه عوارض شامل منهول، آب، برق، گاز' },
+  { id: 'gis_green_space_map', label: 'نقشه فضای سبز و درختان' },
+  { id: 'gis_road_network_map', label: 'نقشه شبکه معابر' },
+]
+
+// 🌟 انتخاب خودکار لیست خروجی متناسب با روش/کتگوری انتخاب‌شده
+const outputFormatOptions = computed(() => {
+  switch (store.formData.surveyMethod) {
+    case 'ground':
+      return groundOutputOptions
+    case 'aerial':
+      return aerialOutputOptions
+    case 'gis':
+      return gisOutputOptions
+    default:
+      return []
+  }
+})
 
 // گزینه‌های روش زمینی
 const groundSurveyOptions = [
@@ -484,7 +530,12 @@ const gisTechnicalOptions = [
           <label class="block text-xs font-bold text-gray-800 mb-2"
             >چه خروجی‌هایی از پروژه نیاز دارید؟</label
           >
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+
+          <p v-if="outputFormatOptions.length === 0" class="text-[11px] text-gray-500">
+            ابتدا کتگوری پروژه را در مرحله اول انتخاب کنید تا خروجی‌های متناسب نمایش داده شود.
+          </p>
+
+          <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-3">
             <label
               v-for="format in outputFormatOptions"
               :key="format.id"

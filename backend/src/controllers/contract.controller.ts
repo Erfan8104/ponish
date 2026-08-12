@@ -153,7 +153,7 @@ export const contractController = {
               id: amendment.contractId,
             },
             data: {
-              totalAmount: amendment.proposed_amount,
+              totalAmount: amendment.proposed_amount as any,
               status: "completed",
               completedAt: new Date(),
             },

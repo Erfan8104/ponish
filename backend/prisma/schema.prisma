@@ -154,7 +154,7 @@ model User {
   activityLogs          ActivityLog[]      @relation("AdminActivityLogs")
   otps                  OTP[]
   reportsCreated        Report[] @relation("ReportsCreated")
-  reportsResolvedc      Report[] @relation("ReportsResolved")
+  reportsResolved       Report[] @relation("ReportsResolved")
   // 🌟 روابط جدید برای سیستم Permission
   adminRoles            UserAdminRole[]
 
