@@ -355,3 +355,31 @@ export const bulkDeleteUsersApi = async (ids: number[]) => {
   const response = await api.delete('/admin/users/bulk', { data: { ids } })
   return response.data
 }
+
+export const getAllConsultationsApi = async (
+  params: {
+    search?: string
+    status?: string
+    projectType?: string
+    page?: number
+    limit?: number
+  } = {},
+) => {
+  const response = await api.get('/admin/consultations', { params })
+  return response.data
+}
+
+export const getConsultationDetailApi = async (id: number) => {
+  const response = await api.get(`/admin/consultations/${id}`)
+  return response.data
+}
+
+export const updateConsultationStatusApi = async (id: number, data: { status?: string }) => {
+  const response = await api.patch(`/admin/consultations/${id}`, data)
+  return response.data
+}
+
+export const deleteConsultationApi = async (id: number) => {
+  const response = await api.delete(`/admin/consultations/${id}`)
+  return response.data
+}

@@ -22,7 +22,9 @@ const statusMap: Record<string, { label: string; class: string }> = {
   in_progress: { label: 'در حال انجام', class: 'bg-amber-50 text-amber-700 border-amber-200' },
   completed: { label: 'تکمیل‌شده', class: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   cancelled: { label: 'لغوشده', class: 'bg-red-50 text-red-600 border-red-200' },
+
   disputed: { label: 'اختلاف', class: 'bg-orange-50 text-orange-700 border-orange-200' },
+  contacted: { label: 'در حال تماس', class: 'bg-blue-50 text-blue-700 border-blue-200' },
 
   // پیشنهاد / قرارداد / پرداخت
   pending: { label: 'در انتظار', class: 'bg-amber-50 text-amber-700 border-amber-200' },

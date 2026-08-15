@@ -14,7 +14,10 @@ export const api = axios.create({
   },
 })
 
-// ارسال توکن در درخواست‌ها
+// جلوگیری از چندین بار ریدایرکت
+let isRedirecting = false
+
+// Request Interceptor
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token')
@@ -26,28 +29,32 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 )
 
-// مدیریت پاسخ‌ها و خطاهای سرور (Response Interceptor)
+// Response Interceptor
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      // ۱. پاک کردن توکن منقضی شده
+    if (error.response?.status === 401 && !isRedirecting) {
+      isRedirecting = true
+
+      // پاک کردن همه اطلاعات احراز هویت
       localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      localStorage.removeItem('refreshToken')
 
-      // ۲. بررسی اینکه آیا کاربر در بخش ادمین است یا پنل عادی
-      const isAdminRoute = window.location.pathname.startsWith('/admin')
+      const currentPath = window.location.pathname
+      const isAdminRoute = currentPath.startsWith('/admin')
 
-      // ۳. هدایت به صفحه ورود متناسب با مسیر فعلی
-      if (isAdminRoute) {
-        if (!window.location.pathname.includes('/admin/login')) {
-          window.location.href = '/admin/login'
-        }
+      // فقط وقتی در صفحه لاگین نیستیم ریدایرکت کن
+      if (isAdminRoute && !currentPath.includes('/admin/login')) {
+        window.location.href = '/admin/login'
+      } else if (!isAdminRoute && !currentPath.includes('/login')) {
+        window.location.href = '/login'
       } else {
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login'
-        }
+        // اگر همین الان در صفحه لاگین هستیم، فلگ رو ریست کن
+        isRedirecting = false
       }
     }
+
     return Promise.reject(error)
   },
 )

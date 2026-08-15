@@ -8,6 +8,10 @@ import {
   adminLogin,
   getAllUsersForAdmin,
   getUserDetail,
+  getAllConsultationsForAdmin,
+  getConsultationDetailForAdmin,
+  updateConsultationByAdmin,
+  deleteConsultationByAdmin,
   toggleUserStatus,
   verifyUser,
   deleteUser,
@@ -451,4 +455,33 @@ router.delete(
 );
 
 router.get("/search", authMiddleware, adminMiddleware, globalSearchForAdmin);
+
+router.get(
+  "/consultations",
+  authMiddleware,
+  requirePermission("consultations.view"),
+  getAllConsultationsForAdmin,
+);
+
+router.get(
+  "/consultations/:id",
+  authMiddleware,
+  requirePermission("consultations.view"),
+  getConsultationDetailForAdmin,
+);
+
+router.patch(
+  "/consultations/:id",
+  authMiddleware,
+  requirePermission("consultations.update"),
+  updateConsultationByAdmin,
+);
+
+router.delete(
+  "/consultations/:id",
+  authMiddleware,
+  requirePermission("consultations.delete"),
+  deleteConsultationByAdmin,
+);
+
 export default router;

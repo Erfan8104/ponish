@@ -3624,3 +3624,222 @@ export const bulkDeleteUsersForAdmin = async (req: Request, res: Response) => {
       .json({ success: false, message: "خطا در حذف گروهی کاربران" });
   }
 };
+
+/**
+ * =====================================================================
+ * PATCH — این توابع را در انتهای فایل backend/src/controllers/admin.controller.ts
+ * اضافه کنید (import های لازم یعنی prisma، logAdminActivity، getAdminId
+ * از قبل در بالای همان فایل موجود هستند و نیازی به import مجدد نیست).
+ * الگو دقیقاً مطابق بخش «مدیریت گزارش‌ها» (Report) در همین فایل است.
+ * =====================================================================
+ */
+
+// ==============================
+// مدیریت درخواست‌های مشاوره
+// ==============================
+
+const ALLOWED_CONSULTATION_STATUSES = [
+  "pending",
+  "contacted",
+  "completed",
+  "cancelled",
+];
+
+export const getAllConsultationsForAdmin = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const {
+      search = "",
+      status,
+      projectType,
+      page = "1",
+      limit = "10",
+    } = req.query as Record<string, string>;
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 10);
+
+    const where: any = {};
+
+    if (status) where.status = status;
+    if (projectType) where.projectType = projectType;
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { phone: { contains: search } },
+        { email: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const [consultations, total, statusCounts] = await Promise.all([
+      prisma.consultationRequest.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (pageNum - 1) * limitNum,
+        take: limitNum,
+      }),
+      prisma.consultationRequest.count({ where }),
+      prisma.consultationRequest.groupBy({
+        by: ["status"],
+        _count: { status: true },
+      }),
+    ]);
+
+    const stats = {
+      pending: 0,
+      contacted: 0,
+      completed: 0,
+      cancelled: 0,
+    };
+    statusCounts.forEach((item) => {
+      stats[item.status as keyof typeof stats] = item._count.status;
+    });
+
+    return res.json({
+      success: true,
+      consultations,
+      stats,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum) || 1,
+      },
+    });
+  } catch (error) {
+    console.error("Get All Consultations Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "خطا در دریافت لیست درخواست‌های مشاوره",
+    });
+  }
+};
+
+export const getConsultationDetailForAdmin = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const id = Number(req.params.id);
+
+    const consultation = await prisma.consultationRequest.findUnique({
+      where: { id },
+    });
+
+    if (!consultation) {
+      return res
+        .status(404)
+        .json({ success: false, message: "درخواست مشاوره یافت نشد" });
+    }
+
+    return res.json({ success: true, consultation });
+  } catch (error) {
+    console.error("Get Consultation Detail Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "خطا در دریافت جزئیات درخواست مشاوره",
+    });
+  }
+};
+
+export const updateConsultationByAdmin = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const id = Number(req.params.id);
+    const { status } = req.body as { status?: string };
+
+    if (status && !ALLOWED_CONSULTATION_STATUSES.includes(status)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "وضعیت نامعتبر است" });
+    }
+
+    const existing = await prisma.consultationRequest.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ success: false, message: "درخواست مشاوره یافت نشد" });
+    }
+
+    const consultation = await prisma.consultationRequest.update({
+      where: { id },
+      data: status ? { status: status as any } : {},
+    });
+
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "consultation.update",
+        targetType: "consultation",
+        targetId: id,
+        description: `ادمین وضعیت درخواست مشاوره «${existing.name}» (#${id}) را به «${status || existing.status}» تغییر داد`,
+        metadata: { newStatus: status },
+        req,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "درخواست مشاوره به‌روزرسانی شد",
+      consultation,
+    });
+  } catch (error) {
+    console.error("Update Consultation Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "خطا در به‌روزرسانی درخواست مشاوره",
+    });
+  }
+};
+
+export const deleteConsultationByAdmin = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const id = Number(req.params.id);
+
+    const consultation = await prisma.consultationRequest.findUnique({
+      where: { id },
+    });
+
+    if (!consultation) {
+      return res
+        .status(404)
+        .json({ success: false, message: "درخواست مشاوره یافت نشد" });
+    }
+
+    await prisma.consultationRequest.delete({ where: { id } });
+
+    // لاگ
+    const adminId = getAdminId(req);
+    if (adminId) {
+      await logAdminActivity({
+        adminId,
+        action: "consultation.delete",
+        targetType: "consultation",
+        targetId: id,
+        description: `ادمین درخواست مشاوره «${consultation.name}» (#${id}) را حذف کرد`,
+        req,
+      });
+    }
+
+    return res.json({ success: true, message: "درخواست مشاوره حذف شد" });
+  } catch (error) {
+    console.error("Delete Consultation Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "خطا در حذف درخواست مشاوره",
+    });
+  }
+};

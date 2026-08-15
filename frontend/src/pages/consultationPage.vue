@@ -15,6 +15,7 @@ import {
   HelpCircle,
 } from 'lucide-vue-next'
 import geokarMark from '@/assets/logo/geokar-logo-mark.svg'
+import { consultationService } from '@/services/consultation.service'
 
 type ProjectType = 'ground' | 'aerial' | 'gis' | 'unknown'
 type ContactTime = 'morning' | 'noon' | 'evening'
@@ -67,11 +68,16 @@ const submit = async () => {
   if (!validate()) return
 
   try {
-    isLoading.value = true
+    await consultationService.createConsultation({
+      name: form.value.name.trim(),
+      phone: form.value.phone.trim(),
+      email: form.value.email.trim() || undefined,
+      projectType: form.value.projectType as 'ground' | 'aerial' | 'gis' | 'unknown',
+      description: form.value.description.trim(),
+      contactTime: form.value.contactTime || undefined,
+    })
 
-    // TODO: این بخش را به سرویس واقعی وصل کن، مثلا:
-    // await requestConsultationApi(form.value)
-    await new Promise((resolve) => setTimeout(resolve, 900))
+    isSubmitted.value = true
 
     isSubmitted.value = true
   } catch (err: any) {

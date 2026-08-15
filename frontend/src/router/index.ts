@@ -37,6 +37,7 @@ import AdminActivityLogPage from '@/pages/AdminActivityLogPage.vue'
 import AdminSettingPage from '@/pages/AdminSettingPage.vue'
 import AdminNotificationPage from '../pages/AdminNotificationPage.vue'
 import AdminAnalyticsPage from '../pages/AdminAnalyticsPage.vue'
+import AdminConsultationPage from '../pages/AdminConsultationPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -102,6 +103,11 @@ const router = createRouter({
           path: 'analytics',
           component: AdminAnalyticsPage,
           meta: { permission: 'reports.view' },
+        },
+        {
+          path: 'consultations',
+          component: AdminConsultationPage,
+          meta: { permission: 'consultations.view' },
         },
 
         {
@@ -222,11 +228,6 @@ router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   const adminStore = useAdminStore()
 
-  // همیشه هدر ادمین را ست کن اگر توکن دارد
-  if (adminStore.token) {
-    adminStore.setAuthHeader()
-  }
-
   const isAdminRoute = to.path.startsWith('/admin')
   const isAdminLoginPage = to.path === '/admin/login'
 
@@ -234,6 +235,7 @@ router.beforeEach((to, from, next) => {
   if (isAdminRoute) {
     // صفحه لاگین ادمین
     if (isAdminLoginPage) {
+      // اگر توکن معتبر داریم، برو داشبورد
       if (adminStore.token) {
         return next('/admin/dashboard')
       }
@@ -242,13 +244,16 @@ router.beforeEach((to, from, next) => {
 
     // بقیه مسیرهای /admin/*
     if (!adminStore.token) {
+      // توکن وجود نداره → برو لاگین
       return next('/admin/login')
     }
 
-    // چک دسترسی خاص (اگر meta.permission تعریف شده باشد)
+    // توکن وجود داره → هدر رو ست کن
+    adminStore.setAuthHeader()
+
+    // چک دسترسی خاص
     const requiredPermission = to.meta.permission as string | undefined
     if (requiredPermission && !adminStore.hasPermission(requiredPermission)) {
-      // می‌توانی به صفحه 403 بفرستی یا به داشبورد
       return next('/admin/dashboard')
     }
 
@@ -266,5 +271,4 @@ router.beforeEach((to, from, next) => {
 
   return next()
 })
-
 export default router

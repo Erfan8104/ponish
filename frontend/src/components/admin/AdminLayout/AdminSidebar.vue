@@ -23,6 +23,7 @@ const menuItems: MenuItem[] = [
   { label: 'لاگ فعالیت‌ها', path: '/admin/activity-logs', icon: '📋' },
   { label: 'آنالیتیکس', path: '/admin/analytics', icon: '📈' },
   { label: 'اعلان‌ها', path: '/admin/notifications', icon: '🔔' },
+  { label: 'مشاوره‌ها', path: '/admin/consultations', icon: '📞' }, // ← این خط جدید
   { label: 'تنظیمات', path: '/admin/settings', icon: '⚙️' },
 ]
 </script>

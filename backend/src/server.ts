@@ -11,7 +11,7 @@ import projectRouter from "./routes/project.routes";
 import messageRoutes from "./routes/message.routes";
 import contractRoutes from "./routes/contract.routes";
 import adminRoutes from "./routes/admin.routes";
-
+import consultationRoutes from "./routes/consultaion.routes";
 dotenv.config();
 
 const app = express();
@@ -51,6 +51,8 @@ app.use("/api/projects", projectRouter);
 app.use("/api/messages", messageRoutes);
 app.use("/api/contracts", contractRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/consultations", consultationRoutes);
+
 // ==============================
 // Health Check
 // ==============================
