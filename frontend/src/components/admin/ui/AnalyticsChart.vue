@@ -109,7 +109,7 @@ function buildChart() {
   }
 
   if (chartInstance) {
-    chartInstance.config.type = props.type
+    ;(chartInstance.config as any).type = props.type
     chartInstance.data.labels = labels
     chartInstance.data.datasets = [dataset]
     chartInstance.options = options

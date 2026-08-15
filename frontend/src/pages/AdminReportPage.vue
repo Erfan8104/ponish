@@ -144,7 +144,7 @@ const rows = computed(() =>
 
       <!-- کارت‌های آماری -->
       <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <AdminStatCard title="در انتظار" :value="stats.pending" color="yellow" />
+        + <AdminStatCard title="در انتظار" :value="stats.pending" color="amber" />
         <AdminStatCard title="در حال بررسی" :value="stats.reviewing" color="blue" />
         <AdminStatCard title="رسیدگی‌شده" :value="stats.resolved" color="green" />
         <AdminStatCard title="رد شده" :value="stats.rejected" color="red" />

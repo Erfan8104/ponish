@@ -30,16 +30,7 @@ const router = useRouter()
 const toast = useToast()
 const roleStore = useRoleStore()
 const modalStore = useProfileModalStore()
-const isModalOpen = ref(false)
-const handleDelete = async () => {
-  try {
-    await authStore.removeAccount()
-    isModalOpen.value = false
-  } catch (error) {
-    console.log(error)
-    // خطا به صورت خودکار داخل استور نگهداری می‌شود
-  }
-}
+
 // تشخیص کارفرما بودن
 const isEmployee = computed<boolean>(() => {
   return roleStore.role === 'employer'

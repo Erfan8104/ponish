@@ -54,7 +54,7 @@ const colorMap: Record<string, ColorConfig> = {
   },
 }
 
-const colors = computed<ColorConfig>(() => {
+const colors = computed<ColorConfig | undefined>(() => {
   return colorMap[props.color] ?? colorMap.green
 })
 
@@ -92,7 +92,7 @@ const trendPositive = computed(() => (props.trend ?? 0) >= 0)
       <div
         v-if="icon || $slots.icon"
         class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-lg"
-        :class="colors.iconBg"
+        :class="colors?.iconBg"
       >
         <slot name="icon">
           {{ icon }}
