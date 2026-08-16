@@ -6,7 +6,6 @@ import { updateRoleApi } from '@/services/auth.service'
 import { useAuthStore } from '../../stores/auth.store.ts'
 import { useUiStore } from '../../stores/ui.store.ts'
 import {
-  Search,
   Laptop,
   MessageCircle,
   Briefcase,
@@ -14,6 +13,7 @@ import {
   X,
   Plus,
   LayoutDashboard,
+  HomeIcon,
 } from 'lucide-vue-next'
 import geokarMark from '@/assets/logo/geokar-logo-mark.svg'
 import ProfileModal from '../modal/ProfileModal.vue'
@@ -138,8 +138,16 @@ const switchRole = async (targetRole: 'employer' | 'freelancer' | 'both') => {
             <span>پنل کاربری</span>
           </RouterLink>
           <RouterLink
+            v-if="isLoggedIn"
+            to="/"
+            class="hover:text-white text-sm text-slate-300 transition flex items-center gap-2 whitespace-nowrap"
+          >
+            <HomeIcon :size="18" />
+            <span>صفحه اصلی</span>
+          </RouterLink>
+          <RouterLink
             v-else
-            to="/login"
+            to="/consultation"
             class="hover:text-white text-sm text-slate-300 transition whitespace-nowrap"
             >راهنما</RouterLink
           >
@@ -219,8 +227,17 @@ const switchRole = async (targetRole: 'employer' | 'freelancer' | 'both') => {
             <span>پنل کاربری</span>
           </RouterLink>
           <RouterLink
+            v-if="isLoggedIn"
+            to="/"
+            class="rounded-2xl px-4 py-3 text-sm text-slate-200 transition flex items-center gap-2 hover:bg-slate-900"
+            @click="isMobileMenuOpen = false"
+          >
+            <HomeIcon :size="18" />
+            <span>صفحه اصلی</span>
+          </RouterLink>
+          <RouterLink
             v-else
-            to="/login"
+            to="/consultation"
             class="rounded-2xl px-4 py-3 text-sm text-slate-200 transition hover:bg-slate-900"
             @click="isMobileMenuOpen = false"
           >
