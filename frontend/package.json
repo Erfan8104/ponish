@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@fontsource/vazirmatn": "^5.2.8",
+    "@geoman-io/leaflet-geoman-free": "^2.20.0",
     "@heroicons/vue": "^2.2.0",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/vue-table": "^8.21.3",
