@@ -38,6 +38,8 @@ export interface Project {
   mappingType: 'area' | 'corridor' | null
   calculatedArea: number // مساحت
   corridorLength: number // طول
+  corridorWidth: number // عرض کریدور
+
   coordinateSystem?: string
   utmZone?: string
   terrainTypes?: string[]

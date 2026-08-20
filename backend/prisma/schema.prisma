@@ -445,6 +445,8 @@ enum ConsultationStatus {
     city                  String?
     address               String?
     corridorLength        Float?
+    corridorWidth         Float?
+
     mappingType           String?
     calculatedArea        Float?
 

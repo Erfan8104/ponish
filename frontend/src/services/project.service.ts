@@ -28,6 +28,7 @@ export interface ProjectFormPayload {
   // اطلاعات نقشه‌برداری و کریدور
   mappingType?: 'area' | 'corridor' | null
   corridorLength?: number
+  corridorWidth?: number
   areaSelectionMethod?: string
   calculatedArea?: number
   coordinateSystem?: string
@@ -147,6 +148,9 @@ export const projectService = {
     }
     if (formDataRaw.corridorLength !== undefined && formDataRaw.corridorLength !== null) {
       data.append('corridorLength', String(formDataRaw.corridorLength))
+    }
+    if (formDataRaw.corridorWidth !== undefined && formDataRaw.corridorWidth !== null) {
+      data.append('corridorWidth', String(formDataRaw.corridorWidth))
     }
 
     if (formDataRaw.contourInterval) {

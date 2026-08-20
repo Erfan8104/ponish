@@ -5,12 +5,22 @@ export interface CreateProjectInput {
   province: string;
   city: string;
   address: string;
+
   areaSelectionMethod: string;
+
   polygonCoordinates: [number, number][];
+
   geoJson: any;
+
   calculatedArea: number;
+
+  corridorLength?: number;
+  corridorWidth?: number;
+
   coordinateSystem: string;
+
   utmZone: string;
+
   techType: string[];
   outputFormats: string[];
   requiredAccuracy: string;
@@ -18,5 +28,6 @@ export interface CreateProjectInput {
   budgetType: string;
   minBudget: string;
   maxBudget: string;
+
   terrainTypes?: string[];
 }

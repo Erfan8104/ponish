@@ -370,13 +370,26 @@ const downloadPdf = async () => {
                 >
                   نوع سنجش / ابعاد
                 </td>
+
                 <td style="border: 1px solid #cbd5e1; padding: 5px">
-                  {{
-                    project.mappingType === 'corridor'
-                      ? 'طول مسیر: ' + (project.corridorLength || 0) + ' کیلومتر'
-                      : 'مساحت کل: ' + (project.calculatedArea || 0) + ' هکتار'
-                  }}
+                  <template v-if="project.mappingType === 'corridor'">
+                    طول مسیر:
+                    {{ project.corridorLength ?? 'ثبت نشده' }}
+                    کیلومتر
+                    <br />
+
+                    عرض کریدور:
+                    {{ project.corridorWidth ?? 'ثبت نشده' }}
+                    متر
+                  </template>
+
+                  <template v-else>
+                    مساحت کل:
+                    {{ project.calculatedArea ?? 'ثبت نشده' }}
+                    هکتار
+                  </template>
                 </td>
+
                 <td
                   style="
                     border: 1px solid #cbd5e1;
@@ -387,6 +400,7 @@ const downloadPdf = async () => {
                 >
                   تیپ عوارض زمین (Terrain)
                 </td>
+
                 <td style="border: 1px solid #cbd5e1; padding: 5px">
                   {{ formatJsonList(project.terrainTypes) }}
                 </td>

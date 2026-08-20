@@ -142,6 +142,21 @@
             </div>
           </div>
 
+          <!-- عرض کریدور (فقط در حالت کریدور) -->
+          <div v-if="projectStore.formData.mappingType === 'corridor'">
+            <label class="block text-xs font-bold text-gray-700 mb-1 mr-1">عرض کریدور (متر)</label>
+            <input
+              v-model.number="projectStore.formData.corridorWidth"
+              type="number"
+              placeholder="مثال: 30"
+              :class="{ 'border-red-500': errors.corridorWidth }"
+              class="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+            <p v-if="errors.corridorWidth" class="text-red-500 text-xs mt-1 mr-1">
+              {{ errors.corridorWidth }}
+            </p>
+          </div>
+
           <input
             v-if="projectStore.formData.deliveryTime === 'custom-days'"
             v-model="customDays"
@@ -200,8 +215,12 @@ watch(
 watch(
   () => projectStore.formData.mappingType,
   (val) => {
-    if (val === 'area') projectStore.formData.corridorLength = 0
-    else projectStore.formData.calculatedArea = 0
+    if (val === 'area') {
+      projectStore.formData.corridorLength = 0
+      projectStore.formData.corridorWidth = 0
+    } else {
+      projectStore.formData.calculatedArea = 0
+    }
   },
 )
 
@@ -218,11 +237,13 @@ const validateForm = () => {
       !projectStore.formData.calculatedArea
     ) {
       errors.value.mapping = 'مساحت را وارد کنید'
-    } else if (
-      projectStore.formData.mappingType === 'corridor' &&
-      !projectStore.formData.corridorLength
-    ) {
-      errors.value.mapping = 'طول مسیر را وارد کنید'
+    } else if (projectStore.formData.mappingType === 'corridor') {
+      if (!projectStore.formData.corridorLength) {
+        errors.value.mapping = 'طول مسیر را وارد کنید'
+      }
+      if (!projectStore.formData.corridorWidth) {
+        errors.value.corridorWidth = 'عرض کریدور را وارد کنید'
+      }
     }
   }
   return Object.keys(errors.value).length === 0
@@ -240,6 +261,9 @@ const handleFastSubmit = async () => {
   // قبلاً فقط mapping چک می‌شد، حالا drone هم اضافه شد
   if (projectStore.formData.category !== 'mapping' && projectStore.formData.category !== 'drone') {
     projectStore.formData.mappingType = null
+  }
+  if (projectStore.formData.mappingType !== 'corridor') {
+    projectStore.formData.corridorWidth = 0
   }
   // --
 

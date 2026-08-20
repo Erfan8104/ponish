@@ -58,6 +58,17 @@ const preprocessMultipartData = (body: any) => {
     processed.corridorLength = undefined;
   }
 
+  // پردازش CorridorWidth
+  if (
+    processed.corridorWidth !== undefined &&
+    processed.corridorWidth !== "" &&
+    processed.corridorWidth !== "null" &&
+    !isNaN(Number(processed.corridorWidth))
+  ) {
+    processed.corridorWidth = Number(processed.corridorWidth);
+  } else {
+    processed.corridorWidth = undefined;
+  }
   if (typeof processed.techType === "string") {
     try {
       processed.techType = JSON.parse(processed.techType);
@@ -249,6 +260,7 @@ export const createProject = async (req: AuthRequest, res: Response) => {
           contourInterval: (data as any).contourInterval ?? null,
           calculatedArea: data.calculatedArea ?? null,
           corridorLength: data.corridorLength ?? null,
+          corridorWidth: data.corridorWidth ?? null,
           utmZone: data.utmZone ?? null,
           terrainTypes: data.terrainTypes ?? [],
           requiredAccuracy: data.requiredAccuracy ?? null,

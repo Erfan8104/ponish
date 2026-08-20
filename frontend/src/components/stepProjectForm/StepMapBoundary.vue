@@ -69,15 +69,39 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- 2. فیلد ورودی طول در صورت انتخاب کریدور -->
+      <<!-- 2. مشخصات کریدور -->
       <div v-if="store.formData.mappingType === 'corridor'" class="bg-gray-50 p-4 rounded-xl">
-        <label class="block text-xs font-bold text-gray-600 mb-2">طول مسیر پروژه (کیلومتر)</label>
-        <input
-          v-model="store.formData.corridorLength"
-          type="number"
-          placeholder="مثال: 5.5"
-          class="w-full bg-white border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#008f55]"
-        />
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- طول کریدور -->
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-2">
+              طول مسیر پروژه (کیلومتر)
+            </label>
+
+            <input
+              v-model.number="store.formData.corridorLength"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="مثال: 5.5"
+              class="w-full bg-white border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#008f55]"
+            />
+          </div>
+
+          <!-- عرض کریدور -->
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-2"> عرض کریدور (متر) </label>
+
+            <input
+              v-model.number="store.formData.corridorWidth"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="مثال: 50"
+              class="w-full bg-white border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#008f55]"
+            />
+          </div>
+        </div>
       </div>
 
       <!-- 3. انتخاب روش تعیین محدوده -->

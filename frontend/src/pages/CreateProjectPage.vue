@@ -71,36 +71,38 @@ const isStepValid = computed(() => {
   }
 
   if (type === 'map-boundary') {
-    // ۱. بررسی اینکه آیا حوزه انتخابی جزو GIS یا کارتوگرافی است یا خیر
+    // بررسی اینکه آیا حوزه انتخابی جزو GIS یا کارتوگرافی است یا خیر
     const isGisOrDrafting = ['gis', 'drafting'].includes(store.formData.category)
 
-    // ۴. بررسی نوع منطقه (برای همه حالت‌ها اجباری است)
+    // بررسی نوع منطقه
     const isTerrainValid = store.formData.terrainTypes?.length > 0
 
-    // اگر کاربر GIS یا ترسیم و کارتوگرافی انتخاب کرده باشد، فقط انتخاب نوع منطقه کافیست
+    // اگر GIS یا ترسیم و کارتوگرافی باشد، فقط نوع منطقه کافی است
     if (isGisOrDrafting) {
       return isTerrainValid
     }
 
-    // ۲. بررسی انتخاب نوع پروژه (طولی یا مساحتی) برای سایر حوزه‌ها
+    // بررسی انتخاب نوع پروژه
     if (!store.formData.mappingType) return false
 
-    // ۳. بررسی شرط‌های ترسیم نقشه یا آپلود فایل
+    // بررسی رسم نقشه یا آپلود فایل
     const hasValidMap =
       store.formData.mappingType === 'area'
-        ? store.formData.polygonCoordinates?.length >= 3 // برای مساحتی حداقل ۳ نقطه
-        : store.formData.polygonCoordinates?.length >= 2 // برای کریدور حداقل ۲ نقطه
+        ? store.formData.polygonCoordinates?.length >= 3
+        : store.formData.polygonCoordinates?.length >= 2
 
     const hasUploadedFile = store.uploadedFiles?.length > 0
+
     const isMapOrUploadValid = hasValidMap || hasUploadedFile
 
-    // ۵. بررسی فیلد طولی (اگر کریدور انتخاب شده، باید طول وارد شده باشد)
+    // بررسی طول و عرض کریدور
     const isCorridorValid =
-      store.formData.mappingType === 'area' ? true : store.formData.corridorLength > 0
+      store.formData.mappingType === 'area'
+        ? true
+        : store.formData.corridorLength > 0 && store.formData.corridorWidth > 0
 
     return isMapOrUploadValid && isCorridorValid && isTerrainValid
   }
-
   if (type === 'technical-specs') {
     return true
   }

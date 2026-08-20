@@ -14,6 +14,7 @@ export const createProjectSchema = z
     mappingType: z.enum(["area", "corridor"]).optional(),
     calculatedArea: z.number().nonnegative().optional(),
     corridorLength: z.number().nonnegative().optional(),
+    corridorWidth: z.number().nonnegative().optional(),
 
     areaSelectionMethod: z.string().optional().default("map"),
     polygonCoordinates: z.any().optional(),

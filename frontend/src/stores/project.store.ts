@@ -8,7 +8,6 @@ import type {
   ProjectStatus,
   AcceptedProject,
 } from '@/types/project'
-import { useRoleStore } from '@/stores/role.store' // 🌟 اضافه کردن ایمپورت
 
 export type Coordinate = [number, number]
 
@@ -49,6 +48,7 @@ export const useProjectStore = defineStore('project', () => {
     mappingType: null as 'area' | 'corridor' | null,
     calculatedArea: 0,
     corridorLength: 0,
+    corridorWidth: 0,
 
     // 🌟 روش اصلی اجرا (زمینی، هوایی/فتوگرامتری، کارتوگرافی و GIS)
     surveyMethod: '' as 'ground' | 'aerial' | 'gis' | '',
@@ -355,6 +355,7 @@ export const useProjectStore = defineStore('project', () => {
     formData.mappingType = type
     if (type === 'area') {
       formData.corridorLength = 0
+      formData.corridorWidth = 0
     } else {
       formData.calculatedArea = 0
     }
@@ -421,6 +422,7 @@ export const useProjectStore = defineStore('project', () => {
     formData.mappingType = null
     formData.calculatedArea = 0
     formData.corridorLength = 0
+    formData.corridorWidth = 0
     formData.requiredAccuracy = ''
     formData.mapScale = ''
 
